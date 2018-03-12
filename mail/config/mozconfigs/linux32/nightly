@@ -13,7 +13,6 @@ if [ "$MOZ_IS_COMM_TOPDIR" = "1" ]; then
 fi
 
 ac_add_options --enable-update-channel="${MOZ_UPDATE_CHANNEL}"
-ac_add_options --enable-profiling
 
 # Needed to enable breakpad in application.ini
 export MOZILLA_OFFICIAL=1
