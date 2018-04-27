@@ -21,3 +21,17 @@
   -moz-appearance: -moz-mac-vibrant-titlebar-light;
   -moz-font-smoothing-background-color: -moz-mac-vibrant-titlebar-light;
 }
+
+#headers-box {
+  -moz-appearance: none;
+}
+
+#FormatToolbar {
+  background-image: none;
+  background-color: transparent !important;
+}
+
+#compose-toolbar-sizer {
+  background-image: none;
+  background-color: var(--chrome-background-color);
+}
