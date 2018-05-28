@@ -27,6 +27,7 @@
 #include "mozilla/mailnews/MimeHeaderParser.h"
 #include "mozilla/dom/HTMLImageElement.h"
 #include "nsINntpUrl.h"
+#include "nsSandboxFlags.h"
 
 static const char kBlockRemoteImages[] = "mailnews.message_display.disable_remote_image";
 static const char kTrustedDomains[] =  "mail.trusteddomains";
@@ -853,6 +854,13 @@ nsresult nsMsgContentPolicy::SetDisableItemsOnMailNewsUrlDocshells(
     rv = docShell->SetAllowContentRetargetingOnChildren(false);
     NS_ENSURE_SUCCESS(rv, rv);
     rv = docShell->SetAllowPlugins(false);
+    NS_ENSURE_SUCCESS(rv, rv);
+
+    uint32_t sandboxFlags;
+    rv = docShell->GetSandboxFlags(&sandboxFlags);
+    sandboxFlags |= SANDBOXED_FORMS;
+    NS_ENSURE_SUCCESS(rv, rv);
+    rv = docShell->SetSandboxFlags(sandboxFlags);
     NS_ENSURE_SUCCESS(rv, rv);
   }
   else {
