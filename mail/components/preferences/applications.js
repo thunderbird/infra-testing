@@ -1152,7 +1152,7 @@ var gApplicationsPane = {
                                                   [ aHandlerInfo.type]);
     }
     if (exts)
-      return this._prefsBundle.getFormattedString("typeDescriptionWithExt",
+      return this._prefsBundle.getFormattedString("typeDetailsWithTypeOrExt",
                                                   [exts]);
     return exts;
   },
