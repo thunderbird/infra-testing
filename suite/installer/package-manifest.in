@@ -293,7 +293,6 @@
 @RESPATH@/components/SuiteComponents.manifest
 @RESPATH@/components/suite-feeds.xpt
 @RESPATH@/components/SuiteFeeds.manifest
-@RESPATH@/components/SuiteProfileMigrator.manifest
 @RESPATH@/components/suitemigration.xpt
 @RESPATH@/components/suite-sidebar.xpt
 @RESPATH@/components/SuiteSidebar.manifest
