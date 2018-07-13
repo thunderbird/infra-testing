@@ -12,7 +12,7 @@ transforms:
 
 
 kind-dependencies:
-    - repackage
+    - repackage-l10n
 
 only-for-build-platforms:
     - linux-nightly/opt
