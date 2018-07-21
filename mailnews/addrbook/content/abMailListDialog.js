@@ -359,10 +359,7 @@ function awNotAnEmptyArea(event)
 
 function awClickEmptySpace(target, setFocus)
 {
-  if (target == null ||
-      (target.localName != "richlistbox" &&
-      target.localName != "richlistcell" &&
-      target.localName != "richlistitem"))
+  if (target == null || target.localName != "hbox")
     return;
 
   var lastInput = awGetInputElement(top.MAX_RECIPIENTS);
