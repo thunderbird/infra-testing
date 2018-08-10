@@ -1,6 +1,7 @@
 TOOLTOOL_DIR=${TOOLTOOL_DIR:-$topsrcdir}
 
 . $TOOLTOOL_DIR/build/mozconfig.win-common
+. $TOOLTOOL_DIR/build/mozconfig.stylo
 . $TOOLTOOL_DIR/build/mozconfig.common
 . $TOOLTOOL_DIR/build/win64/mozconfig.vs-latest
 . $TOOLTOOL_DIR/comm/suite/config/mozconfigs/common
