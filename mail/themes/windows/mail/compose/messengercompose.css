@@ -852,7 +852,7 @@ toolbar:not(:-moz-lwtheme) {
 @media (-moz-os-version: windows-win8) and (-moz-windows-default-theme),
        (-moz-os-version: windows-win10) and (-moz-windows-default-theme) {
   .aw-menulist {
-    margin: 0 1px;
+    margin: 0 1px 2px;
     margin-inline-end: 4px;
     padding: 2px 0 !important;
     background-color: hsla(210, 4%, 10%, .04);
