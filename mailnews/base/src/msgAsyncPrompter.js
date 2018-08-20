@@ -41,7 +41,7 @@ runnablePrompter.prototype = {
     let prompter = this._asyncPrompter._pendingPrompts[this._hashKey];
     let ok = false;
     try {
-      ok = await this._promiseAuthPrompt(prompter.first);
+      ok = yield this._promiseAuthPrompt(prompter.first);
     } catch (ex) {
       Cu.reportError("runnablePrompter:run: " + ex + "\n");
       prompter.first.onPromptCanceled();
