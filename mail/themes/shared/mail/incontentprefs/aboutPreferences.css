@@ -121,6 +121,10 @@ radio[pane][focused="true"] > .radio-label-box {
   outline: none;
 }
 
+radio[pane] > .radio-label-box > .radio-icon {
+  display: none;
+}
+
 radio[pane] > .radio-label-box > .radio-label {
   margin: 0;
 }
