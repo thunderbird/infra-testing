@@ -202,6 +202,7 @@ calendar.jar:
     ../skin/common/widgets/minimonth.css              (themes/common/widgets/minimonth.css)
 
 # Linux theme files
+    ../skin/linux/calendar/cal-icon32.png                                 (themes/linux/images/cal-icon32.png)
     ../skin/linux/calendar/cal-icon24.png                                 (themes/linux/images/cal-icon24.png)
     ../skin/linux/calendar/calendar-alarm-dialog.css                      (themes/linux/dialogs/calendar-alarm-dialog.css)
     ../skin/linux/calendar/calendar-daypicker.css                         (themes/linux/calendar-daypicker.css)
@@ -235,6 +236,7 @@ calendar.jar:
     ../skin/osx/calendar/warn-selected-mac.svg                          (themes/osx/images/warn-selected-mac.svg)
 
 # Windows theme files
+    ../skin/windows/calendar/cal-icon32.png                                 (themes/windows/images/cal-icon32.png)
     ../skin/windows/calendar/cal-icon24.png                                 (themes/windows/images/cal-icon24.png)
     ../skin/windows/calendar/calendar-alarm-dialog.css                      (themes/windows/dialogs/calendar-alarm-dialog.css)
     ../skin/windows/calendar/calendar-daypicker.css                         (themes/windows/calendar-daypicker.css)
