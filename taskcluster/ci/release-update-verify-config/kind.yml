@@ -48,6 +48,7 @@ job-defaults:
         include-version:
             by-project:
                 comm-beta: beta
+                comm-esr.*: nonbeta
                 default: beta
         last-watershed:
             by-project:
