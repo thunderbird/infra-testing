@@ -793,7 +793,10 @@ function loadExtraTabs()
   if ((!tab) || (typeof tab != "object"))
     return;
 
-  let tabmail =  document.getElementById("tabmail");
+  if ("wrappedJSObject" in tab)
+    tab = tab.wrappedJSObject;
+
+  let tabmail = document.getElementById("tabmail");
 
   // we got no action, so suppose its "legacy" code
   if (!("action" in tab)) {
@@ -821,10 +824,9 @@ function loadExtraTabs()
   }
 
   if (tab.action == "open") {
-
     for (let i = 0; i < tab.tabs.length; i++)
-      if("tabType" in tabs.tab[i])
-        tabmail.openTab(tabs.tab[i].tabType,tabs.tab[i].tabParams);
+      if("tabType" in tab.tabs[i])
+        tabmail.openTab(tab.tabs[i].tabType,tab.tabs[i].tabParams);
 
     return;
   }
@@ -1876,6 +1878,11 @@ var TabsInTitlebar = {
     }
 
     let allowed = (Object.keys(this._disallowed)).length == 0;
+
+    if (document.documentElement.getAttribute("chromehidden").includes("toolbar")) {
+      // Don't draw in titlebar in case of a popup window
+      allowed = false;
+    }
 
     let titlebar = $("titlebar");
     let titlebarContent = $("titlebar-content");
