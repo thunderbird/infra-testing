@@ -526,7 +526,7 @@ nsresult nsImapProtocol::Configure(int32_t TooFastTime, int32_t IdealTime,
 
 
 NS_IMETHODIMP
-nsImapProtocol::Initialize(nsIImapHostSessionList * aHostSessionList,
+nsImapProtocol::Initialize(nsIImapHostSessionList *aHostSessionList,
                            nsIImapIncomingServer *aServer)
 {
   NS_PRECONDITION(aHostSessionList && aServer,
@@ -546,7 +546,7 @@ nsImapProtocol::Initialize(nsIImapHostSessionList * aHostSessionList,
   aServer->GetUseCondStore(&m_useCondStore);
   aServer->GetUseCompressDeflate(&m_useCompressDeflate);
 
-  m_hostSessionList = aHostSessionList; // no ref count...host session list has life time > connection
+  m_hostSessionList = aHostSessionList;
   m_parser.SetHostSessionList(aHostSessionList);
   m_parser.SetFlagState(m_flagState);
 
