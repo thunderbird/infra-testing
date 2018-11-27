@@ -1182,6 +1182,8 @@ nsMsgDBView::UpdateDisplayMessage(nsMsgViewIndex viewPosition)
   NS_ENSURE_SUCCESS(rv,rv);
 
   nsString subject;
+  if (viewPosition >= (nsMsgViewIndex)m_flags.Length())
+    return NS_MSG_INVALID_DBVIEW_INDEX;
   FetchSubject(msgHdr, m_flags[viewPosition], subject);
 
   nsCString keywords;
@@ -1194,6 +1196,8 @@ nsMsgDBView::UpdateDisplayMessage(nsMsgViewIndex viewPosition)
 
   if (folder)
   {
+    if (viewPosition >= (nsMsgViewIndex)m_keys.Length())
+      return NS_MSG_INVALID_DBVIEW_INDEX;
     rv = folder->SetLastMessageLoaded(m_keys[viewPosition]);
     NS_ENSURE_SUCCESS(rv,rv);
   }
