@@ -14,9 +14,6 @@
 #include "prmem.h"
 #include "nsIAbManager.h"
 #include "nsArrayUtils.h"
-#include "nsIUUIDGenerator.h"
-#include "mozilla/Services.h"
-using namespace mozilla;
 
 // From nsDirPrefs
 #define kDefaultPosition 1
@@ -26,8 +23,7 @@ nsAbDirProperty::nsAbDirProperty(void)
     mIsValidURI(false),
     mIsQueryURI(false)
 {
-  m_IsMailList = false;
-  mUID = EmptyCString();
+	m_IsMailList = false;
 }
 
 nsAbDirProperty::~nsAbDirProperty(void)
@@ -149,43 +145,6 @@ NS_IMETHODIMP nsAbDirProperty::GetDirType(int32_t *aDirType)
 NS_IMETHODIMP nsAbDirProperty::GetFileName(nsACString &aFileName)
 {
   return GetStringValue("filename", EmptyCString(), aFileName);
-}
-
-NS_IMETHODIMP nsAbDirProperty::GetUID(nsACString &aUID)
-{
-  nsresult rv = NS_OK;
-  if (!mUID.IsEmpty()) {
-    aUID = mUID;
-    return rv;
-  }
-  if (!m_IsMailList) {
-    rv = GetStringValue("uid", EmptyCString(), aUID);
-    if (!aUID.IsEmpty()) {
-      return rv;
-    }
-  }
-
-  nsCOMPtr<nsIUUIDGenerator> uuidgen = mozilla::services::GetUUIDGenerator();
-  NS_ENSURE_TRUE(uuidgen, NS_ERROR_FAILURE);
-
-  nsID id;
-  rv = uuidgen->GenerateUUIDInPlace(&id);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  char idString[NSID_LENGTH];
-  id.ToProvidedString(idString);
-
-  aUID.AppendASCII(idString + 1, NSID_LENGTH - 3);
-  return SetUID(aUID);
-}
-
-NS_IMETHODIMP nsAbDirProperty::SetUID(const nsACString &aUID)
-{
-  mUID = aUID;
-  if (m_IsMailList) {
-    return NS_OK;
-  }
-  return SetStringValue("uid", aUID);
 }
 
 NS_IMETHODIMP nsAbDirProperty::GetURI(nsACString &aURI)
