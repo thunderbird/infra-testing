@@ -31,7 +31,6 @@
 #include "nsIPrefBranch.h"
 #include "nsIAbManager.h"
 #include "mozilla/Services.h"
-#include "nsIObserverService.h"
 
 #define ID_PAB_TABLE            1
 #define ID_DELETEDCARDS_TABLE           2
@@ -1848,11 +1847,6 @@ NS_IMETHODIMP nsAddrDatabase::EditMailList(nsIAbDirectory *mailList, nsIAbCard *
     if (listCard)
     {
       NotifyCardEntryChange(AB_NotifyPropertyChanged, listCard, mailList);
-    }
-
-    nsCOMPtr<nsIObserverService> observerService = mozilla::services::GetObserverService();
-    if (observerService) {
-      observerService->NotifyObservers(mailList, "addrbook-list-updated", nullptr);
     }
   }
 
