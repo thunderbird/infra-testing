@@ -34,6 +34,7 @@ win32-nightly/opt:
     description: "Win32 Nightly"
     attributes:
         nightly: true
+        enable-full-crashsymbols: true
     shipping-phase: build
     shipping-product: thunderbird
     index:
@@ -134,6 +135,7 @@ win64-nightly/opt:
     description: "Win64 Nightly"
     attributes:
         nightly: true
+        enable-full-crashsymbols: true
     shipping-phase: build
     shipping-product: thunderbird
     index:
