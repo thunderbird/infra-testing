@@ -28,7 +28,7 @@ function test_cp932_display() {
   let file = os.getFileForPath(os.abspath("./charset-cp932.eml",
                                os.getFileForPath(__file__)));
   let msgc = open_message_from_file(file);
-  let subjectText = msgc.e("expandedsubjectBox").textContent;
+  let subjectText = msgc.e("expandedsubjectBox").boxObject.firstChild.textContent;
   let bodyText = msgc.e("messagepane").contentDocument
                      .querySelector("body").textContent;
   close_window(msgc);
