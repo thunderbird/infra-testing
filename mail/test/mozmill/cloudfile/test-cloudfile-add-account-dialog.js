@@ -26,6 +26,7 @@ var kRootURL = collector.addHttpResource('../cloudfile/html', '');
 var kSettingsWithForm = kRootURL + 'settings-with-form.xhtml';
 
 var gOldProviders = {};
+var gOldWeTransferProvider = null;
 XPCOMUtils.defineLazyServiceGetter(this, 'gCategoryMan',
                                    '@mozilla.org/categorymanager;1',
                                    'nsICategoryManager');
@@ -44,6 +45,10 @@ function setupModule(module) {
 
   // Clear out the old entries
   gCategoryMan.deleteCategory(kCategory);
+  gOldWeTransferProvider = cloudFileAccounts.getProviderForType(
+    "ext-wetransfer@extensions.thunderbird.net"
+  );
+  cloudFileAccounts.unregisterProvider(gOldWeTransferProvider.type);
 }
 
 function teardownModule(module) {
@@ -53,6 +58,7 @@ function teardownModule(module) {
   // Put the old entries back
   for (let [key, value] of Object.entries(gOldProviders))
     gCategoryMan.addCategoryEntry(kCategory, key, value, false, true);
+  cloudFileAccounts.registerProvider(gOldWeTransferProvider);
 }
 
 /**

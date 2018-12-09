@@ -1,1 +1,5 @@
-{ "system": [] }
+{
+  "system": [
+    "wetransfer@extensions.thunderbird.net"
+  ]
+}
