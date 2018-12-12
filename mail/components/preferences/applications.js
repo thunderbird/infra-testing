@@ -28,6 +28,7 @@ ChromeUtils.import("resource:///modules/cloudFileAccounts.js");
 ChromeUtils.import("resource://gre/modules/Services.jsm");
 ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
 ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
+ChromeUtils.defineModuleGetter(this, "ExtensionParent", "resource://gre/modules/ExtensionParent.jsm");
 
 //****************************************************************************//
 // Utilities
@@ -534,12 +535,52 @@ var gCloudFileTab = {
 
     this.updateThreshold();
 
+    this._onProviderRegistered = this._onProviderRegistered.bind(this);
+    this._onProviderUnregistered = this._onProviderUnregistered.bind(this);
+    cloudFileAccounts.on("providerRegistered", this._onProviderRegistered);
+    cloudFileAccounts.on("providerUnregistered", this._onProviderUnregistered);
+
     this._initialized = true;
   },
 
   destroy: function CFT_destroy() {
     // Remove any controllers or observers here.
     top.controllers.removeController(gCloudFileController);
+    cloudFileAccounts.off("providerRegistered", this._onProviderRegistered);
+    cloudFileAccounts.off("providerUnregistered", this._onProviderUnregistered);
+  },
+
+  _onProviderRegistered(event, provider) {
+    let accounts = cloudFileAccounts.getAccountsForType(provider.type);
+    accounts.sort(this._sortAccounts);
+
+    // Always add newly-enabled accounts to the end of the list, this makes
+    // it clearer to users what's happening.
+    for (let account of accounts) {
+      let item = this.makeRichListItemForAccount(account);
+      this._list.appendChild(item);
+      if (!(account.accountKey in this._accountCache)) {
+        let accountInfo = {
+          account,
+          listItem: item,
+          result: Cr.NS_OK,
+        };
+        this._accountCache[account.accountKey] = accountInfo;
+        this._mapResultToState(item, accountInfo.result);
+      }
+    }
+  },
+
+  _onProviderUnregistered(event, type) {
+    for (let item of this._list.children) {
+      // If the provider is unregistered, getAccount returns null.
+      if (!cloudFileAccounts.getAccount(item.value)) {
+        if (item.hasAttribute("selected")) {
+          this._settingsDeck.selectedPanel = this._defaultPanel;
+        }
+        item.remove();
+      }
+    }
   },
 
   makeRichListItemForAccount: function CFT_makeRichListItemForAccount(aAccount) {
@@ -578,25 +619,25 @@ var gCloudFileTab = {
       this._list.lastChild.remove();
   },
 
+  // Sort the accounts by displayName.
+  _sortAccounts(a, b) {
+    let aName = cloudFileAccounts.getDisplayName(a.accountKey)
+                                 .toLowerCase();
+    let bName = cloudFileAccounts.getDisplayName(b.accountKey)
+                                 .toLowerCase();
+
+    if (aName < bName)
+      return -1;
+    if (aName > bName)
+      return 1;
+    return 0;
+  },
+
   rebuildView: function CFT_rebuildView() {
     this.clearEntries();
     let accounts = cloudFileAccounts.accounts;
 
-    // Sort the accounts by displayName.
-    function sortAccounts(a, b) {
-      let aName = cloudFileAccounts.getDisplayName(a.accountKey)
-                                   .toLowerCase();
-      let bName = cloudFileAccounts.getDisplayName(b.accountKey)
-                                   .toLowerCase();
-
-      if (aName < bName)
-        return -1;
-      if (aName > bName)
-        return 1;
-      return 0;
-    }
-
-    accounts.sort(sortAccounts);
+    accounts.sort(this._sortAccounts);
 
     for (let account of accounts) {
       let rli = this.makeRichListItemForAccount(account);
@@ -694,16 +735,21 @@ var gCloudFileTab = {
   },
 
   _showAccountManagement: function CFT__showAccountManagement(aProvider) {
-    let iframe = document.createElement('iframe');
+    let url = aProvider.managementURL;
+    if (url.startsWith("moz-extension:")) {
+      // Assumes there is only one account per provider.
+      let account = cloudFileAccounts.getAccountsForType(aProvider.type)[0];
+      url += `?accountId=${account.accountKey}`;
+    }
 
-    iframe.setAttribute("src", aProvider.managementURL);
+    let inPrefWindow = document.documentElement.localName == "prefwindow";
+    let iframe = document.createElement(inPrefWindow ? "browser" : "iframe");
     iframe.setAttribute("flex", "1");
-
-    let type = aProvider.settingsURL.startsWith("chrome:") ? "chrome" : "content";
-    iframe.setAttribute("type", type);
-
     // allows keeping dialog background color without hoops
     iframe.setAttribute("transparent", "true");
+
+    let type = url.startsWith("chrome:") ? "chrome" : "content";
+    iframe.setAttribute("type", type);
 
     // If we have a past iframe, we replace it. Else append
     // to the wrapper.
@@ -713,9 +759,13 @@ var gCloudFileTab = {
     this._settingsPanelWrap.appendChild(iframe);
     this._settings = iframe;
 
-    // When the iframe loads, populate it with the provider.
-    this._settings.contentWindow.addEventListener("load",
-      function loadProvider() {
+    if (inPrefWindow) {
+      ExtensionParent.apiManager.emit("extension-browser-inserted", iframe);
+    }
+
+    iframe.addEventListener("DOMContentLoaded", function addClickListeners(e) {
+      // When the iframe loads, populate it with the provider.
+      iframe.contentWindow.addEventListener("load", function loadProvider() {
         try {
           iframe.contentWindow
                 .wrappedJSObject
@@ -725,16 +775,16 @@ var gCloudFileTab = {
         }
       }, {capture: false, once: true});
 
-    // When the iframe (or any subcontent) fires the DOMContentLoaded event,
-    // attach the _onClickLink handler to any anchor elements that we can find.
-    this._settings.contentWindow.addEventListener("DOMContentLoaded",
-      function addClickListeners(e) {
-        let doc = e.originalTarget;
-        let links = doc.getElementsByTagName("a");
+      // When the iframe (or any subcontent) fires the DOMContentLoaded event,
+      // attach the _onClickLink handler to any anchor elements that we can find.
+      let doc = e.originalTarget;
+      let links = doc.getElementsByTagName("a");
 
-        for (let link of links)
-          link.addEventListener("click", gCloudFileTab._onClickLink);
-      }, {capture: false, once: true});
+      for (let link of links)
+        link.addEventListener("click", gCloudFileTab._onClickLink);
+    }, {capture: false, once: true});
+
+    iframe.setAttribute("src", url);
 
     CommandUpdate_CloudFile();
   },
