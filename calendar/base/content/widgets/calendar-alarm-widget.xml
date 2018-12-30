@@ -304,7 +304,7 @@
             // The onsnooze attribute is set on the menupopup, this binding is
             // instanciated on the menupopup's arrowscrollbox. Therefore we need
             // to go up one node.
-            let handler = this.parentNode.getAttribute("onsnooze");
+            let handler = this.getAttribute("onsnooze");
             let cancel = false;
             if (handler) {
                 let func = new Function("event", handler);
@@ -336,7 +336,7 @@
 
       <method name="snoozeCancel">
         <body><![CDATA[
-            this.parentNode.hidePopup();
+            this.hidePopup();
         ]]></body>
       </method>
 
