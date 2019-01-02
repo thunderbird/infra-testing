@@ -407,3 +407,8 @@ a {
 #provider-account-settings {
   -moz-box-flex: 0;
 }
+
+#defaultWebSearch > .menulist-label-box > .menulist-icon[src] {
+  width: 16px;
+  height: 16px;
+}

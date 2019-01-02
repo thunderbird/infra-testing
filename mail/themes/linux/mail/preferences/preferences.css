@@ -310,3 +310,8 @@ a {
     list-style-image: url("chrome://global/skin/icons/loading@2x.png");
   }
 }
+
+#defaultWebSearch > .menulist-label-box > .menulist-icon[src] {
+  width: 16px;
+  height: 16px;
+}
