@@ -168,9 +168,6 @@ FetchHTTP.prototype =
             encodeURIComponent(this._args.bodyFormArgs[name]);
       }
     }
-    if (body) {
-      this._logger.info("with body:\n" + body);
-    }
 
     // Headers
     if (mimetype && !("Content-Type" in this._args.headers)) {
@@ -190,7 +187,6 @@ FetchHTTP.prototype =
         request.channel.loadFlags |= Ci.nsIRequest.LOAD_ANONYMOUS;
       }
     }
-    this._logger.info(debugObject(this._args, "args"));
 
     var me = this;
     request.onload = function() { me._response(true); };

@@ -40,7 +40,6 @@ if (typeof gEmailWizardLogger == "undefined") {
   var gEmailWizardLogger = Log4Moz.getConfiguredLogger("mail.setup");
   gEmailWizardLogger.level = Log4Moz.Level.Info;
   gEmailWizardLogger.addAppender(new Log4Moz.ConsoleAppender(new Log4Moz.BasicFormatter())); // browser console
-  gEmailWizardLogger.addAppender(new Log4Moz.DumpAppender(new Log4Moz.BasicFormatter())); // stdout
 }
 
 var gStringsBundle;
@@ -682,8 +681,7 @@ EmailConfigWizard.prototype =
    */
   foundConfig : function(config)
   {
-    gEmailWizardLogger.info("foundConfig()");
-    gEmailWizardLogger.info(debugObject(config, "foundConfig"));
+    gEmailWizardLogger.info("found config:\n" + config);
     assert(config instanceof AccountConfig,
         "BUG: Arg 'config' needs to be an AccountConfig object");
 
@@ -1196,8 +1194,10 @@ EmailConfigWizard.prototype =
 
     // If the hostname supports OAuth2 and imap is enabled, enable OAuth2.
     let iDetails = OAuth2Providers.getHostnameDetails(config.incoming.hostname);
-    gEmailWizardLogger.info("OAuth2 details for incoming hostname " +
-                            config.incoming.hostname + " is " + iDetails);
+    if (iDetails) {
+      gEmailWizardLogger.info("OAuth2 details for incoming server " +
+        config.incoming.hostname + " is " + iDetails);
+    }
     e("in-authMethod-oauth2").hidden = !(iDetails && e("incoming_protocol").value == 1);
     if (!e("in-authMethod-oauth2").hidden) {
       config.oauthSettings = {};
@@ -1225,8 +1225,10 @@ EmailConfigWizard.prototype =
 
     // If the hostname supports OAuth2 and imap is enabled, enable OAuth2.
     let oDetails = OAuth2Providers.getHostnameDetails(config.outgoing.hostname);
-    gEmailWizardLogger.info("OAuth2 details for outgoing hostname " +
-                            config.outgoing.hostname + " is " + oDetails);
+    if (oDetails) {
+      gEmailWizardLogger.info("OAuth2 details for outgoing server " +
+        config.outgoing.hostname + " is " + oDetails);
+    }
     e("out-authMethod-oauth2").hidden = !oDetails;
     if (!e("out-authMethod-oauth2").hidden) {
       config.oauthSettings = {};
@@ -1598,7 +1600,7 @@ EmailConfigWizard.prototype =
   onHalfManualTest : function()
   {
     var newConfig = this.getUserConfig();
-    gEmailWizardLogger.info(debugObject(newConfig, "manualConfigToTest"));
+    gEmailWizardLogger.info("manual config to test:\n" + newConfig);
     this.startSpinner("looking_up_settings_halfmanual");
     this.switchToMode("manual-edit-testing");
     // if (this._userPickedOutgoingServer) TODO
