@@ -26,10 +26,6 @@ SEAMONKEY_VERSION=$MOZ_APP_VERSION
 MOZ_APP_ID={92650c4d-4b8e-4d2a-b7eb-24ecf4f6b63a}
 MOZ_PROFILE_MIGRATOR=1
 
-if test "$NIGHTLY_BUILD"; then
-  MOZ_RUST_URLPARSE=1
-fi
-
 if test "$OS_ARCH" = "WINNT" -o \
         "$OS_ARCH" = "Linux"; then
   MOZ_BUNDLED_FONTS=1
@@ -37,4 +33,3 @@ fi
 
 # Include the DevTools client, not just the server (which is the default)
 MOZ_DEVTOOLS=all
-
