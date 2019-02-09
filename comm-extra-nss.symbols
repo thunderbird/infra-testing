@@ -1,0 +1,2 @@
+NSS_CMSSignedData_GetDigestAlgs
+NSS_CMSSignedData_HasDigests
