@@ -22,6 +22,9 @@ FINAL_TARGET_FILES.webextension.content += [
 FINAL_TARGET_FILES.webextension.images += [
     'webextension/images/logo.svg',
 ]
+FINAL_TARGET_FILES.webextension._locales.ar += [
+    'webextension/_locales/ar/messages.json',
+]
 FINAL_TARGET_FILES.webextension._locales.br += [
     'webextension/_locales/br/messages.json',
 ]
@@ -31,8 +34,14 @@ FINAL_TARGET_FILES.webextension._locales.ca += [
 FINAL_TARGET_FILES.webextension._locales.cs += [
     'webextension/_locales/cs/messages.json',
 ]
+FINAL_TARGET_FILES.webextension._locales.cy += [
+    'webextension/_locales/cy/messages.json',
+]
 FINAL_TARGET_FILES.webextension._locales.dsb += [
     'webextension/_locales/dsb/messages.json',
+]
+FINAL_TARGET_FILES.webextension._locales.el += [
+    'webextension/_locales/el/messages.json',
 ]
 FINAL_TARGET_FILES.webextension._locales.en += [
     'webextension/_locales/en/messages.json',
@@ -42,6 +51,12 @@ FINAL_TARGET_FILES.webextension._locales.en_GB += [
 ]
 FINAL_TARGET_FILES.webextension._locales.es_AR += [
     'webextension/_locales/es_AR/messages.json',
+]
+FINAL_TARGET_FILES.webextension._locales.es_MX += [
+    'webextension/_locales/es_MX/messages.json',
+]
+FINAL_TARGET_FILES.webextension._locales.et += [
+    'webextension/_locales/et/messages.json',
 ]
 FINAL_TARGET_FILES.webextension._locales.eu += [
     'webextension/_locales/eu/messages.json',
@@ -69,6 +84,9 @@ FINAL_TARGET_FILES.webextension._locales.id += [
 ]
 FINAL_TARGET_FILES.webextension._locales.it += [
     'webextension/_locales/it/messages.json',
+]
+FINAL_TARGET_FILES.webextension._locales.ja += [
+    'webextension/_locales/ja/messages.json',
 ]
 FINAL_TARGET_FILES.webextension._locales.ka += [
     'webextension/_locales/ka/messages.json',
@@ -117,6 +135,9 @@ FINAL_TARGET_FILES.webextension._locales.sq += [
 ]
 FINAL_TARGET_FILES.webextension._locales.sv_SE += [
     'webextension/_locales/sv_SE/messages.json',
+]
+FINAL_TARGET_FILES.webextension._locales.th += [
+    'webextension/_locales/th/messages.json',
 ]
 FINAL_TARGET_FILES.webextension._locales.tr += [
     'webextension/_locales/tr/messages.json',
