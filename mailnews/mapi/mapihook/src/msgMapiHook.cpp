@@ -350,7 +350,7 @@ nsresult nsMapiHook::BlindSendMail (unsigned long aSession, nsIMsgCompFields * a
 }
 
 nsresult nsMapiHook::HandleAttachments (nsIMsgCompFields * aCompFields, int32_t aFileCount,
-                                        lpnsMapiFileDesc aFiles)
+                                        lpnsMapiFileDesc aFiles, bool aIsUTF8)
 {
     nsresult rv = NS_OK ;
     // Do nothing if there are no files to process.
@@ -370,11 +370,17 @@ nsresult nsMapiHook::HandleAttachments (nsIMsgCompFields * aCompFields, int32_t 
         if (aFiles[i].lpszPathName)
         {
             // check if attachment exists
-            pFile->InitWithNativePath(nsDependentCString((const char*)aFiles[i].lpszPathName));
+            if (!aIsUTF8)
+              pFile->InitWithNativePath(nsDependentCString(aFiles[i].lpszPathName));
+            else
+              pFile->InitWithPath(NS_ConvertUTF8toUTF16(aFiles[i].lpszPathName));
 
             bool bExist ;
             rv = pFile->Exists(&bExist) ;
-            MOZ_LOG(MAPI, mozilla::LogLevel::Debug, ("nsMapiHook::HandleAttachments: filename: %s path: %s exists = %s \n", (const char*)aFiles[i].lpszFileName, (const char*)aFiles[i].lpszPathName, bExist ? "true" : "false"));
+            MOZ_LOG(MAPI, mozilla::LogLevel::Debug,
+              ("nsMapiHook::HandleAttachments: filename: %s path: %s exists = %s\n",
+               (const char*)aFiles[i].lpszFileName,
+               (const char*)aFiles[i].lpszPathName, bExist ? "true" : "false"));
             if (NS_FAILED(rv) || (!bExist) ) return NS_ERROR_FILE_TARGET_DOES_NOT_EXIST ;
 
             //Temp Directory
@@ -399,8 +405,11 @@ nsresult nsMapiHook::HandleAttachments (nsIMsgCompFields * aCompFields, int32_t 
             if (aFiles[i].lpszFileName)
             {
                 nsAutoString wholeFileName;
-                NS_CopyNativeToUnicode(nsDependentCString((char *)aFiles[i].lpszFileName),
-                                       wholeFileName);
+                if (!aIsUTF8)
+                    NS_CopyNativeToUnicode(nsDependentCString(aFiles[i].lpszFileName),
+                                           wholeFileName);
+                else
+                    wholeFileName.Append(NS_ConvertUTF8toUTF16(aFiles[i].lpszFileName));
                 // need to find the last '\' and find the leafname from that.
                 int32_t lastSlash = wholeFileName.RFindChar(char16_t('\\'));
                 if (lastSlash != kNotFound)
@@ -463,11 +472,15 @@ nsresult nsMapiHook::PopulateCompFieldsWithConversion(lpnsMapiMessage aMessage,
                                     nsIMsgCompFields * aCompFields)
 {
   nsresult rv = NS_OK;
+  bool isUTF8 = aMessage->ulReserved == CP_UTF8;
 
   if (aMessage->lpOriginator)
   {
     nsAutoString From;
-    From.Append(NS_ConvertASCIItoUTF16((char *) aMessage->lpOriginator->lpszAddress));
+    if (!isUTF8)
+        From.Append(NS_ConvertASCIItoUTF16(aMessage->lpOriginator->lpszAddress));
+    else
+        From.Append(NS_ConvertUTF8toUTF16(aMessage->lpOriginator->lpszAddress));
     aCompFields->SetFrom (From);
   }
 
@@ -491,19 +504,28 @@ nsresult nsMapiHook::PopulateCompFieldsWithConversion(lpnsMapiMessage aMessage,
         case MAPI_TO :
           if (!To.IsEmpty())
             To += Comma ;
-          To.Append(NS_ConvertASCIItoUTF16(addressWithoutType));
+          if (!isUTF8)
+              To.Append(NS_ConvertASCIItoUTF16(addressWithoutType));
+          else
+              To.Append(NS_ConvertUTF8toUTF16(addressWithoutType));
           break ;
 
         case MAPI_CC :
           if (!Cc.IsEmpty())
             Cc += Comma ;
-          Cc.Append(NS_ConvertASCIItoUTF16(addressWithoutType));
+          if (!isUTF8)
+              Cc.Append(NS_ConvertASCIItoUTF16(addressWithoutType));
+          else
+              Cc.Append(NS_ConvertUTF8toUTF16(addressWithoutType));
           break ;
 
         case MAPI_BCC :
           if (!Bcc.IsEmpty())
               Bcc += Comma ;
-          Bcc.Append(NS_ConvertASCIItoUTF16(addressWithoutType));
+          if (!isUTF8)
+              Bcc.Append(NS_ConvertASCIItoUTF16(addressWithoutType));
+          else
+              Bcc.Append(NS_ConvertUTF8toUTF16(addressWithoutType));
           break ;
         }
       }
@@ -521,22 +543,28 @@ nsresult nsMapiHook::PopulateCompFieldsWithConversion(lpnsMapiMessage aMessage,
   if (aMessage->lpszSubject)
   {
     nsAutoString Subject ;
-    rv = NS_CopyNativeToUnicode(nsDependentCString((char *) aMessage->lpszSubject),
-                                Subject);
+    if (!isUTF8)
+        rv = NS_CopyNativeToUnicode(nsDependentCString(aMessage->lpszSubject),
+                                    Subject);
+    else
+        Subject.Append(NS_ConvertUTF8toUTF16(aMessage->lpszSubject));
     if (NS_FAILED(rv)) return rv;
     aCompFields->SetSubject(Subject);
   }
 
   // handle attachments as File URL
-  rv = HandleAttachments(aCompFields, aMessage->nFileCount, aMessage->lpFiles);
+  rv = HandleAttachments(aCompFields, aMessage->nFileCount, aMessage->lpFiles, isUTF8);
   if (NS_FAILED(rv)) return rv ;
 
   // set body
   if (aMessage->lpszNoteText)
   {
     nsAutoString Body ;
-    rv = NS_CopyNativeToUnicode(nsDependentCString((char *) aMessage->lpszNoteText),
-                                Body);
+    if (!isUTF8)
+        rv = NS_CopyNativeToUnicode(nsDependentCString(aMessage->lpszNoteText),
+                                    Body);
+    else
+        Body.Append(NS_ConvertUTF8toUTF16(aMessage->lpszNoteText));
     if (NS_FAILED(rv)) return rv ;
     if (Body.IsEmpty() || Body.Last() != '\n')
       Body.AppendLiteral(CRLF);
