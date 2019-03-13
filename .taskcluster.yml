@@ -13,13 +13,13 @@ tasks:
       # ensure there's no trailing `/` on the repo URL
       repoUrl: {$if: 'repository.url[-1] == "/"', then: {$eval: 'repository.url[:-1]'}, else: {$eval: 'repository.url'}}
     in:
-      taskId: {$if: 'tasks_for != "action"', then: '${as_slugid("decision")}'}
+      taskId: {$if: 'tasks_for != "action"', then: '${ownTaskId}'}
       taskGroupId:
         $if: 'tasks_for == "action"'
         then:
           '${action.taskGroupId}'
         else:
-          '${as_slugid("decision")}'  # same as taskId; this is how automation identifies a decision tsak
+          '${ownTaskId}'  # same as taskId; this is how automation identifies a decision tsak
       schedulerId: 'gecko-level-${repository.level}'
 
       created: {$fromNow: ''}
@@ -106,9 +106,6 @@ tasks:
               COMM_HEAD_REV: '${push.revision}'
               HG_STORE_PATH: /buillds/worker/checkouts/hg-store
               TASKCLUSTER_CACHES: /builds/worker/checkouts
-            - $if: 'tasks_for != "action"'
-              then:
-                COMM_COMMIT_MSG: '${push.comment}'
             - $if: 'tasks_for == "action"'
               then:
                 ACTION_TASK_GROUP_ID: '${ownTaskId}'
@@ -160,7 +157,6 @@ tasks:
                 --pushlog-id='${push.pushlog_id}'
                 --pushdate='${push.pushdate}'
                 --project='${repository.project}'
-                --message="$COMM_COMMIT_MSG"
                 --owner='${ownerEmail}'
                 --level='${repository.level}'
                 --base-repository="$GECKO_BASE_REPOSITORY"
