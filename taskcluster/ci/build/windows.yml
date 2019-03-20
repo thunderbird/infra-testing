@@ -1,3 +1,10 @@
+job-defaults:
+    run:
+        using: mozharness
+        comm-checkout: true
+        config-paths:
+            - comm/mozharness
+
 win32/opt:
     description: "Win32 Opt"
     index:
@@ -13,13 +20,9 @@ win32/opt:
         env:
             TOOLTOOL_MANIFEST: "comm/mail/config/tooltool-manifests/win32/releng.manifest"
     run:
-        using: mozharness
-        comm-checkout: true
         actions: [build, check-test]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
-        config-paths:
-            - comm/mozharness
         config:
             - builds/taskcluster_base_thunderbird.py
             - builds/taskcluster_base_windows.py
@@ -52,13 +55,9 @@ win32-nightly/opt:
         env:
             TOOLTOOL_MANIFEST: "comm/mail/config/tooltool-manifests/win32/releng.manifest"
     run:
-        using: mozharness
-        comm-checkout: true
         actions: [build, check-test]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
-        config-paths:
-            - comm/mozharness
         config:
             - builds/taskcluster_base_thunderbird.py
             - builds/taskcluster_base_windows.py
@@ -85,13 +84,9 @@ win32/debug:
         env:
             TOOLTOOL_MANIFEST: "comm/mail/config/tooltool-manifests/win32/releng.manifest"
     run:
-        using: mozharness
-        comm-checkout: true
         actions: [build, check-test]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
-        config-paths:
-            - comm/mozharness
         config:
             - builds/taskcluster_base_thunderbird.py
             - builds/taskcluster_base_windows.py
@@ -118,12 +113,9 @@ win64/opt:
         env:
             TOOLTOOL_MANIFEST: "comm/mail/config/tooltool-manifests/win64/releng.manifest"
     run:
-        using: mozharness
-        comm-checkout: true
+        actions: [build, check-test]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
-        config-paths:
-            - comm/mozharness
         config:
             - builds/taskcluster_base_thunderbird.py
             - builds/taskcluster_base_windows.py
@@ -156,13 +148,9 @@ win64-nightly/opt:
         env:
             TOOLTOOL_MANIFEST: "comm/mail/config/tooltool-manifests/win64/releng.manifest"
     run:
-        using: mozharness
-        comm-checkout: true
         actions: [build, check-test]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
-        config-paths:
-            - comm/mozharness
         config:
             - builds/taskcluster_base_thunderbird.py
             - builds/taskcluster_base_windows.py
@@ -189,12 +177,9 @@ win64/debug:
         env:
             TOOLTOOL_MANIFEST: "comm/mail/config/tooltool-manifests/win64/releng.manifest"
     run:
-        using: mozharness
-        comm-checkout: true
+        actions: [build, check-test]
         options: [append-env-variables-from-configs]
         script: mozharness/scripts/fx_desktop_build.py
-        config-paths:
-            - comm/mozharness
         config:
             - builds/taskcluster_base_thunderbird.py
             - builds/taskcluster_base_windows.py
