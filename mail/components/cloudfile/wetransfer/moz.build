@@ -25,8 +25,17 @@ FINAL_TARGET_FILES.webextension.images += [
 FINAL_TARGET_FILES.webextension._locales.ar += [
     'webextension/_locales/ar/messages.json',
 ]
+FINAL_TARGET_FILES.webextension._locales.ast += [
+    'webextension/_locales/ast/messages.json',
+]
+FINAL_TARGET_FILES.webextension._locales.bg += [
+    'webextension/_locales/bg/messages.json',
+]
 FINAL_TARGET_FILES.webextension._locales.br += [
     'webextension/_locales/br/messages.json',
+]
+FINAL_TARGET_FILES.webextension._locales.bs += [
+    'webextension/_locales/bs/messages.json',
 ]
 FINAL_TARGET_FILES.webextension._locales.ca += [
     'webextension/_locales/ca/messages.json',
@@ -63,6 +72,9 @@ FINAL_TARGET_FILES.webextension._locales.et += [
 ]
 FINAL_TARGET_FILES.webextension._locales.eu += [
     'webextension/_locales/eu/messages.json',
+]
+FINAL_TARGET_FILES.webextension._locales.fa += [
+    'webextension/_locales/fa/messages.json',
 ]
 FINAL_TARGET_FILES.webextension._locales.fi += [
     'webextension/_locales/fi/messages.json',
