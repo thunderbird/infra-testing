@@ -3018,6 +3018,11 @@ function ComposeStartup(aParams)
     if (document.getElementById("sidebar").getAttribute("src") == "")
       setTimeout(toggleAddressPicker, 0);   // do this on a delay so we don't hurt perf. on bringing up a new compose window
   }
+
+  // Update the priority button.
+  if (gMsgCompose.compFields.priority)
+    updatePriorityToolbarButton(gMsgCompose.compFields.priority);
+
   gAutoSaveInterval = getPref("mail.compose.autosave") ?
     getPref("mail.compose.autosaveinterval") * 60000 : 0;
 
