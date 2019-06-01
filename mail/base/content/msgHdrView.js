@@ -2614,8 +2614,6 @@ function toggleAttachmentList(expanded, updateFocus) {
 
     if (updateFocus)
       attachmentList.focus();
-
-    attachmentList.selectItem(attachmentList.firstChild);
   } else {
     attachmentList.collapsed = true;
     attachmentSplitter.collapsed = true;
