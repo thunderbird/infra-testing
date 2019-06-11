@@ -428,7 +428,7 @@
          if (localName == "imconv" && elt.conv)
            return updateTooltipFromConversation(elt.conv);
 
-         if (localName == "richlistitem" && elt.getAttribute("is") == "chat-contact")
+         if (localName == "imcontact")
            return updateTooltipFromBuddy(elt.contact.preferredBuddy.preferredAccountBuddy);
 
          if (localName == "richlistitem") {
