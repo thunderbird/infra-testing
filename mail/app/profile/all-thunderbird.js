@@ -428,7 +428,7 @@ pref("browser.safebrowsing.reportPhishURL", "https://%LOCALE%.phish-report.mozil
 pref("dom.disable_window_status_change",          true);
 
 // Disable client ID checking when creating storage (see bug 1557233).
-Services.prefs.setBoolPref("dom.storage.client_validation", false);
+pref("dom.storage.client_validation", false);
 
 // If a message is opened using Enter or a double click, what should we do?
 // 0 - open it in a new window
