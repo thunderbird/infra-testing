@@ -4,6 +4,11 @@
 
 ChromeUtils.defineModuleGetter(
   this,
+  "Gloda",
+  "resource:///modules/gloda/public.js"
+);
+ChromeUtils.defineModuleGetter(
+  this,
   "MailServices",
   "resource:///modules/MailServices.jsm"
 );
@@ -147,6 +152,61 @@ this.messages = class extends ExtensionAPI {
               resolve(convertMessagePart(mimeMsg));
             });
           });
+        },
+        async query(queryInfo) {
+          let query = Gloda.newQuery(Gloda.NOUN_MESSAGE);
+
+          if (queryInfo.subject) {
+            query.subjectMatches(queryInfo.subject);
+          }
+          if (queryInfo.fullText) {
+            query.fulltextMatches(queryInfo.fullText);
+          }
+          if (queryInfo.body) {
+            query.bodyMatches(queryInfo.body);
+          }
+          if (queryInfo.author) {
+            query.authorMatches(queryInfo.author);
+          }
+          if (queryInfo.recipients) {
+            query.recipientsMatch(queryInfo.recipients);
+          }
+          if (queryInfo.fromMe) {
+            query.fromMe();
+          }
+          if (queryInfo.toMe) {
+            query.toMe();
+          }
+          if (queryInfo.flagged !== null) {
+            query.starred(queryInfo.flagged);
+          }
+          if (queryInfo.folder) {
+            let folder = MailServices.folderLookup.getFolderForURL(
+              folderPathToURI(queryInfo.folder.accountId, queryInfo.folder.path)
+            );
+            query.folder(folder);
+          }
+          if (queryInfo.fromDate || queryInfo.toDate) {
+            query.dateRange([queryInfo.fromDate, queryInfo.toDate]);
+          }
+
+          let collectionArray = await new Promise(resolve => {
+            query.getCollection({
+              onItemsAdded(items, collection) {},
+              onItemsModified(items, collection) {},
+              onItemsRemoved(items, collection) {},
+              onQueryCompleted(collection) {
+                resolve(
+                  collection.items.map(glodaMsg => glodaMsg.folderMessage)
+                );
+              },
+            });
+          });
+
+          return messageListTracker.startList(
+            collectionArray,
+            context.extension
+          );
         },
         async update(messageId, newProperties) {
           let msgHdr = messageTracker.getMessage(messageId);
