@@ -2,7 +2,7 @@
 GECKO_BASE_REPOSITORY: https://hg.mozilla.org/mozilla-unified
 GECKO_HEAD_REPOSITORY: https://hg.mozilla.org/releases/mozilla-esr60
 GECKO_HEAD_REF: THUNDERBIRD_60_VERBRANCH
-GECKO_HEAD_REV: 2fbdde45ed69194ed3908fc665e1d759c3d8f7c9
+GECKO_HEAD_REV: eb76765892cfd646d3014e5f3b8df8c6753da2d2
 
 ### For comm-central
 # GECKO_BASE_REPOSITORY: https://hg.mozilla.org/mozilla-unified
