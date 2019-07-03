@@ -2134,6 +2134,7 @@ nsresult nsNNTPProtocol::DisplayArticle(nsIInputStream * inputStream, uint32_t l
   {
     nsresult rv = NS_OK;
     char *line = m_lineStreamBuffer->ReadNextLine(inputStream, line_length, pauseForMoreData, &rv, true);
+
     if (pauseForMoreData)
     {
       uint64_t inlength = 0;
@@ -2144,6 +2145,8 @@ nsresult nsNNTPProtocol::DisplayArticle(nsIInputStream * inputStream, uint32_t l
       PR_Free(line);
       return rv;
     }
+
+    if (!line) return NS_OK;
 
     if (m_newsFolder)
       m_newsFolder->NotifyDownloadedLine(line, m_key);
