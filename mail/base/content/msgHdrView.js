@@ -2393,7 +2393,6 @@ function displayAttachmentsForExpandedViewExternal() {
 
     if (attachment.isExternalAttachment) {
       displayUrl = attachment.displayUrl;
-      attachmentitem.textContent = displayUrl;
       attachmentitem.setAttribute("tooltiptext", "");
       attachmentitem.setAttribute("onmouseover",
                                   `MsgStatusFeedback.setOverLink("${displayUrl}")`);
@@ -2506,12 +2505,15 @@ function updateAttachmentsDisplay(attachmentInfo, isFetching) {
       }
     }
 
+    let sizeLabel = attachmentItem.querySelector(".attachmentcell-size");
     if (attachmentInfo.hasFile) {
       attachmentItem.setAttribute("size", sizeStr);
+      sizeLabel.setAttribute("value", sizeStr);
       attachmentItem.removeAttribute("tooltiptext");
       attachmentItem.classList.remove("notfound");
     } else {
       attachmentItem.removeAttribute("size");
+      sizeLabel.setAttribute("value", "");
       attachmentItem.setAttribute("tooltiptext", tooltiptextExternalNotFound);
       attachmentItem.classList.add("notfound");
     }
