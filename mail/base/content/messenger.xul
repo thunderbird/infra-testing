@@ -151,6 +151,7 @@
 <script src="chrome://messenger/content/quickFilterBar.js"/>
 <script src="chrome://messenger/content/newmailaccount/uriListener.js"/>
 <script src="chrome://messenger/content/chat/chat-conversation-info.js"/>
+<script src="chrome://messenger/content/chat/contact-richlistbox.js"/>
 <script src="chrome://gloda/content/autocomplete-richlistitem.js"/>
 <!-- panelUI.js is for the appmenus. -->
 <script src="chrome://messenger/content/customizableui/panelUI.js"/>

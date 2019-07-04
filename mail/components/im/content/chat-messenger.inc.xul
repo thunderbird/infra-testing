@@ -99,7 +99,8 @@
           <vbox flex="1">
             <hbox id="chatPanel" flex="1">
               <vbox id="listPaneBox" minwidth="125" width="200" persist="width">
-                <richlistbox id="contactlistbox"
+                <richlistbox is="contact-richlistbox"
+                             id="contactlistbox"
                              context="buddyListContextMenu"
                              tooltip="imTooltip" flex="1">
                   <imgroup id="conversationsGroup" name="&conversationsHeader.label;"/>

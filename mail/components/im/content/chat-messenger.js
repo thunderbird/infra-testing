@@ -1282,11 +1282,13 @@ var chatHandler = {
           (aEvent.keyCode != aEvent.DOM_VK_DOWN && aEvent.keyCode != aEvent.DOM_VK_UP))
         return;
       listbox._userSelecting = true;
+
       let reverse = aEvent.keyCode != aEvent.DOM_VK_DOWN;
-      if (aEvent.shiftKey)
+      if (aEvent.shiftKey) {
         chatHandler._selectNextUnreadConversation(reverse, listbox);
-      else
+      } else {
         listbox.moveByOffset(reverse ? -1 : 1, true, false);
+      }
       listbox._userSelecting = false;
       let item = listbox.selectedItem;
       if (item.localName == "imconv" && item.convView)
