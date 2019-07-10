@@ -122,6 +122,7 @@
   </popupnotification>
 </panel>
 
+<!-- The backButtonLabel attribute is a temporary workaround for accessing that string. See bug 1559127. -->
 <panel id="appMenu-popup"
        class="cui-widget-panel"
        role="group"
@@ -129,6 +130,7 @@
        hidden="true"
        flip="slide"
        position="bottomcenter topright"
+       backButtonLabel="&backButton1.label;"
        noautofocus="true">
   <panelmultiview id="appMenu-multiView"
                   mainViewId="appMenu-mainView"

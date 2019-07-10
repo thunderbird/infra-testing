@@ -104,18 +104,10 @@ var EXPORTED_SYMBOLS = [
   "PanelView",
 ];
 
-// TODO appmenu - Usage is commented out below.  Keep eslint happy.
-// const {XPCOMUtils} = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
 const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 ChromeUtils.defineModuleGetter(this, "CustomizableUI",
   "resource:///modules/CustomizableUI.jsm");
-
-// TODO appmenu - Needs updating for Thunderbird. Usage is commented out below.
-// XPCOMUtils.defineLazyGetter(this, "gBundle", function() {
-//   return Services.strings.createBundle(
-//     "chrome://browser/locale/browser.properties");
-// });
 
 /**
  * Safety timeout after which asynchronous events will be canceled if any of the
@@ -1282,10 +1274,10 @@ var PanelView = class extends AssociatedToNode {
     backButton.setAttribute("closemenu", "none");
     backButton.setAttribute("tabindex", "0");
 
-    // TODO appmenu gBundle.GetStringFromName is undefined call
-    // Possible string addition/change.
-    // backButton.setAttribute("aria-label",
-    //   gBundle.GetStringFromName("panel.back"));
+    // Using "backButtonLabel" is a temporary workaround. See bug 1559127.
+    backButton.setAttribute("aria-label",
+      this.document.getElementById("appMenu-popup")
+      .getAttribute("backButtonLabel"));
 
     backButton.addEventListener("command", () => {
       // The panelmultiview element may change if the view is reused.
