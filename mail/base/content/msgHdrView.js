@@ -2403,7 +2403,8 @@ function displayAttachmentsForExpandedViewExternal() {
       attachmentitem.setAttribute("onblur",
                                   "MsgStatusFeedback.setOverLink('')");
 
-      attachmentitem.classList.add("text-link");
+      let name = attachmentitem.getElementsByClassName("attachmentcell-name");
+      name[0].classList.add("text-link");
 
       if (attachment.isLinkAttachment) {
         if (index == 0) {
