@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 XPI_NAME = gdata-provider
-XPI_PKGNAME = gdata-provider.$(AB_CD)
+XPI_PKGNAME = gdata-provider
 XPI_EM_ID = {a62ef8ec-5fdc-40c2-873c-223b8a6925cc}
 XPI_INSTALL_EXTENSION = $(XPI_EM_ID)
 

@@ -391,7 +391,7 @@ mapping:
                 default:
                     - ${year}/${month}/${upload_date}-${branch}-l10n
                     - latest-${branch}-l10n
-    gdata-provider.${locale}.xpi:
+    gdata-provider.xpi:
         <<: *default
         description: "Google data provider XPI (en-US only)"
         all_locales: false  # Uses default_locale only

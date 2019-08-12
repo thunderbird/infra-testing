@@ -325,7 +325,7 @@ mapping:
         update_balrog_manifest: true
         destinations:
             - ${version}-candidates/build${build_number}/update/${path_platform}
-    gdata-provider.${locale}.xpi:
+    gdata-provider.xpi:
         <<: *default
         description: "Google data provider XPI (en-US only)"
         all_locales: false  # Uses default_locale only
