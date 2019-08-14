@@ -77,8 +77,12 @@ gStrings.mailExt =
 
 window._oldSortElements = window.sortElements;
 window.sortElements = function(aElements, aSortBy, aAscending) {
-  if (aSortBy.length != 2 || aSortBy[0] != "uiState" || aSortBy[1] != "name") {
+  if (gListView._type != "extension" ||
+      aSortBy.length != 2 ||
+      aSortBy[0] != "uiState" ||
+      aSortBy[1] != "name") {
     window._oldSortElements(aElements, aSortBy, aAscending);
+    return;
   }
 
   let getUIState = function(addon) {
