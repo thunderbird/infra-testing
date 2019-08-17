@@ -270,6 +270,12 @@ nsMsgFilterList::ApplyFiltersToHdr(nsMsgFilterTypeType filterType,
                                    nsIMsgFilterHitNotify *listener,
                                    nsIMsgWindow *msgWindow)
 {
+  if (!msgHdr) {
+    // Sometimes we get here with no header, so let's not crash on that
+    // later on.
+    return NS_ERROR_NULL_POINTER;
+  }
+
   nsCOMPtr<nsIMsgFilter> filter;
   uint32_t filterCount = 0;
   nsresult rv = GetFilterCount(&filterCount);
@@ -293,7 +299,7 @@ nsMsgFilterList::ApplyFiltersToHdr(nsMsgFilterTypeType filterType,
       if (curFilterType & filterType)
       {
         nsresult matchTermStatus = NS_OK;
-        bool result;
+        bool result = false;
 
         filter->SetScope(scope);
         matchTermStatus = filter->MatchHdr(msgHdr, folder, db, headers, &result);
