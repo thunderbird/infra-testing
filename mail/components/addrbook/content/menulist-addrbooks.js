@@ -28,7 +28,6 @@ customElements.whenDefined("menulist").then(() => {
       }
 
       this._directories = [];
-      this._value = this.getAttribute("value") || "URI";
 
       this._rebuild();
 
@@ -89,10 +88,22 @@ customElements.whenDefined("menulist").then(() => {
       }, { once: true });
     }
 
+    /**
+     * Returns the address book type based on the remoteonly attribute
+     * of the menulist.
+     *
+     * "URI"         Local Address Book
+     * "dirPrefId"   Remote LDAP Directory
+     */
+    get _type() {
+      return this.getAttribute("remoteonly") ? "dirPrefId" : "URI";
+    }
+
     disconnectedCallback() {
       super.disconnectedCallback();
 
       MailServices.ab.removeAddressBookListener(this.addressBookListener);
+      this._teardown();
     }
 
     _rebuild() {
@@ -143,13 +154,14 @@ customElements.whenDefined("menulist").then(() => {
       }
 
       // Now create menuitems for all displayed directories.
+      let type = this._type;
       for (let ab of this._directories) {
         if (!ab) {
           // Skip the empty members added above.
           continue;
         }
 
-        let listItem = this.appendItem(ab.dirName, ab.URI);
+        let listItem = this.appendItem(ab.dirName, ab[type]);
         listItem.setAttribute("class", "menuitem-iconic abMenuItem");
 
         // Style the items by type.
@@ -169,8 +181,12 @@ customElements.whenDefined("menulist").then(() => {
 
       // Attempt to select the persisted or otherwise first directory.
       this.selectedIndex = this._directories.findIndex((d) => {
-        return d && d.URI == this._value;
+        return d && d[type] == this.value;
       });
+
+      if (!this.selectedItem && this.menupopup.hasChildNodes()) {
+        this.selectedIndex = 0;
+      }
     }
 
     _teardown() {
