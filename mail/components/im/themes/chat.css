@@ -780,12 +780,6 @@ imgroup[closed]:-moz-locale-dir(rtl) .twisty {
   min-width: 40px;
 }
 
-#statusTypeIcon > .toolbarbutton-icon {
-  /* Required for hidpi */
-  width: 16px;
-  padding: 0;
-}
-
 /* show the status icon also in text mode */
 toolbar[mode="text"] #statusTypeIcon > .toolbarbutton-icon {
   display: -moz-box;
