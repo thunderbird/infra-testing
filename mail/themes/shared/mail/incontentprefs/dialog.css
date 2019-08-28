@@ -26,6 +26,11 @@ dialog > .dialog-content-box {
   padding: 4px;
 }
 
+.contentPane.doScroll,
+dialog.doScroll > .dialog-content-box {
+  overflow-y: auto;
+}
+
 tabbox {
   /* override the rule in certManager.xul */
   margin: 0 0 5px !important;
