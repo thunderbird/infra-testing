@@ -199,7 +199,7 @@ class HandlerInfoWrapper {
    */
   get typeDescription() {
     if (this.disambiguateDescription) {
-      return this._prefsBundle.getFormattedString(
+      return gApplicationsPane._prefsBundle.getFormattedString(
         "typeDetailsWithTypeAndExt", [this.description, this.type]);
     }
 
