@@ -308,7 +308,7 @@ calStorageCalendar.prototype = {
             let stmt;
             try {
               stmt = db.createStatement(
-                "UPDATE " + tbl + "   SET cal_id = :cal_id" + " WHERE cal_id = :old_cal_id"
+                "UPDATE " + tbl + "   SET cal_id = :cal_id WHERE cal_id = :old_cal_id"
               );
               stmt.params.cal_id = newCalId;
               stmt.params.old_cal_id = oldCalId;
@@ -1327,7 +1327,7 @@ calStorageCalendar.prototype = {
       );
 
       this.mSelectRecurrenceForItem = this.mDB.createStatement(
-        "SELECT * FROM cal_recurrence " + "WHERE item_id = :item_id AND cal_id = :cal_id"
+        "SELECT * FROM cal_recurrence WHERE item_id = :item_id AND cal_id = :cal_id"
       );
 
       this.mSelectAttachmentsForItem = this.mDB.createStatement(
@@ -1355,11 +1355,11 @@ calStorageCalendar.prototype = {
       );
 
       this.mSelectMetaData = this.mDB.createStatement(
-        "SELECT * FROM cal_metadata" + " WHERE item_id = :item_id AND cal_id = :cal_id"
+        "SELECT * FROM cal_metadata WHERE item_id = :item_id AND cal_id = :cal_id"
       );
 
       this.mSelectAllMetaData = this.mDB.createStatement(
-        "SELECT * FROM cal_metadata" + " WHERE cal_id = :cal_id"
+        "SELECT * FROM cal_metadata WHERE cal_id = :cal_id"
       );
 
       this.mSelectAlarmsForItem = this.mDB.createStatement(
@@ -1520,7 +1520,7 @@ calStorageCalendar.prototype = {
       );
 
       this.mDeleteAllMetaData = this.mDB.createStatement(
-        "DELETE FROM cal_metadata" + " WHERE cal_id = :cal_id"
+        "DELETE FROM cal_metadata WHERE cal_id = :cal_id"
       );
     } catch (e) {
       this.logError("Error initializing statements.", e);
