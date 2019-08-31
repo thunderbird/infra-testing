@@ -891,8 +891,9 @@ function SetTagHeader() {
   // It would be nice if we passed in the msgHdr from the back end.
   var msgHdr = gFolderDisplay.selectedMessage;
   if (!msgHdr) {
+    // No msgHdr to add our tags to.
     return;
-  } // no msgHdr to add our tags to
+  }
 
   // get the list of known tags
   var tagArray = MailServices.tags.getAllTags({});
@@ -920,9 +921,10 @@ function SetTagHeader() {
   // Retain their order, though, with the label as oldest element.
   for (let i = msgKeyArray.length - 1; i >= 0; --i) {
     if (!(msgKeyArray[i] in tagKeys)) {
+      // Remove non-tag key.
       msgKeyArray.splice(i, 1);
     }
-  } // remove non-tag key
+  }
   var msgKeys = msgKeyArray.join(" ");
 
   if (msgKeys) {
@@ -1354,8 +1356,9 @@ function OutputEmailAddresses(headerEntry, emailAddresses) {
   var addresses = MailServices.headerParser.parseEncodedHeaderW(emailAddresses);
 
   if (headerEntry.useToggle) {
+    // Make sure we start clean.
     headerEntry.enclosingBox.resetAddressView();
-  } // make sure we start clean
+  }
   if (addresses.length == 0 && emailAddresses.includes(":")) {
     // No addresses and a colon, so an empty group like "undisclosed-recipients: ;".
     // Add group name so at least something displays.
@@ -3302,9 +3305,9 @@ function HandleMultipleAttachments(attachments, action) {
           attachmentUrlArray,
           attachmentDisplayNameArray,
           attachmentMessageUriArray,
-          true
+          true // save
         );
-      } // save
+      }
       return;
     case "delete":
       messenger.detachAllAttachments(
@@ -3313,8 +3316,8 @@ function HandleMultipleAttachments(attachments, action) {
         attachmentUrlArray,
         attachmentDisplayNameArray,
         attachmentMessageUriArray,
-        false
-      ); // don't save
+        false // don't save
+      );
       return;
     case "open":
     case "saveAs":

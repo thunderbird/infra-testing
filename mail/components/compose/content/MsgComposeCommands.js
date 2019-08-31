@@ -3126,8 +3126,9 @@ function ComposeStartup(aParams) {
           }
           suitableCount++;
           if (suitableCount > 1) {
+            // No need to find more, it's already not unique.
             break;
-          } // No need to find more, it's already not unique.
+          }
         }
       }
     }
@@ -5414,8 +5415,9 @@ function RemoveSelectedAttachment() {
 function RenameSelectedAttachment() {
   let bucket = document.getElementById("attachmentBucket");
   if (bucket.selectedItems.length != 1) {
+    // Not one attachment selected.
     return;
-  } // not one attachment selected
+  }
 
   let item = bucket.getSelectedItem(0);
   let attachmentName = { value: item.attachment.name };
@@ -5430,8 +5432,9 @@ function RenameSelectedAttachment() {
     )
   ) {
     if (attachmentName.value == "") {
+      // Name was not filled, bail out.
       return;
-    } // name was not filled, bail out
+    }
 
     let originalName = item.attachment.name;
     let itemLabel = item.querySelector(".attachmentcell-name");
