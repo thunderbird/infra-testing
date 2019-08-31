@@ -1846,7 +1846,7 @@ var gAccountTree = {
       if (server) {
         treecell.setAttribute(
           "properties",
-          "folderNameCol isServer-true" + " serverType-" + server.type
+          "folderNameCol isServer-true serverType-" + server.type
         );
         // For IM accounts, we can try to fetch a protocol specific icon.
         if (server.type == "im") {
