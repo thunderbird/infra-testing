@@ -395,6 +395,14 @@ var { cal } = ChromeUtils.import("resource://calendar/modules/calUtils.jsm");
          * Re-render the view.
          */
         relayout() {
+            // The calendar-month-day-box binding might not be ready yet, because it's XBL
+            // and XBL is hopeless. Wait for it if necessary.
+            let firstDayBox = this.monthgridrows.firstChild.firstChild;
+            if (!document.getAnonymousElementByAttribute(firstDayBox, "anonid", "week-label")) {
+                firstDayBox.onBindingReady = () => this.relayout();
+                return;
+            }
+
             // Adjust headers based on the starting day of the week, if necessary.
             if (this.labeldaybox.firstChild.weekDay != this.weekStartOffset) {
                 for (let i = 0; i < this.labeldaybox.childNodes.length; i++) {

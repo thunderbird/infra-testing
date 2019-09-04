@@ -127,8 +127,16 @@
         }
 
         setOccurrence(aOccurrence, aPeriod) {
-            this.mOccurrence = aOccurrence;
+            // The calendar-month-day-box binding might not be ready yet, because it's XBL
+            // and XBL is hopeless. Wait for it if necessary.
             this.mAllDayItem = this.querySelector("calendar-month-day-box-item");
+            let addWrap = document.getAnonymousElementByAttribute(this.mAllDayItem, "anonid", "eventbox");
+            if (!addWrap) {
+                this.mAllDayItem.onBindingReady = () => this.setOccurrence(aOccurrence, aPeriod);
+                return;
+            }
+
+            this.mOccurrence = aOccurrence;
             this.mAllDayItem.occurrence = aOccurrence;
             let dateFormatter = cal.getDateFormatter();
             let periodStartDate = aPeriod.start.clone();
@@ -164,7 +172,6 @@
             let multiDayImage = this.querySelector(".agenda-multiDayEvent-image");
             multiDayImage.setAttribute("type", iconType);
             // class wrap causes allday items to wrap its text in today-pane
-            let addWrap = document.getAnonymousElementByAttribute(this.mAllDayItem, "anonid", "eventbox");
             addWrap.classList.add("wrap");
             addWrap = document.getAnonymousElementByAttribute(this.mAllDayItem, "anonid", "event-detail-box");
             addWrap.classList.add("wrap");

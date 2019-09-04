@@ -414,7 +414,14 @@ function observeViewDaySelect(event) {
         jsMainDate = new Date(mainDate.year, mainDate.month, mainDate.day);
     }
 
-    getMinimonth().selectDate(jsDate, jsMainDate);
+    // The minimonth binding might not be ready yet, because it's XBL
+    // and XBL is hopeless. Wait for it if necessary.
+    let minimonth = getMinimonth();
+    if ("selectDate" in minimonth) {
+        minimonth.selectDate(jsDate, jsMainDate);
+    } else {
+        minimonth.onBindingReady = () => minimonth.selectDate(jsDate, jsMainDate);
+    }
     currentView().focus();
 }
 
