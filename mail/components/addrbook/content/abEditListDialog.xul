@@ -67,7 +67,7 @@
                    minresultsforpopup="3"
                    onkeypress="awAbRecipientKeyPress(event, this);"
                    onkeydown="awRecipientKeyDown(event, this);"
-                   onclick="awNotAnEmptyArea(event);">
+                   onclick="onRecipientClicked(event, this);">
             <image onclick="this.parentNode.select();" class="person-icon"/>
           </textbox>
         </hbox>

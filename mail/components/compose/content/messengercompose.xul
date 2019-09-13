@@ -2043,6 +2043,7 @@
                          onfocus="awRecipientOnFocus(this);"
                          onchange="onRecipientsChanged();"
                          oninput="onRecipientsChanged();"
+                         onclick="onRecipientClicked(event, this);"
                          onkeypress="awRecipientKeyPress(event, this)"
                          onkeydown="awRecipientKeyDown(event, this)"
                          disableonsend="true">
