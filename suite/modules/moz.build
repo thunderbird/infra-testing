@@ -15,6 +15,10 @@ EXTRA_JS_MODULES += [
     'WindowsPreviewPerTab.jsm',
 ]
 
+EXTRA_JS_MODULES += [
+    '../../../toolkit/components/passwordmgr/LoginManagerContextMenu.jsm',
+]
+
 if CONFIG['OS_ARCH'] == 'WINNT':
     EXTRA_JS_MODULES += ['WindowsJumpLists.jsm']
 
