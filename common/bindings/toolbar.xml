@@ -33,10 +33,11 @@
           return this.getAttribute("customizing") == "true";
         ]]></getter>
         <setter><![CDATA[
-          if (val)
+          if (val) {
             this.setAttribute("customizing", "true");
-          else
+          } else {
             this.removeAttribute("customizing");
+          }
           return val;
         ]]></setter>
       </property>
@@ -45,9 +46,9 @@
         <![CDATA[
           // Look to see if there is a toolbarset.
           this.toolbarset = this.firstChild;
-          while (this.toolbarset && this.toolbarset.localName != "toolbarset")
+          while (this.toolbarset && this.toolbarset.localName != "toolbarset") {
             this.toolbarset = this.toolbarset.nextSibling;
-
+          }
           if (this.toolbarset) {
             // Create each toolbar described by the toolbarset.
             var index = 0;
@@ -65,8 +66,9 @@
         <parameter name="aCurrentSet"/>
         <body>
           <![CDATA[
-            if (!this.toolbarset)
+            if (!this.toolbarset) {
               return null;
+            }
             var toolbar = document.createXULElement("toolbar");
             toolbar.id = "__customToolbar_" + aName.replace(" ", "_");
             toolbar.setAttribute("customizable", "true");
@@ -95,24 +97,25 @@
       <field name="_toolbox">null</field>
       <property name="toolbox" readonly="true">
         <getter><![CDATA[
-          if (this._toolbox)
+          if (this._toolbox) {
             return this._toolbox;
-
+          }
           let toolboxId = this.getAttribute("toolboxid");
           if (toolboxId) {
             let toolbox = document.getElementById(toolboxId);
             if (!toolbox) {
               let tbName = this.toolbarName;
-              if (tbName)
+              if (tbName) {
                 tbName = " (" + tbName + ")";
-              else
+              } else {
                 tbName = "";
+              }
               throw new Error(`toolbar ID ${this.id}${tbName}: toolboxid attribute '${toolboxId}' points to a toolbox that doesn't exist`);
             }
 
-            if (!toolbox.externalToolbars.includes(this))
+            if (!toolbox.externalToolbars.includes(this)) {
               toolbox.externalToolbars.push(this);
-
+            }
             return this._toolbox = toolbox;
           }
 
@@ -130,8 +133,9 @@
             // Need to wait until XUL overlays are loaded. See bug 554279.
             let self = this;
             document.addEventListener("readystatechange", function listener(event) {
-              if (document.readyState != "complete")
+              if (document.readyState != "complete") {
                 return;
+              }
               document.removeEventListener("readystatechange", listener);
               self._init();
             });
@@ -145,21 +149,23 @@
           // Searching for the toolbox palette in the toolbar binding because
           // toolbars are constructed first.
           var toolbox = this.toolbox;
-          if (!toolbox)
+          if (!toolbox) {
             return;
+          }
 
           if (!toolbox.palette) {
             // Look to see if there is a toolbarpalette.
             var node = toolbox.firstChild;
             while (node) {
-              if (node.localName == "toolbarpalette")
+              if (node.localName == "toolbarpalette") {
                 break;
+              }
               node = node.nextSibling;
             }
 
-            if (!node)
+            if (!node) {
               return;
-
+            }
             // Hold on to the palette but remove it from the document.
             toolbox.palette = node;
             toolbox.removeChild(node);
@@ -167,10 +173,12 @@
 
           // Build up our contents from the palette.
           var currentSet = this.getAttribute("currentset");
-          if (!currentSet)
+          if (!currentSet) {
             currentSet = this.getAttribute("defaultset");
-          if (currentSet)
+          }
+          if (currentSet) {
             this.currentSet = currentSet;
+          }
         ]]>
         </body>
       </method>
@@ -179,9 +187,9 @@
         <parameter name="aNode"/>
         <body>
         <![CDATA[
-          if (aNode.getAttribute("skipintoolbarset") == "true")
+          if (aNode.getAttribute("skipintoolbarset") == "true") {
             return "";
-
+          }
           switch (aNode.localName) {
             case "toolbarseparator":
               return "separator";
@@ -215,9 +223,9 @@
 
         <setter>
           <![CDATA[
-            if (val == this.currentSet)
+            if (val == this.currentSet) {
               return val;
-
+            }
             var ids = (val == "__empty") ? [] : val.split(",");
 
             var nodeidx = 0;
@@ -278,10 +286,11 @@
               let curNodeId = this._idFromNode(curNode);
               // skip over fixed items
               if (curNodeId && curNode.getAttribute("removable") == "true") {
-                if (palette)
+                if (palette) {
                   palette.appendChild(curNode);
-                else
+                } else {
                   this.removeChild(curNode);
+                }
               }
             }
 
@@ -306,14 +315,15 @@
                 // elements created in small timeframes.  So ids are
                 // differentiated through a unique count suffix.
                 newItem.id = aId + Date.now() + (++this._newElementCount);
-                if (aId == "spring")
+                if (aId == "spring") {
                   newItem.flex = 1;
+                }
                 break;
               default:
                 var toolbox = this.toolbox;
-                if (!toolbox)
+                if (!toolbox) {
                   break;
-
+                }
                 // look for an item with the same id, as the item may be
                 // in a different toolbar.
                 var item = document.getElementById(aId);
@@ -351,8 +361,9 @@
         <body>
           <![CDATA[
             var newItem = this._getToolbarItem(aId);
-            if (!newItem)
+            if (!newItem) {
               return null;
+            }
 
             var insertItem = newItem;
             // make sure added items are removable
@@ -365,10 +376,11 @@
             }
 
             // Insert the palette item into the toolbar.
-            if (aBeforeElt)
+            if (aBeforeElt) {
               this.insertBefore(insertItem, aBeforeElt);
-            else
+            } else {
               this.appendChild(insertItem);
+            }
 
             return newItem;
           ]]>
@@ -378,8 +390,9 @@
       <method name="hasCustomInteractiveItems">
         <parameter name="aCurrentSet"/>
         <body><![CDATA[
-          if (aCurrentSet == "__empty")
+          if (aCurrentSet == "__empty") {
             return false;
+          }
 
           var defaultOrNoninteractive = (this.getAttribute("defaultset") || "")
                                           .split(",")
@@ -417,18 +430,21 @@
         init(event) {
           var node = event.target;
           while (node != this.toolbar) {
-            if (node.localName == "menupopup")
+            if (node.localName == "menupopup") {
               return;
+            }
             node = node.parentNode;
           }
 
           var contextMenuId = this.toolbar.getAttribute("context");
-          if (!contextMenuId)
+          if (!contextMenuId) {
             return;
+          }
 
           this.contextMenu = document.getElementById(contextMenuId);
-          if (!this.contextMenu)
+          if (!this.contextMenu) {
             return;
+          }
 
           this.contextMenu.addEventListener("popupshown", this);
           this.contextMenu.addEventListener("popuphiding", this);
@@ -484,8 +500,9 @@
       <handler event="popupshowing"         action="this._setActive();"/>
       <handler event="mousedown" button="2" action="this._contextMenuListener.init(event);"/>
       <handler event="DOMMenuBarInactive"><![CDATA[
-        if (!this._contextMenuListener.active)
+        if (!this._contextMenuListener.active) {
           this._setInactiveAsync();
+        }
       ]]></handler>
     </handlers>
   </binding>
