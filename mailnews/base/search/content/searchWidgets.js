@@ -7,9 +7,11 @@
    convertPRTimeToString, convertStringToPRTime, UpdateAfterCustomHeaderChange,
    initializeTermFromId */
 
-var {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
-var {MailServices} = ChromeUtils.import("resource:///modules/MailServices.jsm");
-var {MailUtils} = ChromeUtils.import("resource:///modules/MailUtils.jsm");
+// Wrap in a block to prevent leaking to window scope.
+{
+  const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+  const { MailServices } = ChromeUtils.import("resource:///modules/MailServices.jsm");
+  const { MailUtils } = ChromeUtils.import("resource:///modules/MailUtils.jsm");
 
 const updateParentNode = (parentNode) => {
   if (parentNode.hasAttribute("initialActionIndex")) {
@@ -1027,3 +1029,4 @@ class MozSearchValue extends MozXULElement {
   }
 }
 customElements.define("search-value", MozSearchValue);
+}
