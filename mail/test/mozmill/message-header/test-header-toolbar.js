@@ -22,10 +22,13 @@ var MODULE_REQUIRES = [
   "window-helpers",
   "address-book-helpers",
   "mouse-event-helpers",
-  "customization-helpers"];
+  "customization-helpers",
+];
 
-var elib = ChromeUtils.import("chrome://mozmill/content/modules/elementslib.jsm");
-var {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
+var elib = ChromeUtils.import(
+  "chrome://mozmill/content/modules/elementslib.jsm"
+);
+var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 var folder;
 var gCDHelper;
@@ -43,21 +46,27 @@ function setupModule(module) {
   meh.installInto(module);
   let cu = collector.getModule("customization-helpers");
   cu.installInto(module);
-  gCDHelper = new CustomizeDialogHelper("header-view-toolbar",
-    "CustomizeHeaderToolbar", "mailnews:customizeToolbar");
+  gCDHelper = new CustomizeDialogHelper(
+    "header-view-toolbar",
+    "CustomizeHeaderToolbar",
+    "mailnews:customizeToolbar"
+  );
 
   folder = create_folder("HeaderToolbar");
 
   // create a message that has the interesting headers that commonly
   // show up in the message header pane for testing
-  let msg = create_message({cc: msgGen.makeNamesAndAddresses(20),
-                            subject: "This is a really, really, really, really, really, really, really, really, long subject.",
-                            clobberHeaders: {
-                              "Newsgroups": "alt.test",
-                              "Reply-To": "J. Doe <j.doe@momo.invalid>",
-                              "Content-Base": "http://example.com/",
-                              "Bcc": "Richard Roe <richard.roe@momo.invalid>",
-                            }});
+  let msg = create_message({
+    cc: msgGen.makeNamesAndAddresses(20),
+    subject:
+      "This is a really, really, really, really, really, really, really, really, long subject.",
+    clobberHeaders: {
+      Newsgroups: "alt.test",
+      "Reply-To": "J. Doe <j.doe@momo.invalid>",
+      "Content-Base": "http://example.com/",
+      Bcc: "Richard Roe <richard.roe@momo.invalid>",
+    },
+  });
 
   add_message_to_folder(folder, msg);
 
@@ -89,7 +98,9 @@ function test_get_msg_button_customize_header_toolbar() {
 
   // It is necessary to open the Get Message button"s menu to get the popup menu
   // populated
-  mc.click(mc.aid("button-getmsg", {class: "toolbarbutton-menubutton-dropmarker"}));
+  mc.click(
+    mc.aid("button-getmsg", { class: "toolbarbutton-menubutton-dropmarker" })
+  );
   mc.ewait("button-getAllNewMsgSeparator");
 
   let getMailButtonPopup = mc.e("button-getMsgPopup");
@@ -101,15 +112,20 @@ function test_get_msg_button_customize_header_toolbar() {
   gCDHelper.close(ctc);
 
   // Press the Get Message Button to populate popup menu again
-  mc.click(mc.aid("button-getmsg", {class: "toolbarbutton-menubutton-dropmarker"}));
+  mc.click(
+    mc.aid("button-getmsg", { class: "toolbarbutton-menubutton-dropmarker" })
+  );
   mc.ewait("button-getAllNewMsgSeparator");
 
   getMailButtonPopup = mc.e("button-getMsgPopup");
   let finalServerCount = getMailButtonPopup.childElementCount;
 
-  assert_equals(finalServerCount, originalServerCount,
-                "number of entries in Get Message Button popup menu after " +
-                "header toolbar customization not equal as before");
+  assert_equals(
+    finalServerCount,
+    originalServerCount,
+    "number of entries in Get Message Button popup menu after " +
+      "header toolbar customization not equal as before"
+  );
 }
 
 /**
@@ -124,10 +140,13 @@ function test_customize_header_toolbar_check_default() {
   // In a fresh profile the currentset attribute does not
   // exist, i.e. it returns empty. So check for both valid
   // posiblities.
-  assert_true((hdrToolbar.getAttribute("currentset") == "") ||
-    (hdrToolbar.getAttribute("currentset") == hdrBarDefaultSet),
+  assert_true(
+    hdrToolbar.getAttribute("currentset") == "" ||
+      hdrToolbar.getAttribute("currentset") == hdrBarDefaultSet,
     "Header Toolbar currentset should be empty or contain default buttons " +
-    "but contains: " + hdrToolbar.getAttribute("currentset"));
+      "but contains: " +
+      hdrToolbar.getAttribute("currentset")
+  );
   // Now make sure, that also the attribute gets set:
   gCDHelper.restoreDefaultButtons(mc);
 
@@ -141,10 +160,13 @@ function test_customize_header_toolbar_check_default() {
   // In a fresh profile the currentset attribute does not
   // exist, i.e. it returns empty. So check for both valid
   // posiblities.
-  assert_true((hdrToolbar.getAttribute("currentset") == "") ||
-    (hdrToolbar.getAttribute("currentset") == hdrBarDefaultSet),
+  assert_true(
+    hdrToolbar.getAttribute("currentset") == "" ||
+      hdrToolbar.getAttribute("currentset") == hdrBarDefaultSet,
     "Header Toolbar currentset should be empty or contain default buttons " +
-    "but contains: " + hdrToolbar.getAttribute("currentset"));
+      "but contains: " +
+      hdrToolbar.getAttribute("currentset")
+  );
   // Now make sure, that also the attribute gets set:
   gCDHelper.restoreDefaultButtons(msgc);
 
@@ -179,7 +201,15 @@ function test_customize_header_toolbar_reorder_buttons() {
     // Move each button to the left of the button which was placed left of it
     // at the beginning of the test starting with the second button. This
     // places the buttons in the reverse order as at the beginning of the test.
-    drag_n_drop_element(button1, mc.window, button2, mc.window, 0.25, 0.0, toolbar);
+    drag_n_drop_element(
+      button1,
+      mc.window,
+      button2,
+      mc.window,
+      0.25,
+      0.0,
+      toolbar
+    );
   }
   gCDHelper.close(ctc);
 
@@ -239,7 +269,15 @@ function test_customize_header_toolbar_separate_window() {
     // Move each button to the left of the button which was placed left of it
     // at the beginning of the test starting with the second button. This
     // places the buttons in the reverse order as at the beginning of the test.
-    drag_n_drop_element(button1, msgc.window, button2, msgc.window, 0.25, 0.0, toolbar);
+    drag_n_drop_element(
+      button1,
+      msgc.window,
+      button2,
+      msgc.window,
+      0.25,
+      0.0,
+      toolbar
+    );
   }
   gCDHelper.close(ctc);
 
@@ -298,7 +336,15 @@ function test_customize_header_toolbar_remove_buttons() {
   let target = ctc.e("palette-box");
   for (let i = 0; i < lCurrentset.length; i++) {
     let button = mc.e(lCurrentset[i]);
-    drag_n_drop_element(button, mc.window, target, ctc.window, 0.5, 0.5, toolbar);
+    drag_n_drop_element(
+      button,
+      mc.window,
+      target,
+      ctc.window,
+      0.5,
+      0.5,
+      toolbar
+    );
   }
   gCDHelper.close(ctc);
 
@@ -347,7 +393,15 @@ function test_customize_header_toolbar_remove_buttons() {
     assert_true(button != null, "Button " + lCurrentset[i] + " not in palette");
     // Drop each button to the right end of the toolbar, so we should get the
     // original order.
-    drag_n_drop_element(button, ctc.window, toolbar, mc.window, 0.99, 0.5, palette);
+    drag_n_drop_element(
+      button,
+      ctc.window,
+      toolbar,
+      mc.window,
+      0.99,
+      0.5,
+      palette
+    );
   }
   gCDHelper.close(ctc);
 
@@ -370,9 +424,13 @@ function test_customize_header_toolbar_dialog_style() {
 
   // The full mode menulist entry is hidden, because in the header toolbar
   // this mode is disabled.
-  let fullMode = ctc.window.document.getElementById("main-box").
-    querySelector("[value*='full']");
-  assert_equals(ctc.window.getComputedStyle(fullMode).getPropertyValue("display"), "none");
+  let fullMode = ctc.window.document
+    .getElementById("main-box")
+    .querySelector("[value*='full']");
+  assert_equals(
+    ctc.window.getComputedStyle(fullMode).getPropertyValue("display"),
+    "none"
+  );
   // The text besides icon menulist entry is selected, because in the header toolbar
   // this is the default mode.
   let textIconMode = ctc.e("textbesideiconItem");
@@ -382,13 +440,20 @@ function test_customize_header_toolbar_dialog_style() {
   // this mode is the only possible (therefore, the checked attribute is true).
   let smallIcons = ctc.e("smallicons");
   assert_equals(smallIcons.getAttribute("checked"), "true");
-  assert_equals(ctc.window.getComputedStyle(smallIcons).getPropertyValue("display"), "none");
+  assert_equals(
+    ctc.window.getComputedStyle(smallIcons).getPropertyValue("display"),
+    "none"
+  );
 
   // The add new toolbar button is hidden, because in the header toolbar
   // this functionality is not available.
-  let addNewToolbar = ctc.window.document.getElementById("main-box").
-    querySelector("[oncommand*='addNewToolbar();']");
-  assert_equals(ctc.window.getComputedStyle(addNewToolbar).getPropertyValue("display"), "none");
+  let addNewToolbar = ctc.window.document
+    .getElementById("main-box")
+    .querySelector("[oncommand*='addNewToolbar();']");
+  assert_equals(
+    ctc.window.getComputedStyle(addNewToolbar).getPropertyValue("display"),
+    "none"
+  );
 
   gCDHelper.close(ctc);
 }
@@ -406,8 +471,9 @@ function test_customize_header_toolbar_change_button_style() {
 
   // Change the button style to icon (only) mode
   let ctc = gCDHelper.open(mc);
-  let iconMode = ctc.window.document.getElementById("main-box").
-    querySelector("[value*='icons']");
+  let iconMode = ctc.window.document
+    .getElementById("main-box")
+    .querySelector("[value*='icons']");
   ctc.click(new elib.Elem(iconMode));
   gCDHelper.close(ctc);
 
@@ -415,8 +481,9 @@ function test_customize_header_toolbar_change_button_style() {
 
   // Change the button style to text (only) mode
   ctc = gCDHelper.open(mc);
-  let textMode = ctc.window.document.getElementById("main-box").
-    querySelector("[value*='text']");
+  let textMode = ctc.window.document
+    .getElementById("main-box")
+    .querySelector("[value*='text']");
   ctc.click(new elib.Elem(textMode));
   gCDHelper.close(ctc);
 
@@ -458,11 +525,20 @@ function subtest_buttons_style(aIconVisibility, aLabelVisibility) {
     let currentElement = mc.e(currentSet[i]);
     // The otherActionsButton has no icon in "Icon beside Text" mode.
     // To not fail, we do not handle this button.
-    if (currentElement.tagName == "toolbarbutton" && currentElement.id != "otherActionsButton") {
-      let icon = mc.a(currentSet[i], {class: "toolbarbutton-icon"});
-      let label = mc.a(currentSet[i], {class: "toolbarbutton-text"});
-      assert_equals(mc.window.getComputedStyle(icon).getPropertyValue("display"), aIconVisibility);
-      assert_equals(mc.window.getComputedStyle(label).getPropertyValue("display"), aLabelVisibility);
+    if (
+      currentElement.tagName == "toolbarbutton" &&
+      currentElement.id != "otherActionsButton"
+    ) {
+      let icon = mc.a(currentSet[i], { class: "toolbarbutton-icon" });
+      let label = mc.a(currentSet[i], { class: "toolbarbutton-text" });
+      assert_equals(
+        mc.window.getComputedStyle(icon).getPropertyValue("display"),
+        aIconVisibility
+      );
+      assert_equals(
+        mc.window.getComputedStyle(label).getPropertyValue("display"),
+        aLabelVisibility
+      );
     }
   }
 }
@@ -474,18 +550,24 @@ function subtest_buttons_style(aIconVisibility, aLabelVisibility) {
  */
 function open3PaneWindow() {
   plan_for_new_window("mail:3pane");
-  Services.ww.openWindow(null,
-                         "chrome://messenger/content/messenger.xul", "",
-                         "all,chrome,dialog=no,status,toolbar",
-                         null);
+  Services.ww.openWindow(
+    null,
+    "chrome://messenger/content/messenger.xul",
+    "",
+    "all,chrome,dialog=no,status,toolbar",
+    null
+  );
   return wait_for_new_window("mail:3pane");
 }
 
 function openAddressBook() {
   plan_for_new_window("mail:addressbook");
-  Services.ww.openWindow(null,
-                         "chrome://messenger/content/addressbook/addressbook.xul",
-                         "", "all,chrome,dialog=no,status,toolbar",
-                         null);
+  Services.ww.openWindow(
+    null,
+    "chrome://messenger/content/addressbook/addressbook.xul",
+    "",
+    "all,chrome,dialog=no,status,toolbar",
+    null
+  );
   return wait_for_new_window("mail:addressbook");
 }

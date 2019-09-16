@@ -22,12 +22,17 @@ class MozContactRichlistbox extends MozElements.RichListBox {
   }
 
   get itemChildren() {
-    let children = Array.from(this.children)
-      .filter(node => (node.localName == "imcontact" ||
-        node.localName == "imgroup" || node.localName == "imconv") &&
-        !node.getAttribute("hidden"));
+    let children = Array.from(this.children).filter(
+      node =>
+        (node.localName == "imcontact" ||
+          node.localName == "imgroup" ||
+          node.localName == "imconv") &&
+        !node.getAttribute("hidden")
+    );
     return children;
   }
 }
 
-customElements.define("contact-richlistbox", MozContactRichlistbox, { "extends": "richlistbox" });
+customElements.define("contact-richlistbox", MozContactRichlistbox, {
+  extends: "richlistbox",
+});

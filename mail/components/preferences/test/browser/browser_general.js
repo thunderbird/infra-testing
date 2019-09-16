@@ -3,11 +3,16 @@
  * file, you can obtain one at http://mozilla.org/MPL/2.0/. */
 
 add_task(async () => {
-  let tests = [{
-    checkboxID: "mailnewsStartPageEnabled",
-    pref: "mailnews.start_page.enabled",
-    enabledElements: ["#mailnewsStartPageUrl", "#mailnewsStartPageUrl + button"],
-  }];
+  let tests = [
+    {
+      checkboxID: "mailnewsStartPageEnabled",
+      pref: "mailnews.start_page.enabled",
+      enabledElements: [
+        "#mailnewsStartPageUrl",
+        "#mailnewsStartPageUrl + button",
+      ],
+    },
+  ];
 
   if (AppConstants.platform != "macosx") {
     tests.push({
@@ -34,13 +39,16 @@ add_task(async () => {
 
   await testRadioButtons("paneGeneral", undefined, {
     pref: "mail.biff.play_sound.type",
-    states: [{
-      id: "system",
-      prefValue: 0,
-    }, {
-      id: "custom",
-      prefValue: 1,
-      enabledElements: ["#soundUrlLocation", "#browseForSound"],
-    }],
+    states: [
+      {
+        id: "system",
+        prefValue: 0,
+      },
+      {
+        id: "custom",
+        prefValue: 1,
+        enabledElements: ["#soundUrlLocation", "#browseForSound"],
+      },
+    ],
   });
 });

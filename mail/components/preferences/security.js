@@ -8,7 +8,11 @@
 /* import-globals-from preferences.js */
 /* import-globals-from subdialogs.js */
 
-ChromeUtils.defineModuleGetter(this, "LoginHelper", "resource://gre/modules/LoginHelper.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "LoginHelper",
+  "resource://gre/modules/LoginHelper.jsm"
+);
 
 Preferences.addAll([
   { id: "mail.preferences.security.selectedTabIndex", type: "int" },
@@ -22,8 +26,11 @@ Preferences.addAll([
   { id: "pref.privacy.disable_button.view_passwords", type: "bool" },
 ]);
 
-document.getElementById("paneSecurity")
-        .addEventListener("paneload", function() { gSecurityPane.init(); });
+document
+  .getElementById("paneSecurity")
+  .addEventListener("paneload", function() {
+    gSecurityPane.init();
+  });
 
 var gSecurityPane = {
   mPane: null,
@@ -33,27 +40,37 @@ var gSecurityPane = {
     this.mPane = document.getElementById("paneSecurity");
 
     this.updateManualMarkMode(Preferences.get("mail.spam.manualMark").value);
-    this.updateJunkLogButton(Preferences.get("mail.spam.logging.enabled").value);
+    this.updateJunkLogButton(
+      Preferences.get("mail.spam.logging.enabled").value
+    );
 
     this._initMasterPasswordUI();
 
     // update the checkbox for downloading phishing url tables
     // this.updateDownloadedPhishingListState();
 
-    if (!(("arguments" in window) && window.arguments[1])) {
+    if (!("arguments" in window && window.arguments[1])) {
       // If no tab was specified, select the last used tab.
-      let preference = Preferences.get("mail.preferences.security.selectedTabIndex");
-      if (preference.value)
-        document.getElementById("securityPrefs").selectedIndex = preference.value;
+      let preference = Preferences.get(
+        "mail.preferences.security.selectedTabIndex"
+      );
+      if (preference.value) {
+        document.getElementById("securityPrefs").selectedIndex =
+          preference.value;
+      }
     }
 
     this.mInitialized = true;
   },
 
   tabSelectionChanged() {
-    if (this.mInitialized)
-      Preferences.get("mail.preferences.security.selectedTabIndex")
-                 .valueFromPreferences = document.getElementById("securityPrefs").selectedIndex;
+    if (this.mInitialized) {
+      Preferences.get(
+        "mail.preferences.security.selectedTabIndex"
+      ).valueFromPreferences = document.getElementById(
+        "securityPrefs"
+      ).selectedIndex;
+    }
   },
 
   updateManualMarkMode(aEnableRadioGroup) {
@@ -75,21 +92,24 @@ var gSecurityPane = {
     var text = bundle.getString("confirmResetJunkTrainingText");
 
     // if the user says no, then just fall out
-    if (!Services.prompt.confirm(window, title, text))
+    if (!Services.prompt.confirm(window, title, text)) {
       return;
+    }
 
     // otherwise go ahead and remove the training data
     MailServices.junk.resetTrainingData();
   },
-
 
   /**
    * Reload the current message after a preference affecting the view
    * has been changed and we are in instantApply mode.
    */
   reloadMessageInOpener() {
-    if (Services.prefs.getBoolPref("browser.preferences.instantApply") &&
-        window.opener && typeof(window.opener.ReloadMessage) == "function") {
+    if (
+      Services.prefs.getBoolPref("browser.preferences.instantApply") &&
+      window.opener &&
+      typeof window.opener.ReloadMessage == "function"
+    ) {
       window.opener.ReloadMessage();
     }
   },
@@ -123,10 +143,11 @@ var gSecurityPane = {
     // password used to encrypt all the passwords without providing it (by
     // design), and it would be extremely odd to pop up that dialog when the
     // user closes the prefwindow and saves his settings
-    if (!checkbox.checked)
+    if (!checkbox.checked) {
       this._removeMasterPassword();
-    else
+    } else {
       this.changeMasterPassword();
+    }
 
     this._initMasterPasswordUI();
   },
@@ -137,16 +158,23 @@ var gSecurityPane = {
    * UI is automatically updated.
    */
   _removeMasterPassword() {
-    var secmodDB = Cc["@mozilla.org/security/pkcs11moduledb;1"].
-                   getService(Ci.nsIPKCS11ModuleDB);
+    var secmodDB = Cc["@mozilla.org/security/pkcs11moduledb;1"].getService(
+      Ci.nsIPKCS11ModuleDB
+    );
     if (secmodDB.isFIPSEnabled) {
       let bundle = document.getElementById("bundleMasterPwPreferences");
-      Services.prompt.alert(window,
-                            bundle.getString("pw_change_failed_title"),
-                            bundle.getString("pw_change2empty_in_fips_mode"));
+      Services.prompt.alert(
+        window,
+        bundle.getString("pw_change_failed_title"),
+        bundle.getString("pw_change2empty_in_fips_mode")
+      );
     } else {
-      gSubDialog.open("chrome://mozapps/content/preferences/removemp.xul",
-                      null, null, this._initMasterPasswordUI.bind(this));
+      gSubDialog.open(
+        "chrome://mozapps/content/preferences/removemp.xul",
+        null,
+        null,
+        this._initMasterPasswordUI.bind(this)
+      );
     }
     this._initMasterPasswordUI();
   },
@@ -155,8 +183,12 @@ var gSecurityPane = {
    * Displays a dialog in which the master password may be changed.
    */
   changeMasterPassword() {
-    gSubDialog.open("chrome://mozapps/content/preferences/changemp.xul",
-                    null, null, this._initMasterPasswordUI.bind(this));
+    gSubDialog.open(
+      "chrome://mozapps/content/preferences/changemp.xul",
+      null,
+      null,
+      this._initMasterPasswordUI.bind(this)
+    );
   },
 
   /**
@@ -168,10 +200,13 @@ var gSecurityPane = {
   },
 
   updateDownloadedPhishingListState() {
-    document.getElementById("useDownloadedList").disabled =
-      !document.getElementById("enablePhishingDetector").checked;
+    document.getElementById(
+      "useDownloadedList"
+    ).disabled = !document.getElementById("enablePhishingDetector").checked;
   },
-
 };
 
-Preferences.get("mail.phishing.detection.enabled").on("change", gSecurityPane.reloadMessageInOpener);
+Preferences.get("mail.phishing.detection.enabled").on(
+  "change",
+  gSecurityPane.reloadMessageInOpener
+);

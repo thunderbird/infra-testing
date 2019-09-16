@@ -4,18 +4,26 @@
 
 /* import-globals-from ../../../../toolkit/mozapps/extensions/content/extensions.js */
 
-var {ExtensionSupport} = ChromeUtils.import("resource:///modules/ExtensionSupport.jsm");
-var {BrowserUtils} = ChromeUtils.import("resource://gre/modules/BrowserUtils.jsm");
+var { ExtensionSupport } = ChromeUtils.import(
+  "resource:///modules/ExtensionSupport.jsm"
+);
+var { BrowserUtils } = ChromeUtils.import(
+  "resource://gre/modules/BrowserUtils.jsm"
+);
 
-gStrings.mailExt =
-  Services.strings.createBundle("chrome://messenger/locale/extensionsOverlay.properties");
+gStrings.mailExt = Services.strings.createBundle(
+  "chrome://messenger/locale/extensionsOverlay.properties"
+);
 
 (function() {
-  window.isCorrectlySigned = function() { return true; };
+  window.isCorrectlySigned = function() {
+    return true;
+  };
 
   let contentStylesheet = document.createProcessingInstruction(
     "xml-stylesheet",
-    'href="chrome://messenger/content/extensionsOverlay.css" type="text/css"');
+    'href="chrome://messenger/content/extensionsOverlay.css" type="text/css"'
+  );
   document.insertBefore(contentStylesheet, document.documentElement);
 
   // Add navigation buttons for back and forward on the addons page.
@@ -28,25 +36,35 @@ gStrings.mailExt =
   backButton.setAttribute("id", "back-btn");
   backButton.setAttribute("class", "nav-button");
   backButton.setAttribute("command", "cmd_back");
-  backButton.setAttribute("tooltiptext", gStrings.mailExt.GetStringFromName("cmdBackTooltip"));
+  backButton.setAttribute(
+    "tooltiptext",
+    gStrings.mailExt.GetStringFromName("cmdBackTooltip")
+  );
   backButton.setAttribute("disabled", "true");
 
   let forwardButton = document.createXULElement("toolbarbutton");
   forwardButton.setAttribute("id", "forward-btn");
   forwardButton.setAttribute("class", "nav-button");
   forwardButton.setAttribute("command", "cmd_forward");
-  forwardButton.setAttribute("tooltiptext", gStrings.mailExt.GetStringFromName("cmdForwardTooltip"));
+  forwardButton.setAttribute(
+    "tooltiptext",
+    gStrings.mailExt.GetStringFromName("cmdForwardTooltip")
+  );
   forwardButton.setAttribute("disabled", "true");
   hbox.appendChild(backButton);
   hbox.appendChild(forwardButton);
 
-  document.getElementById("category-box")
-          .insertBefore(hbox, document.getElementById("categories"));
+  document
+    .getElementById("category-box")
+    .insertBefore(hbox, document.getElementById("categories"));
 
   // Fix the "Search on addons.mozilla.org" placeholder text in the searchbox.
   let textbox = document.getElementById("header-search");
   let placeholder = textbox.getAttribute("placeholder");
-  placeholder = placeholder.replace("addons.mozilla.org", "addons.thunderbird.net");
+  placeholder = placeholder.replace(
+    "addons.mozilla.org",
+    "addons.thunderbird.net"
+  );
   textbox.setAttribute("placeholder", placeholder);
 
   // Tell the world about legacy extensions.
@@ -63,24 +81,30 @@ gStrings.mailExt =
   messageString = messageString.replace("#2", Services.appinfo.version);
   description.textContent = messageString;
 
-  let label = document.createXULElement("label", {is: "text-link"});
+  let label = document.createXULElement("label", { is: "text-link" });
   label.className = "text-link plain";
-  label.href = "https://support.mozilla.org/kb/unable-install-add-on-extension-theme-thunderbird";
+  label.href =
+    "https://support.mozilla.org/kb/unable-install-add-on-extension-theme-thunderbird";
   label.value = gStrings.mailExt.GetStringFromName("legacyLearnMore");
 
   description.appendChild(label);
   alert.appendChild(description);
   alertContainer.appendChild(alert);
 
-  gListView.node.insertBefore(alertContainer, document.getElementById("legacy-extensions-notice"));
+  gListView.node.insertBefore(
+    alertContainer,
+    document.getElementById("legacy-extensions-notice")
+  );
 })();
 
 window._oldSortElements = window.sortElements;
 window.sortElements = function(aElements, aSortBy, aAscending) {
-  if (gListView._type != "extension" ||
-      aSortBy.length != 2 ||
-      aSortBy[0] != "uiState" ||
-      aSortBy[1] != "name") {
+  if (
+    gListView._type != "extension" ||
+    aSortBy.length != 2 ||
+    aSortBy[0] != "uiState" ||
+    aSortBy[1] != "name"
+  ) {
     window._oldSortElements(aElements, aSortBy, aAscending);
     return;
   }
@@ -89,22 +113,33 @@ window.sortElements = function(aElements, aSortBy, aAscending) {
     if (addon.pendingOperations == AddonManager.PENDING_DISABLE) {
       return "pendingDisable";
     }
-    if (ExtensionSupport.loadedLegacyExtensions.has(addon.id) && addon.userDisabled) {
+    if (
+      ExtensionSupport.loadedLegacyExtensions.has(addon.id) &&
+      addon.userDisabled
+    ) {
       return "pendingDisable";
     }
     if (addon.pendingOperations == AddonManager.PENDING_UNINSTALL) {
       return "pendingUninstall";
     }
-    if (!addon.isActive &&
-        (addon.pendingOperations != AddonManager.PENDING_ENABLE &&
-         addon.pendingOperations != AddonManager.PENDING_INSTALL)) {
+    if (
+      !addon.isActive &&
+      (addon.pendingOperations != AddonManager.PENDING_ENABLE &&
+        addon.pendingOperations != AddonManager.PENDING_INSTALL)
+    ) {
       return "disabled";
     }
     return "enabled";
   };
 
   aElements.sort((a, b) => {
-    const UISTATE_ORDER = ["enabled", "askToActivate", "pendingDisable", "pendingUninstall", "disabled"];
+    const UISTATE_ORDER = [
+      "enabled",
+      "askToActivate",
+      "pendingDisable",
+      "pendingUninstall",
+      "disabled",
+    ];
 
     let aState = UISTATE_ORDER.indexOf(getUIState(a.mAddon));
     let bState = UISTATE_ORDER.indexOf(getUIState(b.mAddon));
@@ -138,8 +173,13 @@ gDetailView.updateState = function() {
     this.node.setAttribute("active", "true");
   }
 
-  if (ExtensionSupport.loadedLegacyExtensions.hasAnyState(this._addon.id, true)) {
-    let { stringName, undoCommand, version } = getTrueState(this._addon, "gDetailView._addon");
+  if (
+    ExtensionSupport.loadedLegacyExtensions.hasAnyState(this._addon.id, true)
+  ) {
+    let { stringName, undoCommand, version } = getTrueState(
+      this._addon,
+      "gDetailView._addon"
+    );
 
     if (stringName) {
       this.node.setAttribute("notification", "warning");
@@ -149,7 +189,9 @@ gDetailView.updateState = function() {
       let warning = document.getElementById("detail-warning");
       document.getElementById("detail-warning-link").hidden = true;
       warning.textContent = gStrings.mailExt.formatStringFromName(
-        stringName, [this._addon.name, gStrings.brandShortName], 2
+        stringName,
+        [this._addon.name, gStrings.brandShortName],
+        2
       );
 
       if (version) {
@@ -161,10 +203,17 @@ gDetailView.updateState = function() {
         restartButton.id = "restart-btn";
         restartButton.className = "button-link restart-btn";
         restartButton.setAttribute(
-          "label", gStrings.mailExt.GetStringFromName("warnLegacyRestartButton")
+          "label",
+          gStrings.mailExt.GetStringFromName("warnLegacyRestartButton")
         );
-        restartButton.setAttribute("oncommand", "BrowserUtils.restartApplication()");
-        warningContainer.insertBefore(restartButton, warningContainer.lastElementChild);
+        restartButton.setAttribute(
+          "oncommand",
+          "BrowserUtils.restartApplication()"
+        );
+        warningContainer.insertBefore(
+          restartButton,
+          warningContainer.lastElementChild
+        );
       }
       restartButton.hidden = false;
       if (undoCommand) {
@@ -172,10 +221,14 @@ gDetailView.updateState = function() {
           undoButton = document.createXULElement("button");
           undoButton.className = "button-link undo-btn";
           undoButton.setAttribute(
-            "label", gStrings.mailExt.GetStringFromName("warnLegacyUndoButton")
+            "label",
+            gStrings.mailExt.GetStringFromName("warnLegacyUndoButton")
           );
           // We shouldn't really attach non-anonymous content to anonymous content, but we can.
-          warningContainer.insertBefore(undoButton, warningContainer.lastElementChild);
+          warningContainer.insertBefore(
+            undoButton,
+            warningContainer.lastElementChild
+          );
         }
         undoButton.setAttribute("oncommand", undoCommand);
         undoButton.hidden = false;
@@ -211,7 +264,10 @@ function statusChangedObserver(subject, topic, data) {
 }
 Services.obs.addObserver(statusChangedObserver, "legacy-addon-status-changed");
 window.addEventListener("unload", () => {
-  Services.obs.removeObserver(statusChangedObserver, "legacy-addon-status-changed");
+  Services.obs.removeObserver(
+    statusChangedObserver,
+    "legacy-addon-status-changed"
+  );
 });
 
 /**
@@ -227,8 +283,10 @@ function getTrueState(addon, addonRef) {
   let state = ExtensionSupport.loadedLegacyExtensions.get(addon.id);
   let returnObject = {};
 
-  if (addon.pendingOperations & AddonManager.PENDING_UNINSTALL &&
-      ExtensionSupport.loadedLegacyExtensions.has(addon.id)) {
+  if (
+    addon.pendingOperations & AddonManager.PENDING_UNINSTALL &&
+    ExtensionSupport.loadedLegacyExtensions.has(addon.id)
+  ) {
     returnObject.stringName = "warnLegacyUninstall";
     returnObject.undoCommand = `${addonRef}.cancelUninstall()`;
   } else if (state.pendingOperation == "install") {

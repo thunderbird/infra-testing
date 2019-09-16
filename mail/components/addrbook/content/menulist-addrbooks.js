@@ -2,15 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
- // The menulist CE is defined lazily. Create one now to get menulist defined,
+// The menulist CE is defined lazily. Create one now to get menulist defined,
 // allowing us to inherit from it.
 if (!customElements.get("menulist")) {
   delete document.createXULElement("menulist");
 }
 
 customElements.whenDefined("menulist").then(() => {
-  const { MailServices } = ChromeUtils.import("resource:///modules/MailServices.jsm");
-  const { fixIterator } = ChromeUtils.import("resource:///modules/iteratorUtils.jsm");
+  const { MailServices } = ChromeUtils.import(
+    "resource:///modules/MailServices.jsm"
+  );
+  const { fixIterator } = ChromeUtils.import(
+    "resource:///modules/iteratorUtils.jsm"
+  );
   /**
    * MozMenulistAddrbooks is a menulist widget that is automatically
    * populated with the complete address book list.
@@ -52,9 +56,10 @@ customElements.whenDefined("menulist").then(() => {
             if (index != -1) {
               this._directories.splice(index, 1);
               // Are we removing the selected directory?
-              if (this.selectedItem ==
-                this.menupopup.removeChild(
-                  this.menupopup.childNodes[index])) {
+              if (
+                this.selectedItem ==
+                this.menupopup.removeChild(this.menupopup.childNodes[index])
+              ) {
                 // If so, try to select the first directory, if available.
                 if (this.menupopup.hasChildNodes()) {
                   this.menupopup.firstChild.doCommand();
@@ -82,10 +87,17 @@ customElements.whenDefined("menulist").then(() => {
         },
       };
 
-      MailServices.ab.addAddressBookListener(this.addressBookListener, Ci.nsIAbListener.all);
-      window.addEventListener("unload", () => {
-        MailServices.ab.removeAddressBookListener(this.addressBookListener);
-      }, { once: true });
+      MailServices.ab.addAddressBookListener(
+        this.addressBookListener,
+        Ci.nsIAbListener.all
+      );
+      window.addEventListener(
+        "unload",
+        () => {
+          MailServices.ab.removeAddressBookListener(this.addressBookListener);
+        },
+        { once: true }
+      );
     }
 
     /**
@@ -113,7 +125,7 @@ customElements.whenDefined("menulist").then(() => {
 
       while (directories && directories.hasMoreElements()) {
         let ab = directories.getNext();
-        if ((ab instanceof Ci.nsIAbDirectory) && this._matches(ab)) {
+        if (ab instanceof Ci.nsIAbDirectory && this._matches(ab)) {
           this._directories.push(ab);
 
           if (this.getAttribute("mailinglists") == "true") {
@@ -180,7 +192,7 @@ customElements.whenDefined("menulist").then(() => {
       }
 
       // Attempt to select the persisted or otherwise first directory.
-      this.selectedIndex = this._directories.findIndex((d) => {
+      this.selectedIndex = this._directories.findIndex(d => {
         return d && d[type] == this.value;
       });
 
@@ -203,12 +215,16 @@ customElements.whenDefined("menulist").then(() => {
       }
 
       // This condition is used for instance when creating mailing lists
-      if (this.getAttribute("supportsmaillists") == "true" &&
-        !ab.supportsMailingLists) {
+      if (
+        this.getAttribute("supportsmaillists") == "true" &&
+        !ab.supportsMailingLists
+      ) {
         return false;
       }
 
-      return this.getAttribute(ab.isRemote ? "localonly" : "remoteonly") != "true";
+      return (
+        this.getAttribute(ab.isRemote ? "localonly" : "remoteonly") != "true"
+      );
     }
 
     _sort() {
@@ -299,6 +315,7 @@ customElements.whenDefined("menulist").then(() => {
     }
   }
 
-  customElements.define("menulist-addrbooks",
-    MozMenulistAddrbooks, { extends: "menulist" });
+  customElements.define("menulist-addrbooks", MozMenulistAddrbooks, {
+    extends: "menulist",
+  });
 });

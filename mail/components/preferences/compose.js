@@ -8,7 +8,9 @@
 /* import-globals-from preferences.js */
 /* import-globals-from subdialogs.js */
 
-var {InlineSpellChecker} = ChromeUtils.import("resource://gre/modules/InlineSpellChecker.jsm");
+var { InlineSpellChecker } = ChromeUtils.import(
+  "resource://gre/modules/InlineSpellChecker.jsm"
+);
 
 Preferences.addAll([
   { id: "mail.preferences.compose.selectedTabIndex", type: "int" },
@@ -35,8 +37,9 @@ Preferences.addAll([
   { id: "mail.compose.default_to_paragraph", type: "bool" },
 ]);
 
-document.getElementById("paneCompose")
-        .addEventListener("paneload", function() { gComposePane.init(); });
+document.getElementById("paneCompose").addEventListener("paneload", function() {
+  gComposePane.init();
+});
 
 var gComposePane = {
   mInitialized: false,
@@ -62,11 +65,15 @@ var gComposePane = {
 
     this.setButtonColors();
 
-    if (!(("arguments" in window) && window.arguments[1])) {
+    if (!("arguments" in window && window.arguments[1])) {
       // If no tab was specified, select the last used tab.
-      let preference = Preferences.get("mail.preferences.compose.selectedTabIndex");
-      if (preference.value)
-        document.getElementById("composePrefs").selectedIndex = preference.value;
+      let preference = Preferences.get(
+        "mail.preferences.compose.selectedTabIndex"
+      );
+      if (preference.value) {
+        document.getElementById("composePrefs").selectedIndex =
+          preference.value;
+      }
     }
 
     this.mInitialized = true;
@@ -74,8 +81,12 @@ var gComposePane = {
 
   tabSelectionChanged() {
     if (this.mInitialized) {
-      var preference = Preferences.get("mail.preferences.compose.selectedTabIndex");
-      preference.valueFromPreferences = document.getElementById("composePrefs").selectedIndex;
+      var preference = Preferences.get(
+        "mail.preferences.compose.selectedTabIndex"
+      );
+      preference.valueFromPreferences = document.getElementById(
+        "composePrefs"
+      ).selectedIndex;
     }
   },
 
@@ -84,8 +95,10 @@ var gComposePane = {
   },
 
   attachmentReminderOptionsDialog() {
-    gSubDialog.open("chrome://messenger/content/preferences/attachmentReminder.xul",
-                    "resizable=no");
+    gSubDialog.open(
+      "chrome://messenger/content/preferences/attachmentReminder.xul",
+      "resizable=no"
+    );
   },
 
   updateAutosave() {
@@ -96,18 +109,23 @@ var gComposePane = {
   },
 
   updateUseReaderDefaults() {
-    let useReaderDefaultsChecked = Preferences.get("msgcompose.default_colors").value;
+    let useReaderDefaultsChecked = Preferences.get("msgcompose.default_colors")
+      .value;
     gComposePane.enableElement(
-      document.getElementById("textColorLabel"), !useReaderDefaultsChecked
+      document.getElementById("textColorLabel"),
+      !useReaderDefaultsChecked
     );
     gComposePane.enableElement(
-      document.getElementById("backgroundColorLabel"), !useReaderDefaultsChecked
+      document.getElementById("backgroundColorLabel"),
+      !useReaderDefaultsChecked
     );
     gComposePane.enableElement(
-      document.getElementById("textColorButton"), !useReaderDefaultsChecked
+      document.getElementById("textColorButton"),
+      !useReaderDefaultsChecked
     );
     gComposePane.enableElement(
-      document.getElementById("backgroundColorButton"), !useReaderDefaultsChecked
+      document.getElementById("backgroundColorButton"),
+      !useReaderDefaultsChecked
     );
   },
 
@@ -133,30 +151,44 @@ var gComposePane = {
 
   enableAutocomplete() {
     let acLDAPPref = Preferences.get("ldap_2.autoComplete.useDirectory").value;
-    gComposePane.enableElement(document.getElementById("directoriesList"), acLDAPPref);
-    gComposePane.enableElement(document.getElementById("editButton"), acLDAPPref);
+    gComposePane.enableElement(
+      document.getElementById("directoriesList"),
+      acLDAPPref
+    );
+    gComposePane.enableElement(
+      document.getElementById("editButton"),
+      acLDAPPref
+    );
   },
 
   editDirectories() {
-    gSubDialog.open("chrome://messenger/content/addressbook/pref-editdirectories.xul");
+    gSubDialog.open(
+      "chrome://messenger/content/addressbook/pref-editdirectories.xul"
+    );
   },
 
   initAbDefaultStartupDir() {
-    if (!this.startupDirListener.inited)
+    if (!this.startupDirListener.inited) {
       this.startupDirListener.load();
+    }
 
     let dirList = document.getElementById("defaultStartupDirList");
     if (Services.prefs.getBoolPref("mail.addr_book.view.startupURIisDefault")) {
       // Some directory is the default.
-      let startupURI = Services.prefs.getCharPref("mail.addr_book.view.startupURI");
-      let dirItem = dirList.querySelector(`menupopup menuitem[value="${startupURI}"]`);
+      let startupURI = Services.prefs.getCharPref(
+        "mail.addr_book.view.startupURI"
+      );
+      let dirItem = dirList.querySelector(
+        `menupopup menuitem[value="${startupURI}"]`
+      );
       // It may happen that the stored URI is not in the list.
       // In that case select the "none" value and let the AB code clear out
       // the invalid value, unless the user selects something here.
-      if (dirItem)
+      if (dirItem) {
         dirList.selectedItem = dirItem;
-      else
+      } else {
         dirList.value = "";
+      }
     } else {
       // Choose item meaning there is no default startup directory any more.
       dirList.value = "";
@@ -164,10 +196,12 @@ var gComposePane = {
   },
 
   setButtonColors() {
-    document.getElementById("textColorButton").value =
-      Preferences.get("msgcompose.text_color").value;
-    document.getElementById("backgroundColorButton").value =
-      Preferences.get("msgcompose.background_color").value;
+    document.getElementById("textColorButton").value = Preferences.get(
+      "msgcompose.text_color"
+    ).value;
+    document.getElementById("backgroundColorButton").value = Preferences.get(
+      "msgcompose.background_color"
+    ).value;
   },
 
   setDefaultStartupDir(aDirURI) {
@@ -175,16 +209,24 @@ var gComposePane = {
       // Some AB directory was selected. Set prefs to make this directory
       // the default view when starting up the main AB.
       Services.prefs.setCharPref("mail.addr_book.view.startupURI", aDirURI);
-      Services.prefs.setBoolPref("mail.addr_book.view.startupURIisDefault", true);
+      Services.prefs.setBoolPref(
+        "mail.addr_book.view.startupURIisDefault",
+        true
+      );
     } else {
       // Set pref that there's no default startup view directory any more.
-      Services.prefs.setBoolPref("mail.addr_book.view.startupURIisDefault", false);
+      Services.prefs.setBoolPref(
+        "mail.addr_book.view.startupURIisDefault",
+        false
+      );
     }
   },
 
   initLanguageMenu() {
     var languageMenuList = document.getElementById("languageMenuList");
-    this.mSpellChecker = Cc["@mozilla.org/spellchecker/engine;1"].getService(Ci.mozISpellCheckingEngine);
+    this.mSpellChecker = Cc["@mozilla.org/spellchecker/engine;1"].getService(
+      Ci.mozISpellCheckingEngine
+    );
     var o1 = {};
     var o2 = {};
 
@@ -194,14 +236,15 @@ var gComposePane = {
     this.mSpellChecker.getDictionaryList(o1, o2);
 
     var dictList = o1.value;
-    var count    = o2.value;
+    var count = o2.value;
 
     // if we don't have any dictionaries installed, disable the menu list
     languageMenuList.disabled = !count;
 
     // If dictionary count hasn't changed then no need to update the menu.
-    if (this.mDictCount == count)
+    if (this.mDictCount == count) {
       return;
+    }
 
     // Store current dictionary count.
     this.mDictCount = count;
@@ -213,8 +256,12 @@ var gComposePane = {
     languageMenuList.removeAllItems();
 
     // append the dictionaries to the menu list...
-    for (var i = 0; i < count; i++)
-      languageMenuList.appendItem(sortedList[i].displayName, sortedList[i].localeCode);
+    for (var i = 0; i < count; i++) {
+      languageMenuList.appendItem(
+        sortedList[i].displayName,
+        sortedList[i].localeCode
+      );
+    }
 
     languageMenuList.setInitialSelection();
   },
@@ -222,55 +269,62 @@ var gComposePane = {
   populateFonts() {
     var fontsList = document.getElementById("FontSelect");
     try {
-      var enumerator = Cc["@mozilla.org/gfx/fontenumerator;1"]
-                         .getService(Ci.nsIFontEnumerator);
+      var enumerator = Cc["@mozilla.org/gfx/fontenumerator;1"].getService(
+        Ci.nsIFontEnumerator
+      );
       var localFontCount = { value: 0 };
       var localFonts = enumerator.EnumerateAllFonts(localFontCount);
       for (let i = 0; i < localFonts.length; ++i) {
         // Remove Linux system generic fonts that collide with CSS generic fonts.
-        if (localFonts[i] != "" && localFonts[i] != "serif" &&
-            localFonts[i] != "sans-serif" && localFonts[i] != "monospace")
+        if (
+          localFonts[i] != "" &&
+          localFonts[i] != "serif" &&
+          localFonts[i] != "sans-serif" &&
+          localFonts[i] != "monospace"
+        ) {
           fontsList.appendItem(localFonts[i], localFonts[i]);
+        }
       }
-    } catch (e) { }
+    } catch (e) {}
     // Choose the item after the list is completely generated.
     var preference = Preferences.get(fontsList.getAttribute("preference"));
     fontsList.value = preference.value;
   },
 
-   restoreHTMLDefaults() {
-     // reset throws an exception if the pref value is already the default so
-     // work around that with some try/catch exception handling
-     try {
-       Preferences.get("msgcompose.font_face").reset();
-     } catch (ex) {}
+  restoreHTMLDefaults() {
+    // reset throws an exception if the pref value is already the default so
+    // work around that with some try/catch exception handling
+    try {
+      Preferences.get("msgcompose.font_face").reset();
+    } catch (ex) {}
 
-     try {
-       Preferences.get("msgcompose.font_size").reset();
-     } catch (ex) {}
+    try {
+      Preferences.get("msgcompose.font_size").reset();
+    } catch (ex) {}
 
-     try {
-       Preferences.get("msgcompose.text_color").reset();
-     } catch (ex) {}
+    try {
+      Preferences.get("msgcompose.text_color").reset();
+    } catch (ex) {}
 
-     try {
-       Preferences.get("msgcompose.background_color").reset();
-     } catch (ex) {}
+    try {
+      Preferences.get("msgcompose.background_color").reset();
+    } catch (ex) {}
 
-     try {
-       Preferences.get("msgcompose.default_colors").reset();
-     } catch (ex) {}
+    try {
+      Preferences.get("msgcompose.default_colors").reset();
+    } catch (ex) {}
 
-     this.updateUseReaderDefaults();
-     this.setButtonColors();
+    this.updateUseReaderDefaults();
+    this.setButtonColors();
   },
 
   startupDirListener: {
     inited: false,
     domain: "mail.addr_book.view.startupURI",
     observe(subject, topic, prefName) {
-      if (topic != "nsPref:changed")
+      if (topic != "nsPref:changed") {
         return;
+      }
 
       // If the default startup directory prefs have changed,
       // reinitialize the default startup dir picker to show the new value.
@@ -285,14 +339,31 @@ var gComposePane = {
     },
 
     unload(event) {
-      Services.prefs.removeObserver(gComposePane.startupDirListener.domain,
-                                    gComposePane.startupDirListener);
+      Services.prefs.removeObserver(
+        gComposePane.startupDirListener.domain,
+        gComposePane.startupDirListener
+      );
     },
   },
 };
 
-Preferences.get("mail.compose.autosave").on("change", gComposePane.updateAutosave);
-Preferences.get("mail.compose.attachment_reminder").on("change", gComposePane.updateAttachmentCheck);
-Preferences.get("msgcompose.default_colors").on("change", gComposePane.updateUseReaderDefaults);
-Preferences.get("ldap_2.autoComplete.useDirectory").on("change", gComposePane.enableAutocomplete);
-Preferences.get("mail.collect_email_address_outgoing").on("change", gComposePane.updateEmailCollection);
+Preferences.get("mail.compose.autosave").on(
+  "change",
+  gComposePane.updateAutosave
+);
+Preferences.get("mail.compose.attachment_reminder").on(
+  "change",
+  gComposePane.updateAttachmentCheck
+);
+Preferences.get("msgcompose.default_colors").on(
+  "change",
+  gComposePane.updateUseReaderDefaults
+);
+Preferences.get("ldap_2.autoComplete.useDirectory").on(
+  "change",
+  gComposePane.enableAutocomplete
+);
+Preferences.get("mail.collect_email_address_outgoing").on(
+  "change",
+  gComposePane.updateEmailCollection
+);

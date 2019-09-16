@@ -3,19 +3,16 @@
 "use strict";
 
 const addonID = "policytest@mozilla.com";
-const BASE_URL = "http://mochi.test:8888/browser/comm/mail/components/enterprisepolicies/tests/browser";
+const BASE_URL =
+  "http://mochi.test:8888/browser/comm/mail/components/enterprisepolicies/tests/browser";
 
 add_task(async function test_addon_install() {
   let installPromise = wait_for_addon_install();
   await setupPolicyEngineWithJson({
-    "policies": {
-      "Extensions": {
-        "Install": [
-          `${BASE_URL}/policytest_v0.1.xpi`,
-        ],
-        "Locked": [
-          addonID,
-        ],
+    policies: {
+      Extensions: {
+        Install: [`${BASE_URL}/policytest_v0.1.xpi`],
+        Locked: [addonID],
       },
     },
   });
@@ -24,8 +21,11 @@ add_task(async function test_addon_install() {
   isnot(addon, null, "Addon not installed.");
   is(addon.version, "0.1", "Addon version is correct");
 
-  Assert.deepEqual(addon.installTelemetryInfo, {source: "enterprise-policy"},
-                   "Got the expected addon.installTelemetryInfo");
+  Assert.deepEqual(
+    addon.installTelemetryInfo,
+    { source: "enterprise-policy" },
+    "Got the expected addon.installTelemetryInfo"
+  );
 });
 
 add_task(async function test_addon_locked() {
@@ -37,16 +37,26 @@ add_task(async function test_addon_locked() {
 
   await BrowserTestUtils.waitForCondition(async function() {
     return ContentTask.spawn(browser, null, async function() {
-      return content.document.documentURI.startsWith("about:addons") &&
-             content.document.readyState == "complete";
+      return (
+        content.document.documentURI.startsWith("about:addons") &&
+        content.document.readyState == "complete"
+      );
     });
   });
 
-  await ContentTask.spawn(browser, {addonID}, async function({addonID}) {
+  await ContentTask.spawn(browser, { addonID }, async function({ addonID }) {
     let list = content.document.getElementById("addon-list");
     let flashEntry = list.getElementsByAttribute("value", addonID)[0];
-    let disableBtn = content.document.getAnonymousElementByAttribute(flashEntry, "anonid", "disable-btn");
-    let removeBtn = content.document.getAnonymousElementByAttribute(flashEntry, "anonid", "remove-btn");
+    let disableBtn = content.document.getAnonymousElementByAttribute(
+      flashEntry,
+      "anonid",
+      "disable-btn"
+    );
+    let removeBtn = content.document.getAnonymousElementByAttribute(
+      flashEntry,
+      "anonid",
+      "remove-btn"
+    );
     is(removeBtn.hidden, true, "Remove button should be hidden");
     is(disableBtn.hidden, true, "Disable button should be hidden");
   });
@@ -61,14 +71,10 @@ add_task(async function test_addon_reinstall() {
   let uninstallPromise = wait_for_addon_uninstall();
   let installPromise = wait_for_addon_install();
   await setupPolicyEngineWithJson({
-    "policies": {
-      "Extensions": {
-        "Uninstall": [
-          addonID,
-        ],
-        "Install": [
-          `${BASE_URL}/policytest_v0.2.xpi`,
-        ],
+    policies: {
+      Extensions: {
+        Uninstall: [addonID],
+        Install: [`${BASE_URL}/policytest_v0.2.xpi`],
       },
     },
   });
@@ -80,21 +86,22 @@ add_task(async function test_addon_reinstall() {
   await installPromise;
 
   let addon = await AddonManager.getAddonByID(addonID);
-  isnot(addon, null, "Addon still exists because the policy was used to update it.");
+  isnot(
+    addon,
+    null,
+    "Addon still exists because the policy was used to update it."
+  );
   is(addon.version, "0.2", "New version is correct");
 });
-
 
 add_task(async function test_addon_uninstall() {
   EnterprisePolicyTesting.resetRunOnceState();
 
   let uninstallPromise = wait_for_addon_uninstall();
   await setupPolicyEngineWithJson({
-    "policies": {
-      "Extensions": {
-        "Uninstall": [
-          addonID,
-        ],
+    policies: {
+      Extensions: {
+        Uninstall: [addonID],
       },
     },
   });
@@ -109,17 +116,21 @@ add_task(async function test_addon_download_failure() {
 
   let installPromise = wait_for_addon_install();
   await setupPolicyEngineWithJson({
-    "policies": {
-      "Extensions": {
-        "Install": [
-          `${BASE_URL}/policytest_invalid.xpi`,
-        ],
+    policies: {
+      Extensions: {
+        Install: [`${BASE_URL}/policytest_invalid.xpi`],
       },
     },
   });
 
   await installPromise;
-  is(Services.prefs.prefHasUserValue("browser.policies.runOncePerModification.extensionsInstall"), false, "runOnce pref should be unset");
+  is(
+    Services.prefs.prefHasUserValue(
+      "browser.policies.runOncePerModification.extensionsInstall"
+    ),
+    false,
+    "runOnce pref should be unset"
+  );
 });
 
 function wait_for_addon_install() {
@@ -145,7 +156,7 @@ function wait_for_addon_install() {
 }
 
 function wait_for_addon_uninstall() {
- return new Promise(resolve => {
+  return new Promise(resolve => {
     let listener = {};
     listener.onUninstalled = addon => {
       if (addon.id == addonID) {

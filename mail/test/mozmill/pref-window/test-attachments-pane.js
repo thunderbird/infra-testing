@@ -14,7 +14,11 @@
 
 var MODULE_NAME = "test-attachments-pane";
 var RELATIVE_ROOT = "../shared-modules";
-var MODULE_REQUIRES = ["folder-display-helpers", "pref-window-helpers", "content-tab-helpers"];
+var MODULE_REQUIRES = [
+  "folder-display-helpers",
+  "pref-window-helpers",
+  "content-tab-helpers",
+];
 
 function setupModule(module) {
   for (let lib of MODULE_REQUIRES) {
@@ -33,8 +37,11 @@ function test_persist_tabs() {
 
   // We should default to be viewing the "Outgoing" tab, which is the
   // second tab, with index 1.
-  assert_equals(1, tabbox.selectedIndex,
-                "The second tab should have been selected");
+  assert_equals(
+    1,
+    tabbox.selectedIndex,
+    "The second tab should have been selected"
+  );
   // Switch to the first tab.
   tabbox.selectedIndex = 0;
   close_pref_tab(prefTab);
@@ -43,8 +50,11 @@ function test_persist_tabs() {
   tabbox = content_tab_e(prefTab, "attachmentPrefs");
 
   // We should default to be viewing the first tab now.
-  assert_equals(0, tabbox.selectedIndex,
-                "The first tab selection should have been persisted");
+  assert_equals(
+    0,
+    tabbox.selectedIndex,
+    "The first tab selection should have been persisted"
+  );
   // Switch back to the second tab.
   tabbox.selectedIndex = 1;
   close_pref_tab(prefTab);
@@ -53,7 +63,10 @@ function test_persist_tabs() {
   tabbox = content_tab_e(prefTab, "attachmentPrefs");
 
   // We should default to be viewing the second tab.
-  assert_equals(1, tabbox.selectedIndex,
-                  "The second tab selection should have been persisted");
+  assert_equals(
+    1,
+    tabbox.selectedIndex,
+    "The second tab selection should have been persisted"
+  );
   close_pref_tab(prefTab);
 }

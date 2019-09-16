@@ -11,7 +11,11 @@
 Preferences.addAll([
   { id: "pref.privacy.disable_button.cookie_exceptions", type: "bool" },
   { id: "pref.privacy.disable_button.view_cookies", type: "bool" },
-  { id: "mailnews.message_display.disable_remote_image", type: "bool", inverted: "true" },
+  {
+    id: "mailnews.message_display.disable_remote_image",
+    type: "bool",
+    inverted: "true",
+  },
   { id: "places.history.enabled", type: "bool" },
   { id: "network.cookie.cookieBehavior", type: "int" },
   { id: "network.cookie.lifetimePolicy", type: "int" },
@@ -19,22 +23,25 @@ Preferences.addAll([
   { id: "privacy.donottrackheader.enabled", type: "bool" },
 ]);
 
-document.getElementById("panePrivacy")
-        .addEventListener("paneload", function() { gPrivacyPane.init(); });
+document.getElementById("panePrivacy").addEventListener("paneload", function() {
+  gPrivacyPane.init();
+});
 
 var gPrivacyPane = {
-
-  init() {
-  },
+  init() {},
 
   /**
    * Reload the current message after a preference affecting the view
    * has been changed and we are in instantApply mode.
    */
   reloadMessageInOpener() {
-    if (Services.prefs.getBoolPref("browser.preferences.instantApply") &&
-        window.opener && typeof(window.opener.ReloadMessage) == "function")
+    if (
+      Services.prefs.getBoolPref("browser.preferences.instantApply") &&
+      window.opener &&
+      typeof window.opener.ReloadMessage == "function"
+    ) {
       window.opener.ReloadMessage();
+    }
   },
 
   /**
@@ -44,13 +51,15 @@ var gPrivacyPane = {
    */
   readAcceptCookies() {
     let pref = Preferences.get("network.cookie.cookieBehavior");
-    let acceptThirdPartyLabel = document.getElementById("acceptThirdPartyLabel");
+    let acceptThirdPartyLabel = document.getElementById(
+      "acceptThirdPartyLabel"
+    );
     let acceptThirdPartyMenu = document.getElementById("acceptThirdPartyMenu");
     let keepUntil = document.getElementById("keepUntil");
     let menu = document.getElementById("keepCookiesUntil");
 
     // enable the rest of the UI for anything other than "disable all cookies"
-    let acceptCookies = (pref.value != 2);
+    let acceptCookies = pref.value != 2;
 
     acceptThirdPartyLabel.disabled = acceptThirdPartyMenu.disabled = !acceptCookies;
     keepUntil.disabled = menu.disabled = !acceptCookies;
@@ -68,8 +77,9 @@ var gPrivacyPane = {
     let accept = document.getElementById("acceptCookies");
     let acceptThirdPartyMenu = document.getElementById("acceptThirdPartyMenu");
     // if we're enabling cookies, automatically select 'accept third party always'
-    if (accept.checked)
+    if (accept.checked) {
       acceptThirdPartyMenu.selectedIndex = 0;
+    }
 
     return accept.checked ? 0 : 2;
   },
@@ -88,8 +98,11 @@ var gPrivacyPane = {
       windowTitle: bundle.getString("cookiepermissionstitle"),
       introText: bundle.getString("cookiepermissionstext"),
     };
-    gSubDialog.open("chrome://messenger/content/preferences/permissions.xul",
-                    null, params);
+    gSubDialog.open(
+      "chrome://messenger/content/preferences/permissions.xul",
+      null,
+      params
+    );
   },
 
   /**
@@ -148,9 +161,15 @@ var gPrivacyPane = {
       windowTitle: bundle.getString("imagepermissionstitle"),
       introText: bundle.getString("imagepermissionstext"),
     };
-    gSubDialog.open("chrome://messenger/content/preferences/permissions.xul",
-                    null, params);
+    gSubDialog.open(
+      "chrome://messenger/content/preferences/permissions.xul",
+      null,
+      params
+    );
   },
 };
 
-Preferences.get("mailnews.message_display.disable_remote_image").on("change", gPrivacyPane.reloadMessageInOpener);
+Preferences.get("mailnews.message_display.disable_remote_image").on(
+  "change",
+  gPrivacyPane.reloadMessageInOpener
+);

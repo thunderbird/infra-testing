@@ -5,10 +5,12 @@
 let gAccount;
 
 async function openComposeWindow() {
-  let params = Cc["@mozilla.org/messengercompose/composeparams;1"]
-                 .createInstance(Ci.nsIMsgComposeParams);
-  let composeFields = Cc["@mozilla.org/messengercompose/composefields;1"]
-                        .createInstance(Ci.nsIMsgCompFields);
+  let params = Cc[
+    "@mozilla.org/messengercompose/composeparams;1"
+  ].createInstance(Ci.nsIMsgComposeParams);
+  let composeFields = Cc[
+    "@mozilla.org/messengercompose/composefields;1"
+  ].createInstance(Ci.nsIMsgCompFields);
 
   params.identity = gAccount.defaultIdentity;
   params.composeFields = composeFields;
@@ -17,9 +19,13 @@ async function openComposeWindow() {
     let observer = {
       observe(subject, topic, data) {
         Services.ww.unregisterNotification(observer);
-        subject.addEventListener("load", () => {
-          promiseAnimationFrame().then(resolve);
-        }, { once: true });
+        subject.addEventListener(
+          "load",
+          () => {
+            promiseAnimationFrame().then(resolve);
+          },
+          { once: true }
+        );
       },
     };
     Services.ww.registerNotification(observer);
@@ -45,34 +51,62 @@ async function test_it(extensionDetails, toolbarId) {
 
     let button = composeDocument.getElementById(buttonId);
     ok(button, "Button created");
-    is(getComputedStyle(button).MozBinding,
-      `url("chrome://global/content/bindings/toolbarbutton.xml#toolbarbutton-badged")`);
+    is(
+      getComputedStyle(button).MozBinding,
+      `url("chrome://global/content/bindings/toolbarbutton.xml#toolbarbutton-badged")`
+    );
     is(toolbar.id, button.parentNode.id, "Button added to toolbar");
-    ok(toolbar.currentSet.split(",").includes(buttonId), "Button added to toolbar current set");
+    ok(
+      toolbar.currentSet.split(",").includes(buttonId),
+      "Button added to toolbar current set"
+    );
     if (toolbarId != "FormatToolbar") {
-      ok(toolbar.getAttribute("currentset").split(",").includes(buttonId),
-         "Button added to toolbar current set attribute");
-      ok(Services.xulStore.getValue(composeWindow.location.href, toolbarId, "currentset")
-                          .split(",")
-                          .includes(buttonId),
-         "Button added to toolbar current set persistence");
+      ok(
+        toolbar
+          .getAttribute("currentset")
+          .split(",")
+          .includes(buttonId),
+        "Button added to toolbar current set attribute"
+      );
+      ok(
+        Services.xulStore
+          .getValue(composeWindow.location.href, toolbarId, "currentset")
+          .split(",")
+          .includes(buttonId),
+        "Button added to toolbar current set persistence"
+      );
     }
 
-    let icon = composeDocument.getAnonymousElementByAttribute(button, "class", "toolbarbutton-icon");
-    is(getComputedStyle(icon).listStyleImage,
-       `url("chrome://messenger/content/extension.svg")`, "Default icon");
+    let icon = composeDocument.getAnonymousElementByAttribute(
+      button,
+      "class",
+      "toolbarbutton-icon"
+    );
+    is(
+      getComputedStyle(icon).listStyleImage,
+      `url("chrome://messenger/content/extension.svg")`,
+      "Default icon"
+    );
     let label = composeDocument.getAnonymousElementByAttribute(
-      button, "class", "toolbarbutton-text"
+      button,
+      "class",
+      "toolbarbutton-text"
     );
     is(label.value, "This is a test", "Correct label");
 
-    EventUtils.synthesizeMouseAtCenter(button, { clickCount: 1 }, composeWindow);
+    EventUtils.synthesizeMouseAtCenter(
+      button,
+      { clickCount: 1 },
+      composeWindow
+    );
     await extension.awaitMessage("composeAction");
     await promiseAnimationFrame(composeWindow);
 
     is(composeDocument.getElementById(buttonId), button);
     label = composeDocument.getAnonymousElementByAttribute(
-      button, "class", "toolbarbutton-text"
+      button,
+      "class",
+      "toolbarbutton-text"
     );
     is(label.value, "New title", "Correct label");
   } finally {
@@ -81,10 +115,13 @@ async function test_it(extensionDetails, toolbarId) {
 
     ok(!composeDocument.getElementById(buttonId), "Button destroyed");
     if (toolbarId != "FormatToolbar") {
-      ok(!Services.xulStore.getValue(composeWindow.location.href, toolbarId, "currentset")
-                           .split(",")
-                           .includes(buttonId),
-        "Button removed from toolbar current set persistence");
+      ok(
+        !Services.xulStore
+          .getValue(composeWindow.location.href, toolbarId, "currentset")
+          .split(",")
+          .includes(buttonId),
+        "Button removed from toolbar current set persistence"
+      );
     }
     composeWindow.close();
   }
@@ -113,7 +150,7 @@ add_task(async function the_test() {
 
   async function background_popup() {
     browser.test.log("popup background script ran");
-    browser.runtime.onMessage.addListener(async (msg) => {
+    browser.runtime.onMessage.addListener(async msg => {
       browser.test.assertEq("popup.html", msg);
       await browser.composeAction.setTitle({ title: "New title" });
       await new Promise(setTimeout);
@@ -170,5 +207,7 @@ add_task(async function the_test() {
   extensionDetails.manifest.compose_action.default_popup = "popup.html";
   await test_it(extensionDetails, "FormatToolbar");
 
-  Services.xulStore.removeDocument("chrome://messenger/content/messengercompose/messengercompose.xul");
+  Services.xulStore.removeDocument(
+    "chrome://messenger/content/messengercompose/messengercompose.xul"
+  );
 });

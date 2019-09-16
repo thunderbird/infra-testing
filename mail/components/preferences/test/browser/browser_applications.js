@@ -13,13 +13,16 @@ add_task(async () => {
 add_task(async () => {
   await testRadioButtons("paneApplications", "attachmentsInTab", {
     pref: "browser.download.useDownloadDir",
-    states: [{
-      id: "saveTo",
-      prefValue: true,
-      enabledElements: ["#downloadFolder", "#chooseFolder"],
-    }, {
-      id: "alwaysAsk",
-      prefValue: false,
-    }],
+    states: [
+      {
+        id: "saveTo",
+        prefValue: true,
+        enabledElements: ["#downloadFolder", "#chooseFolder"],
+      },
+      {
+        id: "alwaysAsk",
+        prefValue: false,
+      },
+    ],
   });
 });

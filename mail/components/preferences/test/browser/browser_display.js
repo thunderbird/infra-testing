@@ -10,43 +10,61 @@ add_task(async () => {
     pref: "mail.display_glyph",
   });
 
-  await testCheckboxes("paneDisplay", "displayTab", {
-    checkboxID: "automaticallyMarkAsRead",
-    pref: "mailnews.mark_message_read.auto",
-    enabledElements: ["#markAsReadAutoPreferences radio"],
-  }, {
-    checkboxID: "closeMsgOnMoveOrDelete",
-    pref: "mail.close_message_window.on_delete",
-  }, {
-    checkboxID: "showCondensedAddresses",
-    pref: "mail.showCondensedAddresses",
-  });
+  await testCheckboxes(
+    "paneDisplay",
+    "displayTab",
+    {
+      checkboxID: "automaticallyMarkAsRead",
+      pref: "mailnews.mark_message_read.auto",
+      enabledElements: ["#markAsReadAutoPreferences radio"],
+    },
+    {
+      checkboxID: "closeMsgOnMoveOrDelete",
+      pref: "mail.close_message_window.on_delete",
+    },
+    {
+      checkboxID: "showCondensedAddresses",
+      pref: "mail.showCondensedAddresses",
+    }
+  );
 });
 
 add_task(async () => {
   Services.prefs.setBoolPref("mailnews.mark_message_read.auto", true);
 
-  await testRadioButtons("paneDisplay", "displayTab", {
-    pref: "mailnews.mark_message_read.delay",
-    states: [{
-      id: "mark_read_immediately",
-      prefValue: false,
-    }, {
-      id: "markAsReadAfterDelay",
-      prefValue: true,
-      enabledElements: ["#markAsReadDelay"],
-    }],
-  }, {
-    pref: "mail.openMessageBehavior",
-    states: [{
-      id: "newTab",
-      prefValue: 2,
-    }, {
-      id: "newWindow",
-      prefValue: 0,
-    }, {
-      id: "existingWindow",
-      prefValue: 1,
-    }],
-  });
+  await testRadioButtons(
+    "paneDisplay",
+    "displayTab",
+    {
+      pref: "mailnews.mark_message_read.delay",
+      states: [
+        {
+          id: "mark_read_immediately",
+          prefValue: false,
+        },
+        {
+          id: "markAsReadAfterDelay",
+          prefValue: true,
+          enabledElements: ["#markAsReadDelay"],
+        },
+      ],
+    },
+    {
+      pref: "mail.openMessageBehavior",
+      states: [
+        {
+          id: "newTab",
+          prefValue: 2,
+        },
+        {
+          id: "newWindow",
+          prefValue: 0,
+        },
+        {
+          id: "existingWindow",
+          prefValue: 1,
+        },
+      ],
+    }
+  );
 });

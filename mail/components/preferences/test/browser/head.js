@@ -33,7 +33,11 @@ async function openNewPrefsTab(paneID, tabID, otherArgs) {
     await new Promise(resolve => setTimeout(resolve));
     is(prefsWindow.getCurrentPaneID(), paneID, `Selected pane is ${paneID}`);
     if (tabID) {
-      is(prefsDocument.querySelector(`#${paneID} tab[selected]`).id, tabID, `Selected tab is ${tabID}`);
+      is(
+        prefsDocument.querySelector(`#${paneID} tab[selected]`).id,
+        tabID,
+        `Selected tab is ${tabID}`
+      );
     }
   } else {
     // If we don't wait here for other scripts to run, they
@@ -67,7 +71,11 @@ async function openExistingPrefsTab(paneID, tabID, otherArgs) {
   await new Promise(resolve => setTimeout(resolve));
   is(prefsWindow.getCurrentPaneID(), paneID, `Selected pane is ${paneID}`);
   if (tabID) {
-    is(prefsDocument.querySelector(`#${paneID} tab[selected]`).id, tabID, `Selected tab is ${tabID}`);
+    is(
+      prefsDocument.querySelector(`#${paneID} tab[selected]`).id,
+      tabID,
+      `Selected tab is ${tabID}`
+    );
   }
 
   registerCleanupOnce();
@@ -129,11 +137,23 @@ async function testCheckboxes(paneID, tabID, ...tests) {
         wantedValue = wantedValue ? test.prefValues[1] : test.prefValues[0];
       }
       let checkbox = prefsDocument.getElementById(test.checkboxID);
-      is(checkbox.checked, checked, "Checkbox " + (checked ? "is" : "isn't") + " checked");
+      is(
+        checkbox.checked,
+        checked,
+        "Checkbox " + (checked ? "is" : "isn't") + " checked"
+      );
       if (typeof wantedValue == "number") {
-        is(Services.prefs.getIntPref(test.pref, -999), wantedValue, `Pref is ${wantedValue}`);
+        is(
+          Services.prefs.getIntPref(test.pref, -999),
+          wantedValue,
+          `Pref is ${wantedValue}`
+        );
       } else {
-        is(Services.prefs.getBoolPref(test.pref), wantedValue, `Pref is ${wantedValue}`);
+        is(
+          Services.prefs.getBoolPref(test.pref),
+          wantedValue,
+          `Pref is ${wantedValue}`
+        );
       }
 
       if (test.enabledElements) {
@@ -143,9 +163,16 @@ async function testCheckboxes(paneID, tabID, ...tests) {
         }
         for (let selector of test.enabledElements) {
           let elements = prefsDocument.querySelectorAll(selector);
-          ok(elements.length >= 1, `At least one element matched '${selector}'`);
+          ok(
+            elements.length >= 1,
+            `At least one element matched '${selector}'`
+          );
           for (let element of elements) {
-            is(element.disabled, !disabled, "Element " + (disabled ? "isn't" : "is") + " disabled");
+            is(
+              element.disabled,
+              !disabled,
+              "Element " + (disabled ? "isn't" : "is") + " disabled"
+            );
           }
         }
       }
@@ -199,26 +226,45 @@ async function testRadioButtons(paneID, tabID, ...tests) {
       let testUIState = function(currentState) {
         info(`Testing with ${pref} set to ${currentState.prefValue}`);
         for (let state of states) {
-          let isCurrentState = (state == currentState);
+          let isCurrentState = state == currentState;
           let radio = prefsDocument.getElementById(state.id);
           is(radio.selected, isCurrentState);
 
           if (state.enabledElements) {
             for (let selector of state.enabledElements) {
               let elements = prefsDocument.querySelectorAll(selector);
-              ok(elements.length >= 1, `At least one element matched '${selector}'`);
+              ok(
+                elements.length >= 1,
+                `At least one element matched '${selector}'`
+              );
               for (let element of elements) {
-                is(element.disabled, !isCurrentState, "Element " + (isCurrentState ? "isn't" : "is") + " disabled");
+                is(
+                  element.disabled,
+                  !isCurrentState,
+                  "Element " + (isCurrentState ? "isn't" : "is") + " disabled"
+                );
               }
             }
           }
         }
         if (typeof initialState.prefValue == "number") {
-          is(Services.prefs.getIntPref(pref, -999), currentState.prefValue, `Pref is ${currentState.prefValue}`);
+          is(
+            Services.prefs.getIntPref(pref, -999),
+            currentState.prefValue,
+            `Pref is ${currentState.prefValue}`
+          );
         } else if (typeof initialState.prefValue == "boolean") {
-          is(Services.prefs.getBoolPref(pref), currentState.prefValue, `Pref is ${currentState.prefValue}`);
+          is(
+            Services.prefs.getBoolPref(pref),
+            currentState.prefValue,
+            `Pref is ${currentState.prefValue}`
+          );
         } else {
-          is(Services.prefs.getCharPref(pref, "FAKE VALUE"), currentState.prefValue, `Pref is ${currentState.prefValue}`);
+          is(
+            Services.prefs.getCharPref(pref, "FAKE VALUE"),
+            currentState.prefValue,
+            `Pref is ${currentState.prefValue}`
+          );
         }
       };
 

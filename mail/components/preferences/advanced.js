@@ -10,13 +10,25 @@
 /* import-globals-from subdialogs.js */
 
 // Load DownloadUtils module for convertByteUnits
-var {DownloadUtils} = ChromeUtils.import("resource://gre/modules/DownloadUtils.jsm");
-var {XPCOMUtils} = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-var {AppConstants} = ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
-var {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
-var {L10nRegistry} = ChromeUtils.import("resource://gre/modules/L10nRegistry.jsm");
-var {Localization} = ChromeUtils.import("resource://gre/modules/Localization.jsm");
-var {UpdateUtils} = ChromeUtils.import("resource://gre/modules/UpdateUtils.jsm");
+var { DownloadUtils } = ChromeUtils.import(
+  "resource://gre/modules/DownloadUtils.jsm"
+);
+var { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+var { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
+var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+var { L10nRegistry } = ChromeUtils.import(
+  "resource://gre/modules/L10nRegistry.jsm"
+);
+var { Localization } = ChromeUtils.import(
+  "resource://gre/modules/Localization.jsm"
+);
+var { UpdateUtils } = ChromeUtils.import(
+  "resource://gre/modules/UpdateUtils.jsm"
+);
 
 const AUTO_UPDATE_CHANGED_TOPIC = "auto-update-config-change";
 
@@ -50,14 +62,20 @@ if (AppConstants.MOZ_TELEMETRY_REPORTING) {
 }
 
 if (AppConstants.MOZ_UPDATER) {
-  Preferences.add({ id: "app.update.disable_button.showUpdateHistory", type: "bool" });
+  Preferences.add({
+    id: "app.update.disable_button.showUpdateHistory",
+    type: "bool",
+  });
   if (AppConstants.MOZ_MAINTENANCE_SERVICE) {
     Preferences.add({ id: "app.update.service.enabled", type: "bool" });
   }
 }
 
-document.getElementById("paneAdvanced")
-        .addEventListener("paneload", function() { gAdvancedPane.init(); });
+document
+  .getElementById("paneAdvanced")
+  .addEventListener("paneload", function() {
+    gAdvancedPane.init();
+  });
 
 var gAdvancedPane = {
   mPane: null,
@@ -68,7 +86,8 @@ var gAdvancedPane = {
 
   init() {
     function setEventListener(aId, aEventType, aCallback) {
-      document.getElementById(aId)
+      document
+        .getElementById(aId)
         .addEventListener(aEventType, aCallback.bind(gAdvancedPane));
     }
 
@@ -81,36 +100,50 @@ var gAdvancedPane = {
       this.initMessengerLocale();
     }
 
-    if (!(("arguments" in window) && window.arguments[1])) {
+    if (!("arguments" in window && window.arguments[1])) {
       // If no tab was specified, select the last used tab.
-      let preference = Preferences.get("mail.preferences.advanced.selectedTabIndex");
-      if (preference.value)
-        document.getElementById("advancedPrefs").selectedIndex = preference.value;
+      let preference = Preferences.get(
+        "mail.preferences.advanced.selectedTabIndex"
+      );
+      if (preference.value) {
+        document.getElementById("advancedPrefs").selectedIndex =
+          preference.value;
+      }
     }
-    if (AppConstants.MOZ_UPDATER)
+    if (AppConstants.MOZ_UPDATER) {
       this.updateReadPrefs();
+    }
 
     // Default store type initialization.
     let storeTypeElement = document.getElementById("storeTypeMenulist");
     // set the menuitem to match the account
-    let defaultStoreID = Services.prefs.getCharPref("mail.serverDefaultStoreContractID");
-    let targetItem = storeTypeElement.getElementsByAttribute("value", defaultStoreID);
+    let defaultStoreID = Services.prefs.getCharPref(
+      "mail.serverDefaultStoreContractID"
+    );
+    let targetItem = storeTypeElement.getElementsByAttribute(
+      "value",
+      defaultStoreID
+    );
     storeTypeElement.selectedItem = targetItem[0];
 
-    if (AppConstants.MOZ_CRASHREPORTER)
+    if (AppConstants.MOZ_CRASHREPORTER) {
       this.initSubmitCrashes();
+    }
     this.initTelemetry();
     this.updateActualCacheSize();
 
     // Search integration -- check whether we should hide or disable integration
     let hideSearchUI = false;
     let disableSearchUI = false;
-    const {SearchIntegration} = ChromeUtils.import("resource:///modules/SearchIntegration.jsm");
+    const { SearchIntegration } = ChromeUtils.import(
+      "resource:///modules/SearchIntegration.jsm"
+    );
     if (SearchIntegration) {
-      if (SearchIntegration.osVersionTooLow)
+      if (SearchIntegration.osVersionTooLow) {
         hideSearchUI = true;
-      else if (SearchIntegration.osComponentsNotRunning)
+      } else if (SearchIntegration.osComponentsNotRunning) {
         disableSearchUI = true;
+      }
     } else {
       hideSearchUI = true;
     }
@@ -134,16 +167,17 @@ var gAdvancedPane = {
         document.getElementById("alwaysCheckDefault").disabled = true;
         document.getElementById("alwaysCheckDefault").checked = false;
       }
-      if (document.getElementById("checkDefaultButton"))
+      if (document.getElementById("checkDefaultButton")) {
         document.getElementById("checkDefaultButton").disabled = true;
+      }
       this.mShellServiceWorking = false;
     }
 
     if (AppConstants.MOZ_UPDATER) {
       gAppUpdater = new appUpdater(); // eslint-disable-line no-global-assign
       if (Services.policies && !Services.policies.isAllowed("appUpdate")) {
-          document.getElementById("updateAllowDescription").hidden = true;
-          document.getElementById("updateRadioGroup").hidden = true;
+        document.getElementById("updateAllowDescription").hidden = true;
+        document.getElementById("updateRadioGroup").hidden = true;
         if (AppConstants.MOZ_MAINTENANCE_SERVICE) {
           document.getElementById("useService").hidden = true;
         }
@@ -153,8 +187,11 @@ var gAdvancedPane = {
         document.getElementById("manualDesktop").removeAttribute("selected");
         // Start reading the correct value from the disk
         this.updateReadPrefs();
-        setEventListener("updateRadioGroup", "command",
-                         gAdvancedPane.updateWritePrefs);
+        setEventListener(
+          "updateRadioGroup",
+          "command",
+          gAdvancedPane.updateWritePrefs
+        );
       }
 
       let distroId = Services.prefs.getCharPref("distribution.id", "");
@@ -165,7 +202,10 @@ var gAdvancedPane = {
         distroIdField.value = distroId + " - " + distroVersion;
         distroIdField.style.display = "block";
 
-        let distroAbout = Services.prefs.getStringPref("distribution.about", "");
+        let distroAbout = Services.prefs.getStringPref(
+          "distribution.about",
+          ""
+        );
         if (distroAbout) {
           let distroField = document.getElementById("distribution");
           distroField.value = distroAbout;
@@ -177,7 +217,9 @@ var gAdvancedPane = {
         // On Windows, the Application Update setting is an installation-
         // specific preference, not a profile-specific one. Show a warning to
         // inform users of this.
-        let updateContainer = document.getElementById("updateSettingsContainer");
+        let updateContainer = document.getElementById(
+          "updateSettingsContainer"
+        );
         updateContainer.classList.add("updateSettingCrossUserWarningContainer");
         document.getElementById("updateSettingCrossUserWarning").hidden = false;
       }
@@ -187,15 +229,17 @@ var gAdvancedPane = {
         // If it isn't installed, don't show the preference at all.
         let installed;
         try {
-          let wrk = Cc["@mozilla.org/windows-registry-key;1"]
-                    .createInstance(Ci.nsIWindowsRegKey);
-          wrk.open(wrk.ROOT_KEY_LOCAL_MACHINE,
-                   "SOFTWARE\\Mozilla\\MaintenanceService",
-                   wrk.ACCESS_READ | wrk.WOW64_64);
+          let wrk = Cc["@mozilla.org/windows-registry-key;1"].createInstance(
+            Ci.nsIWindowsRegKey
+          );
+          wrk.open(
+            wrk.ROOT_KEY_LOCAL_MACHINE,
+            "SOFTWARE\\Mozilla\\MaintenanceService",
+            wrk.ACCESS_READ | wrk.WOW64_64
+          );
           installed = wrk.readIntValue("Installed");
           wrk.close();
-        } catch (e) {
-        }
+        } catch (e) {}
         if (installed != 1) {
           document.getElementById("useService").hidden = true;
         }
@@ -213,10 +257,12 @@ var gAdvancedPane = {
       }
 
       // Append "(32-bit)" or "(64-bit)" build architecture to the version number:
-      let bundle = Services.strings.createBundle("chrome://messenger/locale/messenger.properties");
+      let bundle = Services.strings.createBundle(
+        "chrome://messenger/locale/messenger.properties"
+      );
       let archResource = Services.appinfo.is64Bit
-                         ? "aboutDialog.architecture.sixtyFourBit"
-                         : "aboutDialog.architecture.thirtyTwoBit";
+        ? "aboutDialog.architecture.sixtyFourBit"
+        : "aboutDialog.architecture.thirtyTwoBit";
       let arch = bundle.GetStringFromName(archResource);
       version += ` (${arch})`;
 
@@ -225,9 +271,13 @@ var gAdvancedPane = {
       if (!AppConstants.NIGHTLY_BUILD) {
         // Show a release notes link if we have a URL.
         let relNotesLink = document.getElementById("releasenotes");
-        let relNotesPrefType = Services.prefs.getPrefType("app.releaseNotesURL");
+        let relNotesPrefType = Services.prefs.getPrefType(
+          "app.releaseNotesURL"
+        );
         if (relNotesPrefType != Services.prefs.PREF_INVALID) {
-          let relNotesURL = Services.urlFormatter.formatURLPref("app.releaseNotesURL");
+          let relNotesURL = Services.urlFormatter.formatURLPref(
+            "app.releaseNotesURL"
+          );
           if (relNotesURL != "about:blank") {
             relNotesLink.href = relNotesURL;
             relNotesLink.hidden = false;
@@ -251,8 +301,11 @@ var gAdvancedPane = {
 
   tabSelectionChanged() {
     if (this.mInitialized) {
-      Preferences.get("mail.preferences.advanced.selectedTabIndex")
-                 .valueFromPreferences = document.getElementById("advancedPrefs").selectedIndex;
+      Preferences.get(
+        "mail.preferences.advanced.selectedTabIndex"
+      ).valueFromPreferences = document.getElementById(
+        "advancedPrefs"
+      ).selectedIndex;
     }
   },
 
@@ -264,12 +317,16 @@ var gAdvancedPane = {
    * already the default.
    */
   checkDefaultNow(aAppType) {
-    if (!this.mShellServiceWorking)
+    if (!this.mShellServiceWorking) {
       return;
+    }
 
     // otherwise, bring up the default client dialog
-    gSubDialog.open("chrome://messenger/content/systemIntegrationDialog.xul",
-                    "resizable=no", "calledFromPrefs");
+    gSubDialog.open(
+      "chrome://messenger/content/systemIntegrationDialog.xul",
+      "resizable=no",
+      "calledFromPrefs"
+    );
   },
 
   showConfigEdit() {
@@ -306,7 +363,10 @@ var gAdvancedPane = {
         if (!prefStrBundle.getFormattedString) {
           return;
         }
-        actualSizeLabel.value = prefStrBundle.getFormattedString("actualDiskCacheSize", size);
+        actualSizeLabel.value = prefStrBundle.getFormattedString(
+          "actualDiskCacheSize",
+          size
+        );
       },
 
       QueryInterface: ChromeUtils.generateQI([
@@ -315,7 +375,9 @@ var gAdvancedPane = {
       ]),
     };
 
-    actualSizeLabel.value = prefStrBundle.getString("actualDiskCacheSizeCalculated");
+    actualSizeLabel.value = prefStrBundle.getString(
+      "actualDiskCacheSizeCalculated"
+    );
 
     try {
       Services.cache2.asyncGetDiskConsumption(this.observer);
@@ -331,7 +393,8 @@ var gAdvancedPane = {
   readSmartSizeEnabled() {
     // The smart_size.enabled preference element is inverted="true", so its
     // value is the opposite of the actual pref value
-    var disabled = Preferences.get("browser.cache.disk.smart_size.enabled").value;
+    var disabled = Preferences.get("browser.cache.disk.smart_size.enabled")
+      .value;
     this.updateCacheSizeUI(!disabled);
   },
 
@@ -368,8 +431,10 @@ var gAdvancedPane = {
    * Selects the correct item in the update radio group
    */
   async updateReadPrefs() {
-    if (AppConstants.MOZ_UPDATER &&
-        (!Services.policies || Services.policies.isAllowed("appUpdate"))) {
+    if (
+      AppConstants.MOZ_UPDATER &&
+      (!Services.policies || Services.policies.isAllowed("appUpdate"))
+    ) {
       let radiogroup = document.getElementById("updateRadioGroup");
       radiogroup.disabled = true;
       try {
@@ -386,10 +451,12 @@ var gAdvancedPane = {
    * Writes the value of the update radio group to the disk
    */
   async updateWritePrefs() {
-    if (AppConstants.MOZ_UPDATER &&
-        (!Services.policies || Services.policies.isAllowed("appUpdate"))) {
+    if (
+      AppConstants.MOZ_UPDATER &&
+      (!Services.policies || Services.policies.isAllowed("appUpdate"))
+    ) {
       let radiogroup = document.getElementById("updateRadioGroup");
-      let updateAutoValue = (radiogroup.value == "true");
+      let updateAutoValue = radiogroup.value == "true";
       radiogroup.disabled = true;
       try {
         await UpdateUtils.setAppUpdateAutoEnabled(updateAutoValue);
@@ -404,15 +471,24 @@ var gAdvancedPane = {
 
   async reportUpdatePrefWriteError(error) {
     let [title, message] = await document.l10n.formatValues([
-      {id: "update-pref-write-failure-title"},
-      {id: "update-pref-write-failure-message", args: {path: error.path}},
+      { id: "update-pref-write-failure-title" },
+      { id: "update-pref-write-failure-message", args: { path: error.path } },
     ]);
 
     // Set up the Ok Button
-    let buttonFlags = (Services.prompt.BUTTON_POS_0 *
-                       Services.prompt.BUTTON_TITLE_OK);
-    Services.prompt.confirmEx(window, title, message, buttonFlags,
-                              null, null, null, null, {});
+    let buttonFlags =
+      Services.prompt.BUTTON_POS_0 * Services.prompt.BUTTON_TITLE_OK;
+    Services.prompt.confirmEx(
+      window,
+      title,
+      message,
+      buttonFlags,
+      null,
+      null,
+      null,
+      null,
+      {}
+    );
   },
 
   showUpdates() {
@@ -426,16 +502,18 @@ var gAdvancedPane = {
   },
 
   updateSubmitCrashReports(aChecked) {
-    Cc["@mozilla.org/toolkit/crash-reporter;1"]
-      .getService(Ci.nsICrashReporter)
-      .submitReports = aChecked;
+    Cc["@mozilla.org/toolkit/crash-reporter;1"].getService(
+      Ci.nsICrashReporter
+    ).submitReports = aChecked;
   },
   /**
    * Display the return receipts configuration dialog.
    */
   showReturnReceipts() {
-    gSubDialog.open("chrome://messenger/content/preferences/receipts.xul",
-                    "resizable=no");
+    gSubDialog.open(
+      "chrome://messenger/content/preferences/receipts.xul",
+      "resizable=no"
+    );
   },
 
   /**
@@ -449,8 +527,10 @@ var gAdvancedPane = {
    * Display the the offline settings dialog.
    */
   showOffline() {
-    gSubDialog.open("chrome://messenger/content/preferences/offline.xul",
-                    "resizable=no");
+    gSubDialog.open(
+      "chrome://messenger/content/preferences/offline.xul",
+      "resizable=no"
+    );
   },
 
   /**
@@ -513,8 +593,9 @@ var gAdvancedPane = {
       return true; // Yes, open the link in a content tab.
     }
     var url = evt.target.getAttribute("href");
-    var messenger = Cc["@mozilla.org/messenger;1"]
-      .createInstance(Ci.nsIMessenger);
+    var messenger = Cc["@mozilla.org/messenger;1"].createInstance(
+      Ci.nsIMessenger
+    );
     messenger.launchExternalURL(url);
     evt.preventDefault();
     return false;
@@ -538,24 +619,28 @@ var gAdvancedPane = {
   initSubmitCrashes() {
     var checkbox = document.getElementById("submitCrashesBox");
     try {
-      var cr = Cc["@mozilla.org/toolkit/crash-reporter;1"].
-               getService(Ci.nsICrashReporter);
+      var cr = Cc["@mozilla.org/toolkit/crash-reporter;1"].getService(
+        Ci.nsICrashReporter
+      );
       checkbox.checked = cr.submitReports;
     } catch (e) {
       checkbox.style.display = "none";
     }
-    this._setupLearnMoreLink("toolkit.crashreporter.infoURL", "crashReporterLearnMore");
+    this._setupLearnMoreLink(
+      "toolkit.crashreporter.infoURL",
+      "crashReporterLearnMore"
+    );
   },
 
   updateSubmitCrashes() {
     var checkbox = document.getElementById("submitCrashesBox");
     try {
-      var cr = Cc["@mozilla.org/toolkit/crash-reporter;1"].
-               getService(Ci.nsICrashReporter);
+      var cr = Cc["@mozilla.org/toolkit/crash-reporter;1"].getService(
+        Ci.nsICrashReporter
+      );
       cr.submitReports = checkbox.checked;
-    } catch (e) { }
+    } catch (e) {}
   },
-
 
   /**
    * The preference/checkbox is configured in XUL.
@@ -563,23 +648,32 @@ var gAdvancedPane = {
    * In all cases, set up the Learn More link sanely
    */
   initTelemetry() {
-    if (AppConstants.MOZ_TELEMETRY_REPORTING)
-      this._setupLearnMoreLink("toolkit.telemetry.infoURL", "telemetryLearnMore");
+    if (AppConstants.MOZ_TELEMETRY_REPORTING) {
+      this._setupLearnMoreLink(
+        "toolkit.telemetry.infoURL",
+        "telemetryLearnMore"
+      );
+    }
   },
 
   formatLocaleSetLabels() {
-    const osprefs =
-      Cc["@mozilla.org/intl/ospreferences;1"]
-        .getService(Ci.mozIOSPreferences);
+    const osprefs = Cc["@mozilla.org/intl/ospreferences;1"].getService(
+      Ci.mozIOSPreferences
+    );
     let appLocale = Services.locale.appLocalesAsBCP47[0];
     let rsLocale = osprefs.regionalPrefsLocales[0];
-    let names = Services.intl.getLocaleDisplayNames(undefined, [appLocale, rsLocale]);
+    let names = Services.intl.getLocaleDisplayNames(undefined, [
+      appLocale,
+      rsLocale,
+    ]);
     let appLocaleRadio = document.getElementById("appLocale");
     let rsLocaleRadio = document.getElementById("rsLocale");
-    let appLocaleLabel = this.mBundle.getFormattedString("appLocale.label",
-                                                         [names[0]]);
-    let rsLocaleLabel = this.mBundle.getFormattedString("rsLocale.label",
-                                                        [names[1]]);
+    let appLocaleLabel = this.mBundle.getFormattedString("appLocale.label", [
+      names[0],
+    ]);
+    let rsLocaleLabel = this.mBundle.getFormattedString("rsLocale.label", [
+      names[1],
+    ]);
     appLocaleRadio.setAttribute("label", appLocaleLabel);
     rsLocaleRadio.setAttribute("label", rsLocaleLabel);
     appLocaleRadio.accessKey = this.mBundle.getString("appLocale.accesskey");
@@ -588,18 +682,20 @@ var gAdvancedPane = {
 
   // Load the preferences string bundle for other locales with fallbacks.
   getBundleForLocales(newLocales) {
-    let locales = Array.from(new Set([
-      ...newLocales,
-      ...Services.locale.requestedLocales,
-      Services.locale.lastFallbackLocale,
-    ]));
+    let locales = Array.from(
+      new Set([
+        ...newLocales,
+        ...Services.locale.requestedLocales,
+        Services.locale.lastFallbackLocale,
+      ])
+    );
     function generateBundles(resourceIds) {
       return L10nRegistry.generateBundles(locales, resourceIds);
     }
-    return new Localization([
-      "messenger/preferences/preferences.ftl",
-      "branding/brand.ftl",
-    ], generateBundles);
+    return new Localization(
+      ["messenger/preferences/preferences.ftl", "branding/brand.ftl"],
+      generateBundles
+    );
   },
 
   initMessengerLocale() {
@@ -614,11 +710,11 @@ var gAdvancedPane = {
   async setMessengerLocales(selected) {
     let available = await getAvailableLocales();
     let localeNames = Services.intl.getLocaleDisplayNames(undefined, available);
-    let locales = available.map((code, i) => ({code, name: localeNames[i]}));
+    let locales = available.map((code, i) => ({ code, name: localeNames[i] }));
     locales.sort((a, b) => a.name > b.name);
 
     let fragment = document.createDocumentFragment();
-    for (let {code, name} of locales) {
+    for (let { code, name } of locales) {
       let menuitem = document.createXULElement("menuitem");
       menuitem.setAttribute("value", code);
       menuitem.setAttribute("label", name);
@@ -630,10 +726,12 @@ var gAdvancedPane = {
       let menuitem = document.createXULElement("menuitem");
       menuitem.id = "defaultMessengerLanguageSearch";
       menuitem.setAttribute(
-        "label", await document.l10n.formatValue("messenger-languages-search"));
+        "label",
+        await document.l10n.formatValue("messenger-languages-search")
+      );
       menuitem.setAttribute("value", "search");
       menuitem.addEventListener("command", () => {
-        gAdvancedPane.showMessengerLanguages({search: true});
+        gAdvancedPane.showMessengerLanguages({ search: true });
       });
       fragment.appendChild(menuitem);
     }
@@ -647,11 +745,14 @@ var gAdvancedPane = {
     document.getElementById("messengerLanguagesBox").hidden = false;
   },
 
-  showMessengerLanguages({search}) {
-    let opts = {selected: gAdvancedPane.selectedLocales, search};
+  showMessengerLanguages({ search }) {
+    let opts = { selected: gAdvancedPane.selectedLocales, search };
     gSubDialog.open(
       "chrome://messenger/content/preferences/messengerLanguages.xul",
-      null, opts, this.messengerLanguagesClosed);
+      null,
+      opts,
+      this.messengerLanguagesClosed
+    );
   },
 
   /* Show or hide the confirm change message bar based on the updated ordering. */
@@ -679,10 +780,16 @@ var gAdvancedPane = {
     let newBundle = this.getBundleForLocales(locales);
 
     // Find the messages and labels.
-    let messages = await Promise.all([newBundle, document.l10n].map(
-      async (bundle) => bundle.formatValue("confirm-messenger-language-change-description")));
-    let buttonLabels = await Promise.all([newBundle, document.l10n].map(
-      async (bundle) => bundle.formatValue("confirm-messenger-language-change-button")));
+    let messages = await Promise.all(
+      [newBundle, document.l10n].map(async bundle =>
+        bundle.formatValue("confirm-messenger-language-change-description")
+      )
+    );
+    let buttonLabels = await Promise.all(
+      [newBundle, document.l10n].map(async bundle =>
+        bundle.formatValue("confirm-messenger-language-change-button")
+      )
+    );
 
     // If both the message and label are the same, just include one row.
     if (messages[0] == messages[1] && buttonLabels[0] == buttonLabels[1]) {
@@ -690,7 +797,9 @@ var gAdvancedPane = {
       buttonLabels.pop();
     }
 
-    let contentContainer = messageBar.querySelector(".message-bar-content-container");
+    let contentContainer = messageBar.querySelector(
+      ".message-bar-content-container"
+    );
     contentContainer.textContent = "";
 
     for (let i = 0; i < messages.length; i++) {
@@ -722,7 +831,9 @@ var gAdvancedPane = {
   hideConfirmLanguageChangeMessageBar() {
     let messageBar = document.getElementById("confirmMessengerLanguage");
     messageBar.hidden = true;
-    let contentContainer = messageBar.querySelector(".message-bar-content-container");
+    let contentContainer = messageBar.querySelector(
+      ".message-bar-content-container"
+    );
     contentContainer.textContent = "";
     this.requestingLocales = null;
   },
@@ -737,10 +848,18 @@ var gAdvancedPane = {
     Services.locale.requestedLocales = locales;
 
     // Restart with the new locale.
-    let cancelQuit = Cc["@mozilla.org/supports-PRBool;1"].createInstance(Ci.nsISupportsPRBool);
-    Services.obs.notifyObservers(cancelQuit, "quit-application-requested", "restart");
+    let cancelQuit = Cc["@mozilla.org/supports-PRBool;1"].createInstance(
+      Ci.nsISupportsPRBool
+    );
+    Services.obs.notifyObservers(
+      cancelQuit,
+      "quit-application-requested",
+      "restart"
+    );
     if (!cancelQuit.data) {
-      Services.startup.quit(Services.startup.eAttemptQuit | Services.startup.eRestart);
+      Services.startup.quit(
+        Services.startup.eAttemptQuit | Services.startup.eRestart
+      );
     }
   },
 
@@ -755,10 +874,9 @@ var gAdvancedPane = {
       return;
     }
 
-    let locales = Array.from(new Set([
-      locale,
-      ...Services.locale.requestedLocales,
-    ]).values());
+    let locales = Array.from(
+      new Set([locale, ...Services.locale.requestedLocales]).values()
+    );
     this.showConfirmLanguageChangeMessageBar(locales);
   },
 
@@ -793,8 +911,13 @@ var gAdvancedPane = {
       }
     }
   },
-
 };
 
-Preferences.get("layers.acceleration.disabled").on("change", gAdvancedPane.updateHardwareAcceleration);
-Preferences.get("mail.prompt_purge_threshhold").on("change", gAdvancedPane.updateCompactOptions);
+Preferences.get("layers.acceleration.disabled").on(
+  "change",
+  gAdvancedPane.updateHardwareAcceleration
+);
+Preferences.get("mail.prompt_purge_threshhold").on(
+  "change",
+  gAdvancedPane.updateCompactOptions
+);

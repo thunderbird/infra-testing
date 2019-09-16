@@ -8,14 +8,16 @@
 /* import-globals-from preferences.js */
 /* import-globals-from subdialogs.js */
 
-var {AppConstants} = ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
+var { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
 
 Preferences.addAll([
   { id: "mail.pane_config.dynamic", type: "int" },
   { id: "mailnews.reuse_message_window", type: "bool" },
   { id: "mailnews.start_page.enabled", type: "bool" },
   { id: "mailnews.start_page.url", type: "string" },
-  { id: "mail.biff.show_tray_icon", type: "bool"  },
+  { id: "mail.biff.show_tray_icon", type: "bool" },
   { id: "mail.biff.play_sound", type: "bool" },
   { id: "mail.biff.play_sound.type", type: "int" },
   { id: "mail.biff.play_sound.url", type: "string" },
@@ -24,8 +26,9 @@ if (AppConstants.platform != "macosx") {
   Preferences.add({ id: "mail.biff.show_alert", type: "bool" });
 }
 
-document.getElementById("paneGeneral")
-        .addEventListener("paneload", function() { gGeneralPane.init(); });
+document.getElementById("paneGeneral").addEventListener("paneload", function() {
+  gGeneralPane.init();
+});
 
 var gGeneralPane = {
   mPane: null,
@@ -71,26 +74,33 @@ var gGeneralPane = {
    */
   writeStartPageUrl() {
     var startPage = document.getElementById("mailnewsStartPageUrl");
-    return Services.urlFormatter.formatURL(this.mStartPageUrl) == startPage.value ? this.mStartPageUrl : startPage.value;
+    return Services.urlFormatter.formatURL(this.mStartPageUrl) ==
+      startPage.value
+      ? this.mStartPageUrl
+      : startPage.value;
   },
 
   customizeMailAlert() {
-    gSubDialog.open("chrome://messenger/content/preferences/notifications.xul",
-                    "resizable=no");
+    gSubDialog.open(
+      "chrome://messenger/content/preferences/notifications.xul",
+      "resizable=no"
+    );
   },
 
   configureDockOptions() {
-    gSubDialog.open("chrome://messenger/content/preferences/dockoptions.xul",
-                    "resizable=no");
+    gSubDialog.open(
+      "chrome://messenger/content/preferences/dockoptions.xul",
+      "resizable=no"
+    );
   },
 
   convertURLToLocalFile(aFileURL) {
     // convert the file url into a nsIFile
     if (aFileURL) {
       return Services.io
-                     .getProtocolHandler("file")
-                     .QueryInterface(Ci.nsIFileProtocolHandler)
-                     .getFileFromURLSpec(aFileURL);
+        .getProtocolHandler("file")
+        .QueryInterface(Ci.nsIFileProtocolHandler)
+        .getFileFromURLSpec(aFileURL);
     }
     return null;
   },
@@ -99,22 +109,26 @@ var gGeneralPane = {
     var soundUrlLocation = document.getElementById("soundUrlLocation");
     soundUrlLocation.value = Preferences.get("mail.biff.play_sound.url").value;
     if (soundUrlLocation.value) {
-      soundUrlLocation.label = this.convertURLToLocalFile(soundUrlLocation.value).leafName;
-      soundUrlLocation.style.backgroundImage = "url(moz-icon://" + soundUrlLocation.label + "?size=16)";
+      soundUrlLocation.label = this.convertURLToLocalFile(
+        soundUrlLocation.value
+      ).leafName;
+      soundUrlLocation.style.backgroundImage =
+        "url(moz-icon://" + soundUrlLocation.label + "?size=16)";
     }
     return undefined;
   },
 
   previewSound() {
-    let sound = Cc["@mozilla.org/sound;1"]
-                  .createInstance(Ci.nsISound);
+    let sound = Cc["@mozilla.org/sound;1"].createInstance(Ci.nsISound);
 
     let soundLocation;
     // soundType radio-group isn't used for macOS so it is not in the XUL file
     // for the platform.
-    soundLocation = (AppConstants.platform == "macosx" ||
-                     document.getElementById("soundType").value == 1) ?
-                       document.getElementById("soundUrlLocation").value : "";
+    soundLocation =
+      AppConstants.platform == "macosx" ||
+      document.getElementById("soundType").value == 1
+        ? document.getElementById("soundUrlLocation").value
+        : "";
 
     if (!soundLocation.includes("file://")) {
       // User has not set any custom sound file to be played
@@ -131,12 +145,21 @@ var gGeneralPane = {
 
     // if we already have a sound file, then use the path for that sound file
     // as the initial path in the dialog.
-    var localFile = this.convertURLToLocalFile(document.getElementById("soundUrlLocation").value);
-    if (localFile)
+    var localFile = this.convertURLToLocalFile(
+      document.getElementById("soundUrlLocation").value
+    );
+    if (localFile) {
       fp.displayDirectory = localFile.parent;
+    }
 
     // XXX todo, persist the last sound directory and pass it in
-    fp.init(window, document.getElementById("bundlePreferences").getString("soundFilePickerTitle"), nsIFilePicker.modeOpen);
+    fp.init(
+      window,
+      document
+        .getElementById("bundlePreferences")
+        .getString("soundFilePickerTitle"),
+      nsIFilePicker.modeOpen
+    );
     fp.appendFilters(Ci.nsIFilePicker.filterAudio);
     fp.appendFilters(Ci.nsIFilePicker.filterAll);
 
@@ -177,25 +200,29 @@ var gGeneralPane = {
       // On OS X, if there is no selected custom sound then default one will
       // be played. We keep consistency by disabling the "Play sound" checkbox
       // if the user hasn't selected a custom sound file yet.
-      document.getElementById("newMailNotification").disabled = !soundUrlLocation;
+      document.getElementById(
+        "newMailNotification"
+      ).disabled = !soundUrlLocation;
       document.getElementById("playSound").disabled = !soundUrlLocation;
       // The sound type radiogroup is hidden, but we have to keep the
       // play_sound.type pref set appropriately.
       Preferences.get("mail.biff.play_sound.type").value =
-        (!soundsDisabled && soundUrlLocation) ? 1 : 0;
+        !soundsDisabled && soundUrlLocation ? 1 : 0;
     }
   },
 
   updateStartPage() {
-    document.getElementById("mailnewsStartPageUrl").disabled =
-      !Preferences.get("mailnews.start_page.enabled").value;
+    document.getElementById("mailnewsStartPageUrl").disabled = !Preferences.get(
+      "mailnews.start_page.enabled"
+    ).value;
   },
 
   updateCustomizeAlert() {
     // The button does not exist on all platforms.
     let customizeAlertButton = document.getElementById("customizeMailAlert");
     if (customizeAlertButton) {
-      customizeAlertButton.disabled = !Preferences.get("mail.biff.show_alert").value;
+      customizeAlertButton.disabled = !Preferences.get("mail.biff.show_alert")
+        .value;
     }
   },
 
@@ -208,8 +235,11 @@ var gGeneralPane = {
         let item = engineList.appendItem(engine.name);
         item.engine = engine;
         item.className = "menuitem-iconic";
-        item.setAttribute("image", engine.iconURI ? engine.iconURI.spec :
-          "resource://gre-resources/broken-image.png"
+        item.setAttribute(
+          "image",
+          engine.iconURI
+            ? engine.iconURI.spec
+            : "resource://gre-resources/broken-image.png"
         );
         if (engine == defaultEngine) {
           engineList.selectedItem = item;
@@ -243,12 +273,21 @@ var gGeneralPane = {
 
   addSearchEngine() {
     let fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
-    fp.init(window, document.getElementById("bundlePreferences")
-                            .getString("searchEnginePickerTitle"), Ci.nsIFilePicker.modeOpen);
+    fp.init(
+      window,
+      document
+        .getElementById("bundlePreferences")
+        .getString("searchEnginePickerTitle"),
+      Ci.nsIFilePicker.modeOpen
+    );
 
     // Filter on XML files only.
-    fp.appendFilter(document.getElementById("bundlePreferences")
-                            .getString("searchEngineType"), "*.xml");
+    fp.appendFilter(
+      document
+        .getElementById("bundlePreferences")
+        .getString("searchEngineType"),
+      "*.xml"
+    );
 
     fp.open(async rv => {
       if (rv != Ci.nsIFilePicker.returnOK || !fp.file) {
@@ -264,8 +303,10 @@ var gGeneralPane = {
       item.engine = engine;
       item.className = "menuitem-iconic";
       item.setAttribute(
-        "image", engine.iconURI ? engine.iconURI.spec :
-                 "resource://gre-resources/broken-image.png"
+        "image",
+        engine.iconURI
+          ? engine.iconURI.spec
+          : "resource://gre-resources/broken-image.png"
       );
 
       this.updateRemoveButton();
@@ -291,7 +332,13 @@ var gGeneralPane = {
   },
 };
 
-Preferences.get("mailnews.start_page.enabled").on("change", gGeneralPane.updateStartPage);
+Preferences.get("mailnews.start_page.enabled").on(
+  "change",
+  gGeneralPane.updateStartPage
+);
 if (AppConstants.platform != "macosx") {
-  Preferences.get("mail.biff.show_alert").on("change", gGeneralPane.updateCustomizeAlert);
+  Preferences.get("mail.biff.show_alert").on(
+    "change",
+    gGeneralPane.updateCustomizeAlert
+  );
 }

@@ -30,7 +30,7 @@ function setupModule(module) {
   wh.installInto(module);
 
   folder = create_folder("InvalidMSF");
-  [setA] = make_new_sets_in_folder(folder, [{count: 3}]);
+  [setA] = make_new_sets_in_folder(folder, [{ count: 3 }]);
 }
 
 /**
@@ -50,7 +50,7 @@ function test_load_folder_with_invalidDB() {
 }
 
 function test_view_sort_maintained() {
-  if (mc.dbView.sortType != nsMsgViewSortType.bySubject)
-      throw new Error("view sort type not restored from invalid db");
+  if (mc.dbView.sortType != nsMsgViewSortType.bySubject) {
+    throw new Error("view sort type not restored from invalid db");
+  }
 }
-

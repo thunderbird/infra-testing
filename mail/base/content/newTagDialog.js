@@ -4,8 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-var {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
-var {MailServices} = ChromeUtils.import("resource:///modules/MailServices.jsm");
+var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+var { MailServices } = ChromeUtils.import(
+  "resource:///modules/MailServices.jsm"
+);
 
 var dialog;
 
@@ -45,7 +47,9 @@ function initializeForEditing(aTagKey) {
   document.title = messengerBundle.getString("editTagTitle");
 
   // extract the color and name for the current tag
-  document.getElementById("tagColorPicker").value = MailServices.tags.getColorForKey(aTagKey);
+  document.getElementById(
+    "tagColorPicker"
+  ).value = MailServices.tags.getColorForKey(aTagKey);
   dialog.nameField.value = MailServices.tags.getTagForKey(aTagKey);
 }
 
@@ -68,7 +72,10 @@ function onOKEditTag(event) {
     MailServices.tags.setTagForKey(dialog.editTagKey, dialog.nameField.value);
   }
 
-  MailServices.tags.setColorForKey(dialog.editTagKey, document.getElementById("tagColorPicker").value);
+  MailServices.tags.setColorForKey(
+    dialog.editTagKey,
+    document.getElementById("tagColorPicker").value
+  );
   if (!dialog.okCallback()) {
     event.preventDefault();
   }
@@ -86,7 +93,9 @@ function onOKNewTag(event) {
     event.preventDefault();
     return;
   }
-  if (!dialog.okCallback(name, document.getElementById("tagColorPicker").value)) {
+  if (
+    !dialog.okCallback(name, document.getElementById("tagColorPicker").value)
+  ) {
     event.preventDefault();
   }
 }

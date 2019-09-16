@@ -30,8 +30,9 @@ Preferences.addAll([
   { id: "messenger.options.messagesStyle.showHeader", type: "bool" },
 ]);
 
-document.getElementById("paneChat")
-        .addEventListener("paneload", function() { gChatPane.init(); });
+document.getElementById("paneChat").addEventListener("paneload", function() {
+  gChatPane.init();
+});
 
 var gChatPane = {
   mInitialized: false,
@@ -43,7 +44,8 @@ var gChatPane = {
 
     let preference = Preferences.get("mail.preferences.chat.selectedTabIndex");
     this.mTabBox = document.getElementById("chatPrefs");
-    this.mTabBox.selectedIndex = preference.value != null ? preference.value : 0;
+    this.mTabBox.selectedIndex =
+      preference.value != null ? preference.value : 0;
 
     window.addEventListener("paneSelected", this.paneSelectionChanged);
 
@@ -56,8 +58,9 @@ var gChatPane = {
 
   tabSelectionChanged() {
     if (this.mInitialized) {
-      Preferences.get("mail.preferences.chat.selectedTabIndex")
-                 .valueFromPreferences = this.mTabBox.selectedIndex;
+      Preferences.get(
+        "mail.preferences.chat.selectedTabIndex"
+      ).valueFromPreferences = this.mTabBox.selectedIndex;
     }
 
     this.initPreview();
@@ -78,7 +81,9 @@ var gChatPane = {
 
     window.removeEventListener("paneSelected", this.paneSelectionChanged);
 
-    let browser = document.createXULElement("browser", { is: "conversation-browser" });
+    let browser = document.createXULElement("browser", {
+      is: "conversation-browser",
+    });
     browser.setAttribute("id", "previewbrowser");
     browser.setAttribute("type", "content");
     browser.setAttribute("flex", "1");
@@ -96,44 +101,54 @@ var gChatPane = {
 
   updateMessageDisabledState() {
     let textbox = document.getElementById("defaultIdleAwayMessage");
-    if (Preferences.get("messenger.status.awayWhenIdle").value)
+    if (Preferences.get("messenger.status.awayWhenIdle").value) {
       textbox.removeAttribute("disabled");
-    else
+    } else {
       textbox.setAttribute("disabled", "true");
+    }
   },
 
   convertURLToLocalFile(aFileURL) {
     // convert the file url into a nsIFile
     if (aFileURL) {
-      return Services.io.getProtocolHandler("file")
-                        .QueryInterface(Ci.nsIFileProtocolHandler)
-                        .getFileFromURLSpec(aFileURL);
+      return Services.io
+        .getProtocolHandler("file")
+        .QueryInterface(Ci.nsIFileProtocolHandler)
+        .getFileFromURLSpec(aFileURL);
     }
     return null;
   },
 
   readSoundLocation() {
     let chatSoundUrlLocation = document.getElementById("chatSoundUrlLocation");
-    chatSoundUrlLocation.value = Preferences.get("mail.chat.play_sound.url").value;
+    chatSoundUrlLocation.value = Preferences.get(
+      "mail.chat.play_sound.url"
+    ).value;
     if (chatSoundUrlLocation.value) {
-      chatSoundUrlLocation.label = this.convertURLToLocalFile(chatSoundUrlLocation.value).leafName;
-      chatSoundUrlLocation.style.backgroundImage = "url(moz-icon://" + chatSoundUrlLocation.label + "?size=16)";
+      chatSoundUrlLocation.label = this.convertURLToLocalFile(
+        chatSoundUrlLocation.value
+      ).leafName;
+      chatSoundUrlLocation.style.backgroundImage =
+        "url(moz-icon://" + chatSoundUrlLocation.label + "?size=16)";
     }
   },
 
   previewSound() {
     let sound = Cc["@mozilla.org/sound;1"].createInstance(Ci.nsISound);
 
-    let soundLocation = document.getElementById("chatSoundType").value == 1 ?
-                        document.getElementById("chatSoundUrlLocation").value :
-                        "";
+    let soundLocation =
+      document.getElementById("chatSoundType").value == 1
+        ? document.getElementById("chatSoundUrlLocation").value
+        : "";
 
     // This should be in sync with the code in nsStatusBarBiffManager::PlayBiffSound.
     if (!soundLocation.startsWith("file://")) {
-      if (Services.appinfo.OS == "Darwin") // OS X
+      if (Services.appinfo.OS == "Darwin") {
+        // OS X
         sound.beep();
-      else
+      } else {
         sound.playEventSound(Ci.nsISound.EVENT_NEW_MAIL_RECEIVED);
+      }
     } else {
       sound.play(Services.io.newURI(soundLocation));
     }
@@ -146,13 +161,20 @@ var gChatPane = {
     // If we already have a sound file, then use the path for that sound file
     // as the initial path in the dialog.
     let localFile = this.convertURLToLocalFile(
-      document.getElementById("chatSoundUrlLocation").value);
-    if (localFile)
+      document.getElementById("chatSoundUrlLocation").value
+    );
+    if (localFile) {
       fp.displayDirectory = localFile.parent;
+    }
 
     // XXX todo, persist the last sound directory and pass it in
-    fp.init(window, document.getElementById("bundlePreferences")
-                            .getString("soundFilePickerTitle"), nsIFilePicker.modeOpen);
+    fp.init(
+      window,
+      document
+        .getElementById("bundlePreferences")
+        .getString("soundFilePickerTitle"),
+      nsIFilePicker.modeOpen
+    );
     fp.appendFilters(Ci.nsIFilePicker.filterAudio);
     fp.appendFilters(Ci.nsIFilePicker.filterAll);
 
@@ -175,13 +197,22 @@ var gChatPane = {
 
     document.getElementById("chatSoundType").disabled = !soundsEnabled;
     document.getElementById("chatSoundUrlLocation").disabled =
-      !soundsEnabled || (soundTypeValue != 1);
+      !soundsEnabled || soundTypeValue != 1;
     document.getElementById("playChatSound").disabled =
       !soundsEnabled || (!soundUrlLocation && soundTypeValue != 0);
   },
 };
 
-Preferences.get("messenger.status.reportIdle").on("change", gChatPane.updateDisabledState);
-Preferences.get("messenger.status.awayWhenIdle").on("change", gChatPane.updateMessageDisabledState);
+Preferences.get("messenger.status.reportIdle").on(
+  "change",
+  gChatPane.updateDisabledState
+);
+Preferences.get("messenger.status.awayWhenIdle").on(
+  "change",
+  gChatPane.updateMessageDisabledState
+);
 Preferences.get("mail.chat.play_sound").on("change", gChatPane.updatePlaySound);
-Preferences.get("mail.chat.play_sound.type").on("change", gChatPane.updatePlaySound);
+Preferences.get("mail.chat.play_sound.type").on(
+  "change",
+  gChatPane.updatePlaySound
+);

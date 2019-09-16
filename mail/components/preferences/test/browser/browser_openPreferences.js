@@ -3,7 +3,11 @@
  * file, you can obtain one at http://mozilla.org/MPL/2.0/. */
 
 function getStoredLastSelected() {
-  return Services.xulStore.getValue("about:preferences", "MailPreferences", "lastSelected");
+  return Services.xulStore.getValue(
+    "about:preferences",
+    "MailPreferences",
+    "lastSelected"
+  );
 }
 
 add_task(async () => {
@@ -39,7 +43,10 @@ add_task(async () => {
 
   await openNewPrefsTab("paneDisplay");
   is(getStoredLastSelected(), "paneDisplay");
-  is(Services.prefs.getIntPref("mail.preferences.display.selectedTabIndex", -1), 0);
+  is(
+    Services.prefs.getIntPref("mail.preferences.display.selectedTabIndex", -1),
+    0
+  );
 
   await closePrefsTab();
 });
@@ -53,7 +60,10 @@ add_task(async () => {
   ({ prefsDocument } = await openNewPrefsTab("paneDisplay", "tagTab"));
   is(getStoredLastSelected(), "paneDisplay");
   prefsDocument.getElementById("displayPrefs").selectedTab.id = "tagTab";
-  is(Services.prefs.getIntPref("mail.preferences.display.selectedTabIndex", -1), 1);
+  is(
+    Services.prefs.getIntPref("mail.preferences.display.selectedTabIndex", -1),
+    1
+  );
 
   await closePrefsTab();
 
@@ -61,7 +71,10 @@ add_task(async () => {
   ({ prefsDocument } = await openNewPrefsTab("paneDisplay", "displayTab"));
   is(getStoredLastSelected(), "paneDisplay");
   prefsDocument.getElementById("displayPrefs").selectedTab.id = "displayTab";
-  is(Services.prefs.getIntPref("mail.preferences.display.selectedTabIndex", -1), 2);
+  is(
+    Services.prefs.getIntPref("mail.preferences.display.selectedTabIndex", -1),
+    2
+  );
 
   await closePrefsTab();
 });
