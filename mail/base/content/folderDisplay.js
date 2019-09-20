@@ -1807,6 +1807,12 @@ FolderDisplayWidget.prototype = {
    *  central page.
    */
   _showAccountCentral() {
+    if (!this.displayedFolder && MailServices.accounts.accounts.length > 0) {
+      // If we have any accounts set up, but no folder is selected yet,
+      // we expect another selection event to come when session restore finishes.
+      // Until then, do nothing.
+      return;
+    }
     var accountBox = document.getElementById("accountCentralBox");
     document.getElementById("displayDeck").selectedPanel = accountBox;
     var prefName = "mailnews.account_central_page.url";
