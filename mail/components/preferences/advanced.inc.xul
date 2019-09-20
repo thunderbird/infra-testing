@@ -182,10 +182,9 @@
                         label="&enableTelemetry.label;"
                         accesskey="&enableTelemetry.accesskey;"/>
               <spacer flex="1"/>
-              <label id="telemetryLearnMore"
+              <label is="text-link" id="telemetryLearnMore"
                      class="text-link"
-                     value="&telemetryLearnMore.label;"
-                     onclick="gAdvancedPane.openTextLink(event)"/>
+                     value="&telemetryLearnMore.label;"/>
             </hbox>
           </groupbox>
 #endif
@@ -200,10 +199,9 @@
                         accesskey="&enableCrashReporter.accesskey;"/>
 
               <spacer flex="1"/>
-              <label id="crashReporterLearnMore"
+              <label is="text-link" id="crashReporterLearnMore"
                      class="text-link"
-                     value="&crashReporterLearnMore.label;"
-                     onclick="gAdvancedPane.openTextLink(event)"/>
+                     value="&crashReporterLearnMore.label;"/>
             </hbox>
           </groupbox>
 #endif

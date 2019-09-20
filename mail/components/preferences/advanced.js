@@ -580,27 +580,6 @@ var gAdvancedPane = {
     }
   },
 
-  // DATA CHOICES TAB
-
-  /**
-   * Open a text link.
-   */
-  openTextLink(evt) {
-    // Opening links behind a modal dialog is poor form. Work around flawed
-    // text-link handling by opening in browser if we'd instead get a content
-    // tab behind the modal options dialog.
-    if (Services.prefs.getBoolPref("browser.preferences.instantApply")) {
-      return true; // Yes, open the link in a content tab.
-    }
-    var url = evt.target.getAttribute("href");
-    var messenger = Cc["@mozilla.org/messenger;1"].createInstance(
-      Ci.nsIMessenger
-    );
-    messenger.launchExternalURL(url);
-    evt.preventDefault();
-    return false;
-  },
-
   /**
    * Set up or hide the Learn More links for various data collection options
    */
