@@ -68,7 +68,7 @@
                   collapsedinmodes="mail,calendar,task"
                   refcontrol="ltnTodayPaneDisplayMinimonth"
                   persist="collapsedinmodes">
-          <minimonth id="today-Minimonth" freebusy="true" onchange="TodayPane.setDaywithjsDate(this.value);"/>
+          <minimonth id="today-Minimonth" onchange="TodayPane.setDaywithjsDate(this.value);"/>
         </modebox>
         <modebox id="mini-day-box"
                  mode="mail,calendar,task"
