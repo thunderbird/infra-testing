@@ -78,8 +78,13 @@ var TodayPane = {
    * views. (event+task, task only, event only)
    */
   updateDisplay: function() {
+    let agendaPanel = document.getElementById("agenda-panel");
+    if (!("isVisible" in agendaPanel)) {
+      agendaPanel.addEventListener("bindingattached", () => this.updateDisplay(), { once: true });
+      return;
+    }
     let currentMode = document.getElementById("modeBroadcaster").getAttribute("mode");
-    let agendaIsVisible = document.getElementById("agenda-panel").isVisible(currentMode);
+    let agendaIsVisible = agendaPanel.isVisible(currentMode);
     let todoIsVisible = document.getElementById("todo-tab-panel").isVisible(currentMode);
     let index = 2;
     if (agendaIsVisible && todoIsVisible) {
@@ -94,7 +99,7 @@ var TodayPane = {
       // - probably in the previous session - and no pane is displayed.
       // We set a default by only displaying agenda-pane.
       agendaIsVisible = true;
-      document.getElementById("agenda-panel").setVisible(agendaIsVisible);
+      agendaPanel.setVisible(agendaIsVisible);
       index = 2;
     }
     let todayHeader = document.getElementById("today-pane-header");
