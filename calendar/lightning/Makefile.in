@@ -5,7 +5,7 @@
 # Calendar builders currently use STRIP_XPI to reduce the binary component in
 # Lightning.
 
-XPI_PKGNAME = lightning-$(LIGHTNING_VERSION).$(AB_CD)
+XPI_PKGNAME = lightning
 XPI_VERSION = $(LIGHTNING_VERSION)
 
 XPI_EM_ID = {e2fda1a4-762b-4020-b5ad-a41df1933103}
@@ -70,3 +70,6 @@ ident:
 	@printf 'buildid '
 	@$(PYTHON) $(moztopsrcdir)/config/printconfigsetting.py \
 	    $(FINAL_TARGET)/app.ini App BuildID
+
+stage-package:
+	$(PYTHON) -u $(MOZILLA_DIR)/build/upload.py $(ABS_DIST)/bin/distribution/extensions/lightning.xpi
