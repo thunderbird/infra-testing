@@ -30,7 +30,15 @@ var TodayPane = {
    * Load Handler, sets up the today pane controls.
    */
   onLoad: async function() {
-    await agendaListbox.init();
+    let agendaPanel = document.getElementById("agenda-panel");
+    if (!("isVisible" in agendaPanel)) {
+      // Wait for this XBL binding to load before doing anything.
+      await new Promise(resolve => {
+        agendaPanel.addEventListener("bindingattached", resolve, { once: true });
+      });
+    }
+
+    agendaListbox.init();
 
     TodayPane.paneViews = [
       cal.l10n.getCalString("eventsandtasks"),
@@ -79,10 +87,6 @@ var TodayPane = {
    */
   updateDisplay: function() {
     let agendaPanel = document.getElementById("agenda-panel");
-    if (!("isVisible" in agendaPanel)) {
-      agendaPanel.addEventListener("bindingattached", () => this.updateDisplay(), { once: true });
-      return;
-    }
     let currentMode = document.getElementById("modeBroadcaster").getAttribute("mode");
     let agendaIsVisible = agendaPanel.isVisible(currentMode);
     let todoIsVisible = document.getElementById("todo-tab-panel").isVisible(currentMode);
