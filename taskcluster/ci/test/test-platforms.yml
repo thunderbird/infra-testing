@@ -85,12 +85,12 @@ windows10-64/debug:
 
 # MacOS X platforms (matching /macosx.*/)
 
-macosx1010-64/debug:
+macosx1014-64/debug:
     build-platform: macosx64/debug
     test-sets:
         - common-tests
 
-macosx1010-64-shippable/opt:
+macosx1014-64-shippable/opt:
     build-platform: macosx64-shippable/opt
     test-sets:
         - common-tests
