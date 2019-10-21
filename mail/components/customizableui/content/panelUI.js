@@ -68,7 +68,7 @@ const PanelUI = {
    *    too common not to be included).
    *  - x-user-defined, which practically never makes sense as an end-user-chosen
    *    override.
-   *  - Encodings that IE11 doesn't have in its correspoding menu.
+   *  - Encodings that IE11 doesn't have in its corresponding menu.
    */
   kEncodings: new Set([
     // Globally relevant

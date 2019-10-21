@@ -1803,7 +1803,7 @@ NS_MSG_BASE nsresult MsgDetectCharsetFromFile(nsIFile *aFile,
                                               nsACString &aCharset) {
   // We do the detection in this order:
   // Check BOM.
-  // If no BOM, run localized detection (Russian, Ukranian or Japanese).
+  // If no BOM, run localized detection (Russian, Ukrainian or Japanese).
   // We need to run this first, since ISO-2022-JP is 7bit ASCII and would be
   // detected as UTF-8. If ISO-2022-JP not detected, check for UTF-8. If no
   // UTF-8, but detector detected something, use that, otherwise return an
