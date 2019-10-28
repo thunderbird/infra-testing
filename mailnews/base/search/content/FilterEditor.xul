@@ -51,9 +51,7 @@
     </hbox>
   </vbox>
 
-  <separator class="thin"/>
-
-  <vbox flex="1">
+  <vbox>
     <groupbox>
       <label class="header">&contextDesc.label;</label>
       <vbox>
@@ -98,10 +96,10 @@
         </hbox>
       </vbox>
     </groupbox>
+  </vbox>
 
     <vbox id="searchTermListBox" flex="1">
 #include searchTerm.inc.xul
-  </vbox>
 
   <splitter id="gray_horizontal_splitter" persist="state" orient="vertical"/>
 
