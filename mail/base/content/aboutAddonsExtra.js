@@ -172,6 +172,9 @@ gDetailView.updateState = function() {
   // We hide the original label and add another label to make sure
   // we open the link in the browser instead of internally.
   let detailLabel = document.getElementById("detail-homepage");
+  while (detailLabel.nextSibling) {
+    detailLabel.nextSibling.remove();
+  }
   let detailRow = document.getElementById("detail-homepage-row");
   let detailLabel2 = document.createXULElement("label");
   let href = detailLabel.getAttribute("href");
