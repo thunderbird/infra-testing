@@ -369,8 +369,9 @@ class Overlays {
           target = palette;
         }
 
+        this._toolbarsToResolve.push(...box.querySelectorAll("toolbar"));
         this._toolbarsToResolve.push(
-          ...box.querySelectorAll('toolbar:not([type="menubar"])')
+          ...this.document.querySelectorAll(`toolbar[toolboxid="${box.id}"]`)
         );
       } else if (!target) {
         oconsole.debug(
@@ -402,6 +403,12 @@ class Overlays {
           Services.xulStore.getValue(this.location, element.id, "value")
         );
       }
+    }
+
+    if (node.localName == "toolbar") {
+      this._toolbarsToResolve.push(node);
+    } else {
+      this._toolbarsToResolve.push(...node.querySelectorAll("toolbar"));
     }
 
     let wasInserted = false;
