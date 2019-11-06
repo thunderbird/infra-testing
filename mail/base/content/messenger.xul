@@ -659,6 +659,10 @@
       <vbox flex="1" class="contentTabInstance">
         <vbox id="dummycontenttoolbox" class="contentTabToolbox">
           <hbox id="dummycontenttoolbar" class="contentTabToolbar">
+            <toolbarbutton class="back-btn nav-button"
+                           disabled="true"/>
+            <toolbarbutton class="forward-btn nav-button"
+                           disabled="true"/>
             <toolbaritem class="contentTabAddress" align="center" flex="1">
               <hbox align="center" flex="1">
                 <image class="contentTabSecurity"/>
