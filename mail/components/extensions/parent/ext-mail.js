@@ -1272,7 +1272,12 @@ function folderPathToURI(accountId, path) {
     rootURI +
     path
       .split("/")
-      .map(encodeURIComponent)
+      .map(p =>
+        encodeURIComponent(p).replace(
+          /[!'()*]/g,
+          c => "%" + c.charCodeAt(0).toString(16)
+        )
+      )
       .join("/")
   );
 }
