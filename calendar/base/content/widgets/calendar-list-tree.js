@@ -987,6 +987,10 @@
 
         onCalendarUnregistering(calendar) {
           this.listTree.removeCalendar(calendar);
+          const composite = this.listTree.compositeCalendar;
+          if (composite.defaultCalendar.id == calendar.id) {
+            composite.defaultCalendar = composite.getCalendars({})[0];
+          }
         },
 
         onCalendarDeleting(calendar) {
