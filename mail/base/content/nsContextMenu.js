@@ -37,7 +37,7 @@ function nsContextMenu(aXulMenu, aIsShift) {
   this.target = null;
   this.menu = null;
   this.onTextInput = false;
-  this.onEditableArea = false;
+  this.onEditable = false;
   this.onImage = false;
   this.onLoadedImage = false;
   this.onCanvas = false;
@@ -87,7 +87,10 @@ nsContextMenu.prototype = {
       return;
     }
 
-    this.isContentSelected = this.isContentSelection();
+    this.selectionInfo = BrowserUtils.getSelectionDetails(window);
+    this.isContentSelected = !this.selectionInfo.docSelectionIsCollapsed;
+    this.textSelected = this.selectionInfo.text;
+    this.isTextSelected = !!this.textSelected.length;
 
     this.hasPageMenu = false;
     if (!aIsShift) {
@@ -107,12 +110,13 @@ nsContextMenu.prototype = {
         onVideo: this.onVideo,
         onAudio: this.onAudio,
         onCanvas: this.onCanvas,
-        onEditableArea: this.onEditableArea,
+        onEditable: this.onEditable,
         srcUrl: this.mediaURL,
         pageUrl: this.browser ? this.browser.currentURI.spec : undefined,
+        linkText: this.onLink ? this.linkText() : undefined,
         linkUrl: this.linkURL,
         selectionText: this.isTextSelected
-          ? this.selectionInfo.text
+          ? this.selectionInfo.fullText
           : undefined,
       };
       if (document.popupNode.closest("tree") == gFolderDisplay.tree) {
@@ -157,10 +161,7 @@ nsContextMenu.prototype = {
     let canSpell = gSpellChecker.canSpellCheck;
     let onMisspelling = gSpellChecker.overMisspelling;
     this.showItem("mailContext-spell-check-enabled", canSpell);
-    this.showItem(
-      "mailContext-spell-separator",
-      canSpell || this.onEditableArea
-    );
+    this.showItem("mailContext-spell-separator", canSpell || this.onEditable);
     if (canSpell) {
       document
         .getElementById("mailContext-spell-check-enabled")
@@ -196,7 +197,7 @@ nsContextMenu.prototype = {
       );
       gSpellChecker.addDictionaryListToMenu(dictMenu, dictSep);
       this.showItem("mailContext-spell-add-dictionaries-main", false);
-    } else if (this.onEditableArea) {
+    } else if (this.onEditable) {
       // when there is no spellchecker but we might be able to spellcheck
       // add the add to dictionaries item. This will ensure that people
       // with no dictionaries will be able to download them
@@ -607,7 +608,7 @@ nsContextMenu.prototype = {
     this.onLoadedImage = false;
     this.onMetaDataItem = false;
     this.onTextInput = false;
-    this.onEditableArea = false;
+    this.onEditable = false;
     this.imageURL = "";
     this.onLink = false;
     this.onVideo = false;
@@ -623,7 +624,7 @@ nsContextMenu.prototype = {
     // Set up early the right flags for editable / not editable.
     let editFlags = SpellCheckHelper.isEditable(this.target, window);
     this.onTextInput = (editFlags & SpellCheckHelper.TEXTINPUT) !== 0;
-    this.onEditableArea = (editFlags & SpellCheckHelper.EDITABLE) !== 0;
+    this.onEditable = (editFlags & SpellCheckHelper.EDITABLE) !== 0;
 
     // First, do checks for nodes that never have children.
     if (this.target.nodeType == Node.ELEMENT_NODE) {
@@ -649,7 +650,7 @@ nsContextMenu.prototype = {
         (SpellCheckHelper.INPUT | SpellCheckHelper.TEXTAREA)
       ) {
         if (!this.target.readOnly) {
-          this.onEditableArea = true;
+          this.onEditable = true;
           gSpellChecker.init(this.target.editor);
           gSpellChecker.initFromEvent(
             document.popupRangeParent,
