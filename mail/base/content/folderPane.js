@@ -2953,9 +2953,7 @@ var gFolderTreeController = {
           offlineStore.remove(true);
         }
       }
-      if (gFolderDisplay.displayedFolder == folder) {
-        gFolderDisplay.view.close();
-      }
+      gFolderDisplay.view.close();
 
       // Send a notification that we are triggering a database rebuild.
       MailServices.mfn.notifyItemEvent(
@@ -2976,9 +2974,7 @@ var gFolderTreeController = {
         folder.ForceDBClosed();
       }
       folder.updateFolder(msgWindow);
-      if (gFolderDisplay.displayedFolder == folder) {
-        gFolderDisplay.show(folder);
-      }
+      gFolderDisplay.show(folder);
     }
 
     window.openDialog(
