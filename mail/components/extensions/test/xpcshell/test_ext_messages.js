@@ -123,6 +123,7 @@ add_task(async function test_update() {
       let message = messageList.messages[0];
       browser.test.assertFalse(message.flagged);
       browser.test.assertFalse(message.read);
+      browser.test.assertFalse(message.junk);
       browser.test.assertEq(0, message.tags.length);
 
       // Test that setting flagged works.
@@ -132,6 +133,10 @@ add_task(async function test_update() {
       // Test that setting read works.
       await browser.messages.update(message.id, { read: true });
       await awaitMessage("read");
+
+      // Test that setting junk works.
+      await browser.messages.update(message.id, { junk: true });
+      await awaitMessage("junk");
 
       // Test that setting one tag works.
       await browser.messages.update(message.id, { tags: [tags[0].key] });
@@ -151,6 +156,7 @@ add_task(async function test_update() {
       await browser.messages.update(message.id, {
         flagged: false,
         read: false,
+        junk: false,
         tags: [],
       });
       await awaitMessage("clear");
@@ -178,6 +184,10 @@ add_task(async function test_update() {
   ok(message.isRead);
   extension.sendMessage();
 
+  await extension.awaitMessage("junk");
+  equal(message.getStringProperty("junkscore"), 100);
+  extension.sendMessage();
+
   await extension.awaitMessage("tags1");
   equal(message.getProperty("keywords"), "testKeyword $label1");
   extension.sendMessage();
@@ -195,6 +205,7 @@ add_task(async function test_update() {
   await extension.awaitMessage("clear");
   ok(!message.isFlagged);
   ok(!message.isRead);
+  equal(message.getStringProperty("junkscore"), 0);
   equal(message.getProperty("keywords"), "testKeyword");
   extension.sendMessage();
 
