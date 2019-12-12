@@ -244,3 +244,7 @@ textbox.port[disabled="true"] {
 #incoming_protocol[disabled="true"] {
   padding-left: 5px;
 }
+
+#result_addon_intro {
+  max-width: 50em;
+}
