@@ -15,4 +15,13 @@
 
 #amServerSetting textbox.textbox-flex {
   flex-grow: 1;
+  display: flex;
+}
+
+#amServerSetting textbox.textbox-flex > moz-input-box {
+  flex-grow: 1;
+}
+
+#amServerSetting textbox.textbox-flex > moz-input-box > .textbox-input {
+  min-width: -moz-available;
 }
