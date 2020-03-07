@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+
+<!DOCTYPE window>
+
+<?xml-stylesheet href="chrome://messenger/skin/"?>
+<?xml-stylesheet href="chrome://messenger/skin/shared/newInstall.css"?>
+
+<window xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+        xmlns:html="http://www.w3.org/1999/xhtml"
+        onload="init()"
+        title="Important News">
+  <script src="chrome://messenger/content/newInstall.js"></script>
+  <hbox align="start" flex="1">
+    <image id="alert" role="presentation"/>
+    <vbox align="end" flex="1">
+      <description class="main-text">
+        This installation of Thunderbird has a new profile.
+        It does not share email data, passwords, user preferences, and address books
+        with other installations of Thunderbird (including Thunderbird,
+        Thunderbird Beta, and Thunderbird Daily) on this computer.
+      </description>
+      <button label="Continue"/>
+    </vbox>
+  </hbox>
+</window>
