@@ -25,11 +25,23 @@ def update_scopes(config, jobs):
     if not config.params.get('release_history'):
         return
 
-    MBSDIFF_SCOPE = 'auth:aws-s3:read-write:tc-gp-private-1d-us-east-1/releng/mbsdiff-cache/'
+    RM_SCOPES = ['auth:aws-s3:read-write:tc-gp-private-1d-us-east-1/releng/mbsdiff-cache/',
+                 'secrets:get:project/releng/gecko/build/level-3/datadog-api-key']
+    DATADOG_ENV = "DATADOG_API_SECRET"
 
     for job in jobs:
         task = job['task']
-        if MBSDIFF_SCOPE in task['scopes']:
-            task['scopes'].remove(MBSDIFF_SCOPE)
+        for rm_scope in RM_SCOPES:
+            if rm_scope in task['scopes']:
+                task['scopes'].remove(rm_scope)
+
+        print(task)
+        payload = task['payload']
+        if DATADOG_ENV in payload['env']:
+            del payload['env'][DATADOG_ENV]
+
+        # This is only ever going to be on comm-esr68
+        payload['env']['ACCEPTED_MAR_CHANNEL_IDS'] = 'thunderbird-comm-release'
 
         yield job
+
