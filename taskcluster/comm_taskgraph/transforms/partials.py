@@ -35,7 +35,6 @@ def update_scopes(config, jobs):
             if rm_scope in task['scopes']:
                 task['scopes'].remove(rm_scope)
 
-        print(task)
         payload = task['payload']
         if DATADOG_ENV in payload['env']:
             del payload['env'][DATADOG_ENV]
@@ -44,4 +43,3 @@ def update_scopes(config, jobs):
         payload['env']['ACCEPTED_MAR_CHANNEL_IDS'] = 'thunderbird-comm-release'
 
         yield job
-
