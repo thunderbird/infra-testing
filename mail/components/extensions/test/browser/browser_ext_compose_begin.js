@@ -148,6 +148,7 @@ add_task(async () => {
     let composeWindows = [...Services.wm.getEnumerator("msgcompose")];
     is(composeWindows.length, 1);
     await new Promise(resolve => composeWindows[0].setTimeout(resolve));
+    await new Promise(resolve => composeWindows[0].setTimeout(resolve));
 
     let fields = Cc[
       "@mozilla.org/messengercompose/composefields;1"
