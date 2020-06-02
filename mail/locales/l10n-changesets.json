@@ -139,6 +139,16 @@
         ],
         "revision": "1763c98fb5f0"
     },
+    "en-CA": {
+        "platforms": [
+            "linux",
+            "linux64",
+            "macosx64",
+            "win32",
+            "win64"
+        ],
+        "revision": "default"
+    },
     "en-GB": {
         "platforms": [
             "linux",
