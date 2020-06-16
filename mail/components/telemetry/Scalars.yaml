@@ -136,6 +136,19 @@ tb.filelink:
     record_in_processes:
       - 'main'
 
+  ignored:
+    bug_numbers:
+      - 1615984
+    description: How many times filelink suggestion are ignored.
+    expires: never
+    products:
+      - 'thunderbird'
+    kind: uint
+    notification_emails:
+      - "telemetry-client-dev@thunderbird.net"
+    record_in_processes:
+      - 'main'
+
 tb.addressbook:
   addressbook_count:
     bug_numbers:
@@ -194,18 +207,6 @@ tb.calendar:
     record_in_processes:
       - 'main'
 
-  ignored:
-    bug_numbers:
-      - 1615984
-    description: How many times filelink suggestion are ignored.
-    expires: never
-    products:
-      - 'thunderbird'
-    kind: uint
-    notification_emails:
-      - "telemetry-client-dev@thunderbird.net"
-    record_in_processes:
-      - 'main'
 tb.mails:
   sent:
     bug_numbers:
