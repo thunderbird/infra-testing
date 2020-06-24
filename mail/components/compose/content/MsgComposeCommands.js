@@ -7019,7 +7019,6 @@ function LoadIdentity(startup) {
   let identityElement = document.getElementById("msgIdentity");
   let prevIdentity = gCurrentIdentity;
 
-  if (identityElement) {
     let idKey = null;
     let accountKey = null;
     let prevKey = getCurrentAccountKey();
@@ -7046,7 +7045,13 @@ function LoadIdentity(startup) {
       input.searchParam = JSON.stringify(params);
     }
 
-    if (!startup && prevIdentity && idKey != prevIdentity.key) {
+  if (startup) {
+    // During compose startup, bail out here.
+    return;
+  }
+
+  // Handle non-startup changing of identity.
+  if (prevIdentity && idKey != prevIdentity.key) {
       let prevReplyTo = prevIdentity.replyTo;
       let prevCc = "";
       let prevBcc = "";
@@ -7178,7 +7183,6 @@ function LoadIdentity(startup) {
       gComposeNotificationBar.clearIdentityWarning();
     }
 
-    if (!startup) {
       // Only do this if we aren't starting up...
       // It gets done as part of startup already.
       addRecipientsToIgnoreList(gCurrentIdentity.fullAddress);
@@ -7194,8 +7198,6 @@ function LoadIdentity(startup) {
 
       SetMsgToRecipientElementFocus();
       onRecipientsChanged(true);
-    }
-  }
 }
 
 function MakeFromFieldEditable(ignoreWarning) {
