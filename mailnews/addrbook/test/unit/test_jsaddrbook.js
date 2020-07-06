@@ -320,7 +320,7 @@ add_task(async function editMailingList() {
   observer.checkEvents(
     ["onItemPropertyChanged", list, "DirName", undefined, "updated list"],
     ["onItemPropertyChanged", list, "DirName", undefined, "updated list"], // Seriously?
-    ["addrbook-list-updated", list, null]
+    ["addrbook-list-updated", list, book.UID]
   );
   equal("updated list", list.dirName);
 });

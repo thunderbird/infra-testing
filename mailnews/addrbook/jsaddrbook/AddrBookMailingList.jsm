@@ -198,7 +198,11 @@ AddrBookMailingList.prototype = {
         }
 
         self._parent._saveList(self);
-        Services.obs.notifyObservers(this, "addrbook-list-updated");
+        Services.obs.notifyObservers(
+          this,
+          "addrbook-list-updated",
+          self._parent.UID
+        );
       },
     };
   },
