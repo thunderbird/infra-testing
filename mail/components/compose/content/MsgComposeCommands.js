@@ -5178,12 +5178,12 @@ var spellCheckReadyObserver = {
 /**
  * Called if the list of recipients changed in any way.
  *
- * @param aAutomatic  Set to true if the change of recipients was invoked
- *                    programmatically and should not be considered a change
- *                    of message content.
+ * @param {boolean} automatic - Set to true if the change of recipients was
+ *   invoked programmatically and should not be considered a change of message
+ *   content.
  */
-function onRecipientsChanged(aAutomatic) {
-  if (!aAutomatic) {
+function onRecipientsChanged(automatic) {
+  if (!automatic) {
     gContentChanged = true;
   }
   updateSendCommands(true);
@@ -7052,6 +7052,7 @@ function LoadIdentity(startup) {
 
   // Handle non-startup changing of identity.
   if (prevIdentity && idKey != prevIdentity.key) {
+    let changedRecipients = false;
     let prevReplyTo = prevIdentity.replyTo;
     let prevCc = "";
     let prevBcc = "";
@@ -7145,6 +7146,7 @@ function LoadIdentity(startup) {
           .join(", ");
         awAddRecipients(msgCompFields, "addr_cc", newCc);
       }
+      changedRecipients = true;
     }
 
     if (newBcc != prevBcc) {
@@ -7168,6 +7170,7 @@ function LoadIdentity(startup) {
           .join(", ");
         awAddRecipients(msgCompFields, "addr_bcc", newBcc);
       }
+      changedRecipients = true;
     }
 
     adjustSignEncryptAfterIdentityChanged(prevIdentity, gCurrentIdentity);
@@ -7181,6 +7184,12 @@ function LoadIdentity(startup) {
     window.dispatchEvent(new CustomEvent("compose-from-changed"));
 
     gComposeNotificationBar.clearIdentityWarning();
+
+    // Trigger this method only if the Cc or Bcc recipients changed from the
+    // previous identity.
+    if (changedRecipients) {
+      onRecipientsChanged(true);
+    }
   }
 
   // Only do this if we aren't starting up...
@@ -7197,7 +7206,6 @@ function LoadIdentity(startup) {
   }
 
   SetMsgToRecipientElementFocus();
-  onRecipientsChanged(true);
 }
 
 function MakeFromFieldEditable(ignoreWarning) {
