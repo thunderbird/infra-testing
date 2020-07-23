@@ -52,7 +52,6 @@ document.addEventListener("prefchange", event => {
   onAccept(true);
   event.stopPropagation();
 });
-
 // If Local directory has changed the app needs to restart. Once this is set
 // a restart will be attempted at each attempt to close the Account manager with OK.
 var gRestartNeeded = false;
@@ -152,6 +151,9 @@ function onLoad() {
     let inputElements = contentFrame.contentDocument.querySelectorAll(
       "checkbox, input, menulist, textarea, radiogroup, richlistbox"
     );
+    contentFrame.contentDocument.addEventListener("prefchange", event => {
+      onAccept(true);
+    });
     for (let input of inputElements) {
       if (input.localName == "input" || input.localName == "textarea") {
         input.addEventListener("change", event => {
