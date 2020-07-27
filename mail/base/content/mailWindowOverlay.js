@@ -3900,7 +3900,7 @@ function MsgSearchAddresses() {
   OpenOrFocusWindow(
     args,
     "mailnews:absearch",
-    "chrome://messenger/content/ABSearchDialog.xhtml"
+    "chrome://messenger/content/addressbook/abSearchDialog.xhtml"
   );
 }
 
