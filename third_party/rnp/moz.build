@@ -50,6 +50,7 @@ LOCAL_INCLUDES = [
     'include',
     'src',
     'src/common',
+    'src/lib',
 ]
 
 IQuote('{}/src/lib'.format(OBJDIR),
