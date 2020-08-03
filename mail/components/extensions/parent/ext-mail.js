@@ -81,6 +81,7 @@ const COMPOSE_WINDOW_URI =
   ) {
     if (
       script.extension.hasPermission("compose") &&
+      target.content.location.href == "about:blank?compose" &&
       target.chromeOuterWindowID
     ) {
       let outerWindow = Services.wm.getOuterWindowWithId(
