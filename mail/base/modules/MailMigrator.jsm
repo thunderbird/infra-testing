@@ -800,7 +800,7 @@ var MailMigrator = {
         return;
       }
 
-      let newFileName = oldFileName.replace(/.mab$/, ".sqlite");
+      let newFileName = oldFileName.replace(/(\.na2)?\.mab$/, ".sqlite");
 
       Services.prefs.setStringPref(`${prefName}.filename`, newFileName);
       if (
@@ -969,8 +969,8 @@ var MailMigrator = {
         if (Services.prefs.prefHasUserValue(prefName)) {
           let uri = Services.prefs.getStringPref(prefName);
           uri = uri.replace(
-            /\bmoz-abmdbdirectory:\/\/([\w\.-]*).mab\b/g,
-            "jsaddrbook://$1.sqlite"
+            /\bmoz-abmdbdirectory:\/\/([\w\.-]*)\.mab\b/g,
+            (all, match) => `jsaddrbook://${match.replace(/\.na2$/, "")}.sqlite`
           );
           Services.prefs.setStringPref(prefName, uri);
         }
