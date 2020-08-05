@@ -448,6 +448,7 @@ function delayedOnLoadMessageWindow() {
   SetupCommandUpdateHandlers();
 
   gMessageDisplay = new StandaloneMessageDisplayWidget();
+  // eslint-disable-next-line no-global-assign
   gFolderDisplay = new StandaloneFolderDisplayWidget(gMessageDisplay);
   gFolderDisplay.msgWindow = msgWindow;
   gFolderDisplay.messenger = messenger;
