@@ -445,6 +445,8 @@ var MailPrefObserver = {
 
         // refresh the thread pane
         threadTree.invalidate();
+      } else if (prefName == "mail.openpgp.enable") {
+        initOpenPGPIfEnabled();
       }
     }
   },
@@ -472,6 +474,26 @@ function AutoConfigWizard(okCallback) {
   document.getElementById("folderpane_splitter").collapsed = true;
 
   NewMailAccount(msgWindow, okCallback);
+}
+
+function initOpenPGPIfEnabled() {
+  let hideItems = true;
+
+  try {
+    if (MailConstants.MOZ_OPENPGP && BondOpenPGP.allDependenciesLoaded()) {
+      Enigmail.msg.messengerStartup.bind(Enigmail.msg);
+      Enigmail.msg.messengerStartup();
+      Enigmail.hdrView.hdrViewLoad.bind(Enigmail.hdrView);
+      Enigmail.hdrView.hdrViewLoad();
+      hideItems = false;
+    }
+  } catch (ex) {
+    console.log(ex);
+  }
+
+  for (let item of document.querySelectorAll(".openpgp-item")) {
+    item.hidden = hideItems;
+  }
 }
 
 /**
@@ -537,6 +559,7 @@ function OnLoadMessenger() {
 
   Services.prefs.addObserver("mail.pane_config.dynamic", MailPrefObserver);
   Services.prefs.addObserver("mail.showCondensedAddresses", MailPrefObserver);
+  Services.prefs.addObserver("mail.openpgp.enable", MailPrefObserver);
 
   MailOfflineMgr.init();
   CreateMailWindowGlobals();
@@ -614,16 +637,7 @@ function OnLoadMessenger() {
     LoadPostAccountWizard();
   }
 
-  if (MailConstants.MOZ_OPENPGP && BondOpenPGP.allDependenciesLoaded()) {
-    Enigmail.msg.messengerStartup.bind(Enigmail.msg);
-    Enigmail.msg.messengerStartup();
-    Enigmail.hdrView.hdrViewLoad.bind(Enigmail.hdrView);
-    Enigmail.hdrView.hdrViewLoad();
-  } else {
-    for (let item of document.querySelectorAll(".openpgp-item")) {
-      item.hidden = true;
-    }
-  }
+  initOpenPGPIfEnabled();
 }
 
 function _showNewInstallModal() {
@@ -926,6 +940,7 @@ function OnUnloadMessenger() {
     "mail.showCondensedAddresses",
     MailPrefObserver
   );
+  Services.prefs.removeObserver("mail.openpgp.enable", MailPrefObserver);
 
   if (gRightMouseButtonSavedSelection) {
     // Avoid possible cycle leaks.
