@@ -64,6 +64,9 @@ var { TagUtils } = ChromeUtils.import("resource:///modules/TagUtils.jsm");
 var { PeriodicFilterManager } = ChromeUtils.import(
   "resource:///modules/PeriodicFilterManager.jsm"
 );
+var { BondOpenPGP } = ChromeUtils.import(
+  "chrome://openpgp/content/BondOpenPGP.jsm"
+);
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   LightweightThemeManager: "resource://gre/modules/LightweightThemeManager.jsm",

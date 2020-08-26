@@ -33,6 +33,9 @@ var { GlodaUtils } = ChromeUtils.import(
 var { Status: statusUtils } = ChromeUtils.import(
   "resource:///modules/imStatusUtils.jsm"
 );
+var { BondOpenPGP } = ChromeUtils.import(
+  "chrome://openpgp/content/BondOpenPGP.jsm"
+);
 
 // Warning: It's critical that the code in here for displaying the message
 // headers for a selected message remain as fast as possible. In particular,
