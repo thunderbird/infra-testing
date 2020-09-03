@@ -373,6 +373,12 @@ function UpdateMailPaneConfig(aMsgWindowInitialized) {
       desiredParent.appendChild(messagePaneSplitter);
       desiredParent.appendChild(messagePaneBoxWrapper);
     }
+
+    ExtensionParent.apiManager.emit(
+      "extension-browser-inserted",
+      document.getElementById("messagepane")
+    );
+
     if (msgWindow) {
       // Reassigning statusFeedback adds a progress listener to the new docShell.
       // eslint-disable-next-line no-self-assign

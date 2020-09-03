@@ -80,7 +80,6 @@ const COMPOSE_WINDOW_URI =
     script
   ) {
     if (
-      script.extension.hasPermission("compose") &&
       target.content.location.href == "about:blank?compose" &&
       target.chromeOuterWindowID
     ) {
@@ -88,9 +87,17 @@ const COMPOSE_WINDOW_URI =
         target.chromeOuterWindowID
       );
       if (outerWindow && outerWindow.location.href == COMPOSE_WINDOW_URI) {
-        script.matchesWindow = () => true;
+        script.matchesWindow = () => script.extension.hasPermission("compose");
       }
+    } else if (
+      ["imap:", "mailbox:", "news:", "nntp:", "snews:"].includes(
+        target.content.location.protocol
+      )
+    ) {
+      script.matchesWindow = () =>
+        script.extension.hasPermission("messagesModify");
     }
+
     return handleExtensionExecute.apply(ExtensionContent, [
       global,
       target,

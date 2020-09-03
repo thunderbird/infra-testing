@@ -899,6 +899,11 @@
         );
         firstTab.browser._progressListenerAdded = true;
 
+        ExtensionParent.apiManager.emit(
+          "extension-browser-inserted",
+          firstTab.browser
+        );
+
         for (let tabMonitor of this.tabMonitors) {
           try {
             if ("onTabOpened" in tabMonitor) {

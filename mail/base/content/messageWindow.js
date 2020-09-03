@@ -426,6 +426,11 @@ function OnLoadMessageWindow() {
     },
     true
   );
+
+  ExtensionParent.apiManager.emit(
+    "extension-browser-inserted",
+    messagePaneBrowser
+  );
 }
 
 function delayedOnLoadMessageWindow() {
