@@ -1266,6 +1266,10 @@ pref("toolkit.telemetry.bhrPing.enabled", true);
   pref("toolkit.telemetry.ecosystemtelemetry.enabled", false);
 #endif
 
+// Coverage ping is disabled by default.
+pref("toolkit.coverage.enabled", false);
+pref("toolkit.coverage.endpoint.base", "https://coverage.thunderbird.net");
+
 #ifdef XP_WIN
 pref("mail.minimizeToTray", false);
 #endif
