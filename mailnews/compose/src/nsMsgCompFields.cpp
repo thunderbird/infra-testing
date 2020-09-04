@@ -104,7 +104,7 @@ nsresult nsMsgCompFields::SetAsciiHeader(MsgHeaderID header,
     if (!value || !*value) return mStructuredHeaders->DeleteHeader(headerName);
 
     return mStructuredHeaders->SetRawHeader(headerName,
-                                            nsDependentCString(value));
+                                            nsDependentCString(value), "UTF-8");
   }
 
   // Not on the structurd header object, so save it locally.

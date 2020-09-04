@@ -78,15 +78,10 @@ function Recipients2CompFields(msgCompFields) {
         addrFollow += follow_Sep + recipient;
         follow_Sep = ",";
         break;
-    }
-  }
-
-  for (let otherHeaderRow of document.querySelectorAll(
-    ".address-row[data-labeltype=addr_other]"
-  )) {
-    let headerValue = otherHeaderRow.querySelector("input").value.trim();
-    if (headerValue) {
-      msgCompFields.setRawHeader(otherHeaderRow.dataset.labelid, headerValue);
+      case "addr_other":
+        let label = pill.emailInput.getAttribute("aria-labelledby");
+        msgCompFields.setRawHeader(label, recipient, null);
+        break;
     }
   }
 
@@ -978,9 +973,8 @@ function showAddressRow(label, rowID) {
   }
 
   let container = document.getElementById(rowID);
-  let input =
-    container.querySelector(`input[is="autocomplete-input"]`) ||
-    container.querySelector("input");
+  let input = container.querySelector(`input[is="autocomplete-input"]`);
+
   container.classList.remove("hidden");
   label.setAttribute("collapsed", "true");
   input.focus();

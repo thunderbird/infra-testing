@@ -2495,8 +2495,8 @@ nsresult nsMsgComposeAndSend::AddDefaultCustomHeaders() {
         int32_t colonIdx = headerVal.FindChar(':');
         if (colonIdx > 0) {  // check that the header is *most likely* valid.
           nsCString name(Substring(headerVal, 0, colonIdx));
-          mCompFields->SetRawHeader(name.get(),
-                                    Substring(headerVal, colonIdx + 1));
+          mCompFields->SetRawHeader(
+              name.get(), Substring(headerVal, colonIdx + 1), nullptr);
         }
       }
     }
@@ -2556,7 +2556,8 @@ nsresult nsMsgComposeAndSend::AddMailFollowupToHeader() {
   if (recipients_no_dups == recipients_without_mailing_lists) return NS_OK;
 
   // Set Mail-Followup-To
-  return mCompFields->SetRawHeader(HEADER_MAIL_FOLLOWUP_TO, recipients);
+  return mCompFields->SetRawHeader(HEADER_MAIL_FOLLOWUP_TO, recipients,
+                                   mCompFields->GetCharacterSet());
 }
 
 // Add Mail-Reply-To header
@@ -2624,14 +2625,15 @@ nsresult nsMsgComposeAndSend::AddMailReplyToHeader() {
   else
     mailReplyTo = replyTo;
 
-  mCompFields->SetRawHeader(HEADER_MAIL_REPLY_TO, mailReplyTo);
+  mCompFields->SetRawHeader(HEADER_MAIL_REPLY_TO, mailReplyTo,
+                            mCompFields->GetCharacterSet());
   return NS_OK;
 }
 
 nsresult nsMsgComposeAndSend::AddXForwardedMessageIdHeader() {
   return mCompFields->SetRawHeader(
       "X-Forwarded-Message-Id",
-      nsDependentCString(mCompFields->GetReferences()));
+      nsDependentCString(mCompFields->GetReferences()), nullptr);
 }
 
 nsresult nsMsgComposeAndSend::SnarfAndCopyBody(

@@ -210,7 +210,8 @@ MimeWritableStructuredHeaders.prototype = {
     this.setHeader(aHeaderName, fixXpconnectAddresses(aAddresses));
   },
 
-  setRawHeader(aHeaderName, aValue) {
+  setRawHeader(aHeaderName, aValue, aCharset) {
+    aValue = jsmime.headerparser.convert8BitHeader(aValue, aCharset);
     try {
       this.setHeader(
         aHeaderName,

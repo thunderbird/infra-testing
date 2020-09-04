@@ -247,7 +247,7 @@ nsresult mime_generate_headers(nsIMsgCompFields* fields,
               "%c%02d%02d" CRLF, (gmtoffset >= 0 ? '+' : '-'),
               ((gmtoffset >= 0 ? gmtoffset : -gmtoffset) / 60),
               ((gmtoffset >= 0 ? gmtoffset : -gmtoffset) % 60));
-  finalHeaders->SetRawHeader("Date", nsDependentCString(dateString));
+  finalHeaders->SetRawHeader("Date", nsDependentCString(dateString), nullptr);
 
   // X-Mozilla-Draft-Info
   if (isDraft) {
@@ -280,7 +280,7 @@ nsresult mime_generate_headers(nsIMsgCompFields* fields,
     draftInfo.AppendLiteral("deliveryformat=");
     draftInfo.AppendInt(deliveryFormat);
 
-    finalHeaders->SetRawHeader(HEADER_X_MOZILLA_DRAFT_INFO, draftInfo);
+    finalHeaders->SetRawHeader(HEADER_X_MOZILLA_DRAFT_INFO, draftInfo, nullptr);
   }
 
   nsCOMPtr<nsIHttpProtocolHandler> pHTTPHandler =
@@ -314,7 +314,7 @@ nsresult mime_generate_headers(nsIMsgCompFields* fields,
         newsgroups, getter_Copies(newsgroupsHeaderVal),
         getter_Copies(newshostHeaderVal));
     NS_ENSURE_SUCCESS(rv, rv);
-    finalHeaders->SetRawHeader("Newsgroups", newsgroupsHeaderVal);
+    finalHeaders->SetRawHeader("Newsgroups", newsgroupsHeaderVal, nullptr);
 
     // If we are here, we are NOT going to send this now. (i.e. it is a Draft,
     // Send Later file, etc...). Because of that, we need to store what the user
@@ -326,7 +326,8 @@ nsresult mime_generate_headers(nsIMsgCompFields* fields,
       // what the user typed into the "Newsgroup" line in the
       // HEADER_X_MOZILLA_NEWSHOST header for later use by "Send Unsent
       // Messages", "Drafts" or "Templates"
-      finalHeaders->SetRawHeader(HEADER_X_MOZILLA_NEWSHOST, newshostHeaderVal);
+      finalHeaders->SetRawHeader(HEADER_X_MOZILLA_NEWSHOST, newshostHeaderVal,
+                                 nullptr);
     }
 
     // Newsgroups are a recipient...
@@ -406,7 +407,7 @@ nsresult mime_generate_headers(nsIMsgCompFields* fields,
       priorityValueString.AppendLiteral(" (");
       priorityValueString += priorityName;
       priorityValueString.Append(')');
-      finalHeaders->SetRawHeader("X-Priority", priorityValueString);
+      finalHeaders->SetRawHeader("X-Priority", priorityValueString, nullptr);
     }
   }
 
@@ -424,14 +425,15 @@ nsresult mime_generate_headers(nsIMsgCompFields* fields,
             '<', references.Length() + newReferences.Length() - 986);
         if (bracket > 0) {
           newReferences.Append(Substring(references, bracket));
-          finalHeaders->SetRawHeader("References", newReferences);
+          finalHeaders->SetRawHeader("References", newReferences, nullptr);
         }
       }
     }
     // The In-Reply-To header is the last entry in the references header...
     int32_t bracket = references.RFind("<");
     if (bracket >= 0)
-      finalHeaders->SetRawHeader("In-Reply-To", Substring(references, bracket));
+      finalHeaders->SetRawHeader("In-Reply-To", Substring(references, bracket),
+                                 nullptr);
   }
 
   return NS_OK;
