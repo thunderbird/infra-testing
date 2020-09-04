@@ -10,6 +10,10 @@
   --button-border-radius: 3px;
 }
 
+:host {
+  -moz-appearance: none;
+}
+
 button > .button-box {
   padding-block: 3px;
 }
