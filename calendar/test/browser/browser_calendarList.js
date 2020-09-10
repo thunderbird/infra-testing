@@ -66,14 +66,17 @@ add_task(async () => {
           is(item.getAttribute("calendar-id"), expectedValue);
           break;
         case "disabled":
-          is(item.querySelector(".calendar-displayed").disabled, expectedValue);
-          is(getComputedStyle(colorImage).filter != "none", expectedValue);
+          is(item.querySelector(".calendar-displayed").hidden, expectedValue);
           break;
         case "displayed":
           is(item.querySelector(".calendar-displayed").checked, expectedValue);
           break;
         case "color":
-          is(getComputedStyle(colorImage).backgroundColor, expectedValue);
+          if (item.getAttribute("calendar-disabled")) {
+            is(getComputedStyle(colorImage).backgroundColor, "rgba(0, 0, 0, 0)");
+          } else {
+            is(getComputedStyle(colorImage).backgroundColor, expectedValue);
+          }
           break;
         case "name":
           is(item.querySelector(".calendar-name").value, expectedValue);
