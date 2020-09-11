@@ -61,6 +61,9 @@ class CardDAVDirectory extends AddrBookDirectory {
     }
   }
 
+  get propertiesChromeURI() {
+    return "chrome://messenger/content/addressbook/abCardDAVProperties.xhtml";
+  }
   get dirType() {
     return 102;
   }
@@ -132,6 +135,14 @@ class CardDAVDirectory extends AddrBookDirectory {
       "CardDAVDirectory does not implement copyMailList",
       Cr.NS_ERROR_NOT_IMPLEMENTED
     );
+  }
+  setIntValue(name, value) {
+    super.setIntValue(name, value);
+
+    // Capture changes to the sync interval from the UI.
+    if (name == "carddav.syncinterval") {
+      this._scheduleNextSync();
+    }
   }
 
   /** CardDAV specific */
