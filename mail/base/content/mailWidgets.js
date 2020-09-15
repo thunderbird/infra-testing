@@ -2007,6 +2007,7 @@
       if (!addresses[0]) {
         this.rowInput.focus();
         this.remove();
+        onRecipientsChanged();
         return;
       }
 
@@ -2022,6 +2023,7 @@
       this.emailInput.attachController();
 
       this.resetPill();
+      onRecipientsChanged();
     }
 
     resetPill() {
