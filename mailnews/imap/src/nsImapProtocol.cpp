@@ -65,6 +65,7 @@
 #include "nsIStreamConverterService.h"
 #include "nsIProxyInfo.h"
 #include "nsISSLSocketControl.h"
+#include "nsITransportSecurityInfo.h"
 #include "nsProxyRelease.h"
 #include "nsDebug.h"
 #include "nsMsgCompressIStream.h"
@@ -4799,6 +4800,24 @@ char* nsImapProtocol::CreateNewLineFromSocket() {
         // reimplemented here using easily enough using other
         // publicly-accessible macros and functions.
         break;
+    }
+
+    // We want to stash the socket transport's securityInfo on the url
+    // failedSecInfo attribute, so it'll be available in nsIUrlListener
+    // OnStopRunningUrl() callbacks.
+    // Strictly speaking, we only need secInfo for NSS errors (to access bad
+    // certificates), but the nssErrorsService we use to determine the
+    // error class only works on the main thread.
+    {
+      nsCOMPtr<nsIMsgMailNewsUrl> mailNewsUrl = do_QueryInterface(m_runningUrl);
+      nsCOMPtr<nsISupports> secInfo;
+      if (NS_SUCCEEDED(m_transport->GetSecurityInfo(getter_AddRefs(secInfo)))) {
+        nsCOMPtr<nsITransportSecurityInfo> transportSecInfo =
+            do_QueryInterface(secInfo);
+        if (transportSecInfo) {
+          mailNewsUrl->SetFailedSecInfoInternal(transportSecInfo);
+        }
+      }
     }
 
     nsAutoCString logMsg("clearing IMAP_CONNECTION_IS_OPEN - rv = ");
