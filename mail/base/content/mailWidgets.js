@@ -2457,6 +2457,7 @@
       input.setAttribute("recipienttype", recipient.type);
       input.setAttribute("size", 1);
       input.setAttribute("type", "text");
+      input.setAttribute("disableonsend", true);
       input.classList.add("plain", "address-input");
       if (recipient.class) {
         input.classList.add(recipient.class);
@@ -2464,7 +2465,7 @@
 
       if (!rawInput) {
         // Regular autocomplete address input, not other header with raw input.
-        input.setAttribute("disableonsend", true);
+        // Set various attributes for autocomplete.
         input.setAttribute("autocompletesearch", "mydomain addrbook ldap news");
         input.setAttribute("autocompletesearchparam", "{}");
         input.setAttribute("timeout", 300);
@@ -2483,6 +2484,10 @@
         input.onBeforeHandleKeyDown = event => {
           addressInputOnBeforeHandleKeyDown(event);
         };
+      } else {
+        // Handle keydown event in other header input (rawInput), which does not
+        // have autocomplete and its associated keydown handling.
+        input.addEventListener("keydown", otherHeaderInputOnKeyDown);
       }
 
       input.addEventListener("blur", () => {
