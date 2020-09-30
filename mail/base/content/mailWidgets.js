@@ -2760,6 +2760,10 @@
         if (sourcePill) {
           sourcePill.setAttribute("selected", "selected");
         }
+        if (event.key == "Home" && !sourcePill) {
+          // Shift+Home from address input.
+          this.selectPills(targetPill);
+        }
         if (targetPill) {
           targetPill.setAttribute("selected", "selected");
         }
