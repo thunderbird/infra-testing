@@ -675,7 +675,7 @@
         onRefreshAttempted: (aWebProgress, ...args) => {
           let browser = aWebProgress.QueryInterface(Ci.nsIDocShellTreeItem)
             .sameTypeRootTreeItem.chromeEventHandler;
-          this._callTabListeners("onRefreshAttempted", [
+          return this._callTabListeners("onRefreshAttempted", [
             browser,
             aWebProgress,
             ...args,
@@ -2033,15 +2033,19 @@
     }
 
     _callTabListeners(aMethod, aArgs) {
+      let rv = true;
       for (let listener of this.mTabsProgressListeners.values()) {
         if (aMethod in listener) {
           try {
-            listener[aMethod](...aArgs);
+            if (!listener[aMethod](...aArgs)) {
+              rv = false;
+            }
           } catch (e) {
             Cu.reportError(e);
           }
         }
       }
+      return rv;
     }
 
     disconnectedCallback() {
