@@ -474,6 +474,10 @@ function onLoad() {
     document.documentElement.setAttribute("systemcolors", "true");
   }
 
+  // Disable save and save close buttons and menuitems if the item
+  // title is empty.
+  updateTitle();
+
   onLoad.hasLoaded = true;
 }
 // Set a variable to allow or prevent actions before the dialog is done loading.
@@ -553,6 +557,10 @@ function onCommandCancel() {
   );
   switch (choice) {
     case 0: // Save
+      let itemTitle = document.getElementById("item-title");
+      if (!itemTitle.value) {
+        itemTitle.value = cal.l10n.getCalString("eventUntitled");
+      }
       onCommandSave(true);
       return true;
     case 2: // Don't save
@@ -814,12 +822,6 @@ function loadDialog(aItem) {
     updateDateTime();
 
     updateCalendar();
-
-    // figure out what the title of the dialog should be and set it
-    // tabs already have their title set
-    if (!gInTab) {
-      updateTitle();
-    }
 
     let notifyCheckbox = document.getElementById("notify-attendees-checkbox");
     let undiscloseCheckbox = document.getElementById("undisclose-attendees-checkbox");
@@ -1775,8 +1777,11 @@ function updateTitle() {
   } else {
     throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
-  let newTitle = cal.l10n.getCalString(strName) + ": " + getElementValue("item-title");
-  sendMessage({ command: "updateTitle", argument: newTitle });
+  sendMessage({
+    command: "updateTitle",
+    prefix: cal.l10n.getCalString(strName),
+    title: getElementValue("item-title"),
+  });
 }
 
 /**
