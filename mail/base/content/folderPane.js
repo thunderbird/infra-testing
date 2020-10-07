@@ -3113,6 +3113,7 @@ var gFolderTreeController = {
           gFolderTreeController.previewSelectedColor,
         clearFolderSelectionCallback:
           gFolderTreeController.clearFolderSelection,
+        selectFolderCallback: gFolderTreeController.selectFolder,
         updateColorCallback: gFolderTreeController.updateColor,
       }
     );
@@ -3375,6 +3376,7 @@ var gFolderTreeController = {
           gFolderTreeController.previewSelectedColor,
         clearFolderSelectionCallback:
           gFolderTreeController.clearFolderSelection,
+        selectFolderCallback: gFolderTreeController.selectFolder,
         updateColorCallback: gFolderTreeController.updateColor,
         msgWindow,
       }
@@ -3518,6 +3520,19 @@ var gFolderTreeController = {
    */
   clearFolderSelection() {
     gFolderTreeView.selection.clearSelection();
+  },
+
+  /**
+   * Restore the selection to the folder that opened the properties dialog after
+   * the user interacted with the color picker. We use this simple method to
+   * quickly restore the selection instead of using the
+   * gFolderTreeView.selectFolder() as we don't need to go through all those
+   * conditions.
+   *
+   * @param {ftvItem} folder - The folder where the color was edited.
+   */
+  selectFolder(folder) {
+    gFolderTreeView.selection.select(gFolderTreeView.getIndexOfFolder(folder));
   },
 };
 
