@@ -65,6 +65,27 @@ if (AppConstants.platform == "macosx") {
 }
 
 /**
+ * A pre-sorted list of directories in the right order, to be returned by
+ * AddrBookManager.directories. That function is called a lot, and there's
+ * no need to sort the list every time.
+ *
+ * Call updateSortedDirectoryList after `store` changes and before any
+ * notifications happen.
+ */
+let sortedDirectoryList = [];
+function updateSortedDirectoryList() {
+  sortedDirectoryList = [...store.values()];
+  sortedDirectoryList.sort((a, b) => {
+    let aPosition = a.dirPrefId ? a.getIntValue("position", 0) : 0;
+    let bPosition = b.dirPrefId ? b.getIntValue("position", 0) : 0;
+    if (aPosition != bPosition) {
+      return aPosition - bPosition;
+    }
+    return a.URI < b.URI ? -1 : 1;
+  });
+}
+
+/**
  * Initialise an address book directory by URI.
  *
  * @param {string} uri - URI for the directory.
@@ -171,6 +192,8 @@ function ensureInitialized() {
       Cu.reportError(ex);
     }
   }
+
+  updateSortedDirectoryList();
 }
 
 Services.obs.addObserver(() => {
@@ -194,16 +217,7 @@ AddrBookManager.prototype = {
 
   get directories() {
     ensureInitialized();
-    let dirs = [...store.values()];
-    dirs.sort((a, b) => {
-      let aPosition = a.getIntValue("position", 0);
-      let bPosition = b.getIntValue("position", 0);
-      if (aPosition != bPosition) {
-        return aPosition - bPosition;
-      }
-      return a.URI < b.URI ? -1 : 1;
-    });
-    return new SimpleEnumerator(dirs);
+    return new SimpleEnumerator(sortedDirectoryList.slice());
   },
   getDirectory(uri) {
     if (uri.startsWith("moz-abdirectory://")) {
@@ -310,6 +324,7 @@ AddrBookManager.prototype = {
         uri = `moz-abldapdirectory://${prefName}`;
         let dir = createDirectoryObject(uri, true);
         this.notifyDirectoryItemAdded(null, dir);
+        updateSortedDirectoryList();
         Services.obs.notifyObservers(dir, "addrbook-directory-created");
         break;
       }
@@ -359,6 +374,7 @@ AddrBookManager.prototype = {
         if (AppConstants.platform == "macosx") {
           let dir = createDirectoryObject(uri, true);
           this.notifyDirectoryItemAdded(null, dir);
+          updateSortedDirectoryList();
           Services.obs.notifyObservers(dir, "addrbook-directory-created");
         } else if (AppConstants.platform == "win") {
           let outlookInterface = Cc[
@@ -367,6 +383,7 @@ AddrBookManager.prototype = {
           for (let folderURI of outlookInterface.getFolderURIs(uri)) {
             let dir = createDirectoryObject(folderURI, true);
             this.notifyDirectoryItemAdded(null, dir);
+            updateSortedDirectoryList();
             Services.obs.notifyObservers(dir, "addrbook-directory-created");
           }
         }
@@ -387,6 +404,7 @@ AddrBookManager.prototype = {
         uri = `${scheme}://${file.leafName}`;
         let dir = createDirectoryObject(uri, true);
         this.notifyDirectoryItemAdded(null, dir);
+        updateSortedDirectoryList();
         Services.obs.notifyObservers(dir, "addrbook-directory-created");
         break;
       }
@@ -450,6 +468,7 @@ AddrBookManager.prototype = {
     Services.prefs.clearUserPref(`${prefName}.uid`);
     Services.prefs.clearUserPref(`${prefName}.uri`);
     store.delete(uri);
+    updateSortedDirectoryList();
 
     // Clear this reference to the deleted address book.
     if (Services.prefs.getStringPref("mail.collect_addressbook") == uri) {
