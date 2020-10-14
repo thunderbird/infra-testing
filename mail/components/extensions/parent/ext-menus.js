@@ -1088,10 +1088,19 @@ this.menus = class extends ExtensionAPI {
               let contextUrl = contextData.inFrame
                 ? contextData.frameUrl
                 : contextData.pageUrl;
+
+              let contextScheme;
+              if (contextUrl) {
+                contextScheme = Services.io.newURI(contextUrl).scheme;
+              }
+
               let includeSensitiveData =
                 (nativeTab &&
                   extension.tabManager.hasActiveTabPermission(nativeTab)) ||
-                (contextUrl && extension.whiteListedHosts.matches(contextUrl));
+                (contextUrl &&
+                  extension.whiteListedHosts.matches(contextUrl)) ||
+                (MESSAGE_PROTOCOLS.includes(contextScheme) &&
+                  extension.hasPermission("messagesRead"));
 
               addMenuEventInfo(
                 info,

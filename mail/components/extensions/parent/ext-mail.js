@@ -41,6 +41,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
 
 const COMPOSE_WINDOW_URI =
   "chrome://messenger/content/messengercompose/messengercompose.xhtml";
+const MESSAGE_PROTOCOLS = ["imap", "mailbox", "news", "nntp", "snews"];
 
 // Inject the |messenger| object as an alias to |browser| in all known contexts. This is a bit
 // fragile since it uses monkeypatching. If a test fails, the best way to debug is to search for
