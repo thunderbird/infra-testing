@@ -12,7 +12,6 @@ var { MailServices } = ChromeUtils.import(
 
 var ACR = Ci.nsIAutoCompleteResult;
 var nsIAbAutoCompleteResult = Ci.nsIAbAutoCompleteResult;
-var nsIAbDirectoryQueryResultListener = Ci.nsIAbDirectoryQueryResultListener;
 
 // nsAbLDAPAutoCompleteResult
 // Derived from nsIAbAutoCompleteResult, provides a LDAP specific result
@@ -308,19 +307,19 @@ AbLDAPAutoCompleteSearch.prototype = {
 
   // nsIAbDirSearchListener
 
-  onSearchFinished(aResult, aErrorMsg) {
+  onSearchFinished(status, secInfo) {
     if (!this._listener) {
       return;
     }
 
-    if (aResult == nsIAbDirectoryQueryResultListener.queryResultComplete) {
+    if (status == Cr.NS_OK) {
       if (this._result.matchCount) {
         this._result.searchResult = ACR.RESULT_SUCCESS;
         this._result.defaultIndex = 0;
       } else {
         this._result.searchResult = ACR.RESULT_NOMATCH;
       }
-    } else if (aResult == nsIAbDirectoryQueryResultListener.queryResultError) {
+    } else {
       this._result.searchResult = ACR.RESULT_FAILURE;
       this._result.defaultIndex = 0;
     }
