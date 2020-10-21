@@ -120,7 +120,7 @@ AddrBookMailingList.prototype = {
           return;
         }
         if (!query) {
-          listener.onSearchFinished(Cr.NS_ERROR_FAILURE, null);
+          listener.onSearchFinished(Cr.NS_ERROR_FAILURE, null, "");
           return;
         }
         if (query[0] == "?") {
@@ -224,7 +224,7 @@ AddrBookMailingList.prototype = {
         for (let card of results) {
           listener.onSearchFoundCard(card);
         }
-        listener.onSearchFinished(Cr.NS_OK, null);
+        listener.onSearchFinished(Cr.NS_OK, null, "");
       },
       addCard(card) {
         if (!card.primaryEmail) {
