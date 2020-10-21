@@ -1100,7 +1100,9 @@ this.menus = class extends ExtensionAPI {
                 (contextUrl &&
                   extension.whiteListedHosts.matches(contextUrl)) ||
                 (MESSAGE_PROTOCOLS.includes(contextScheme) &&
-                  extension.hasPermission("messagesRead"));
+                  extension.hasPermission("messagesRead")) ||
+                (contextUrl == "about:blank?compose" &&
+                  extension.hasPermission("compose"));
 
               addMenuEventInfo(
                 info,
