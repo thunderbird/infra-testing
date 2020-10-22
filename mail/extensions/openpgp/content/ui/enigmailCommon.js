@@ -516,6 +516,7 @@ function EnigFilePicker(
     title,
     displayDir,
     save,
+    false,
     defaultExtension,
     defaultName,
     filterPairs

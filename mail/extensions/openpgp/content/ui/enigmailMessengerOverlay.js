@@ -2774,6 +2774,7 @@ Enigmail.msg = {
         l10n.formatValueSync("save-attachment-header"),
         Enigmail.msg.lastSaveDir,
         true,
+        false,
         "",
         rawFileName,
         null
