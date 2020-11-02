@@ -1691,7 +1691,7 @@ function toggleGlobalSignMessage() {
 
   if (!gUserTouchedAttachMyPubKey) {
     if (gSendSigned) {
-      gAttachMyPublicPGPKey = true;
+      gAttachMyPublicPGPKey = gCurrentIdentity.getBoolAttribute("attachPgpKey");
     } else {
       gAttachMyPublicPGPKey = gAttachMyPublicPGPKeyInitial;
     }
@@ -1739,7 +1739,7 @@ function setGlobalEncryptMessage(mode) {
 
   if (!gUserTouchedAttachMyPubKey) {
     if (gSendSigned) {
-      gAttachMyPublicPGPKey = true;
+      gAttachMyPublicPGPKey = gCurrentIdentity.getBoolAttribute("attachPgpKey");
     } else {
       gAttachMyPublicPGPKey = gAttachMyPublicPGPKeyInitial;
     }
@@ -3823,7 +3823,7 @@ function adjustSignEncryptAfterIdentityChanged(prevId, newId) {
 
     // automatic changes after this line
     if (gSendSigned && gSelectedTechnologyIsPGP) {
-      gAttachMyPublicPGPKey = true;
+      gAttachMyPublicPGPKey = gCurrentIdentity.getBoolAttribute("attachPgpKey");
     }
   } else {
     // When switching the Sender identity, use the more secure setting
