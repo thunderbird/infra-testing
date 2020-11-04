@@ -39,7 +39,7 @@ add_task(async function testSearchDialogFolderSelectedFromSyntheticView() {
     delete_message_set(thread);
 
     let trash = folder.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Trash);
-    folder.parent.deleteSubFilders(
+    folder.parent.deleteSubFolders(
       toXPCOMArray([folder], Ci.nsIMutableArray),
       null
     );
