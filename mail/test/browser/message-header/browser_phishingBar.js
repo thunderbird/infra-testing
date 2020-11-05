@@ -20,6 +20,7 @@ var {
   be_in_folder,
   create_folder,
   create_message,
+  inboxFolder,
   mc,
   open_message_from_file,
   select_click_row,
@@ -267,4 +268,9 @@ add_task(function test_phishing_warning_for_action_form() {
     undefined,
     "Test ran to completion successfully"
   );
+});
+
+registerCleanupFunction(function teardown() {
+  be_in_folder(inboxFolder);
+  folder.deleteSelf(null);
 });
