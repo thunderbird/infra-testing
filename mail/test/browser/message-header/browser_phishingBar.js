@@ -43,6 +43,10 @@ var {
   wait_for_new_window,
 } = ChromeUtils.import("resource://testing-common/mozmill/WindowHelpers.jsm");
 
+const { toXPCOMArray } = ChromeUtils.import(
+  "resource:///modules/iteratorUtils.jsm"
+);
+
 var folder;
 
 var kBoxId = "mail-notification-top";
@@ -272,5 +276,8 @@ add_task(function test_phishing_warning_for_action_form() {
 
 registerCleanupFunction(function teardown() {
   be_in_folder(inboxFolder);
-  folder.deleteSelf(null);
+  folder.parent.deleteSubFolders(
+    toXPCOMArray([folder], Ci.nsIMutableArray),
+    null
+  );
 });
