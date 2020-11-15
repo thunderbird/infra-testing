@@ -407,6 +407,10 @@ toolbarbutton.formatting-button[disabled="true"] > .toolbarbutton-icon,
   padding-inline-end: 60px;
 }
 
+#languageStatusButton {
+  height: 18px;
+}
+
 /* Styles for the default system dark theme */
 
 :root[lwt-tree] #headers-box {
