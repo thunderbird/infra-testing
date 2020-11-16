@@ -687,6 +687,9 @@ function OnLoadMessenger() {
   // Load the periodic filter timer.
   PeriodicFilterManager.setupFiltering();
 
+  window.delayedStartupFinished = true;
+  Services.obs.notifyObservers(window, "mail-delayed-startup-finished");
+
   let pService = Cc["@mozilla.org/toolkit/profile-service;1"].getService(
     Ci.nsIToolkitProfileService
   );

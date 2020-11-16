@@ -396,8 +396,7 @@ this.tabs = class extends ExtensionAPI {
               createProperties.windowId === null
                 ? windowTracker.topNormalWindow
                 : windowTracker.getWindow(createProperties.windowId, context);
-            let { gMailInit } = window;
-            if (!gMailInit || !gMailInit.delayedStartupFinished) {
+            if (!window.delayedStartupFinished) {
               let obs = (finishedWindow, topic, data) => {
                 if (finishedWindow != window) {
                   return;
