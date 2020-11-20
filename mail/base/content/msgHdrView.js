@@ -1506,6 +1506,7 @@ function UpdateExtraAddressProcessing(
       if (
         aAddressData &&
         aDocumentNode.cardDetails.card &&
+        !aItem.isMailList &&
         aItem.hasEmailAddress(aAddressData.emailAddress)
       ) {
         aDocumentNode.cardDetails.card = aItem;
@@ -1540,6 +1541,7 @@ function UpdateExtraAddressProcessing(
         if (
           aDocumentNode.cardDetails &&
           !aDocumentNode.cardDetails.card &&
+          !aItem.isMailList &&
           aItem.hasEmailAddress(aAddressData.emailAddress)
         ) {
           // Just in case we have a bogus parent directory.
@@ -1563,6 +1565,7 @@ function UpdateExtraAddressProcessing(
         aDocumentNode.cardDetails &&
         aDocumentNode.cardDetails.card &&
         aDocumentNode.cardDetails.book == aParentDir &&
+        !aItem.isMailList &&
         aItem.hasEmailAddress(aAddressData.emailAddress)
       ) {
         UpdateEmailNodeDetails(aAddressData.emailAddress, aDocumentNode);
