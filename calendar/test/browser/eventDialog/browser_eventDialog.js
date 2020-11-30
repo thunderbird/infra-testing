@@ -219,7 +219,7 @@ add_task(async function testCtrlEnterShortcut() {
   goToDate(controller, 2020, 9, 1);
 
   let createBox = lookupEventBox("day", CANVAS_BOX, null, 1, 8);
-  await invokeNewEventDialog(controller, createBox, async (event, iframe) => {
+  await invokeEventDialog(controller, createBox, async (event, iframe) => {
     await setData(event, iframe, {
       title: EVENTTITLE,
       location: EVENTLOCATION,
