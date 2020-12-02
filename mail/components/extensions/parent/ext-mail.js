@@ -1454,6 +1454,7 @@ function convertMailIdentity(account, identity) {
     email: identity.email,
     replyTo: identity.replyTo,
     organization: identity.organization,
+    composeHtml: identity.composeHtml,
   };
 }
 
