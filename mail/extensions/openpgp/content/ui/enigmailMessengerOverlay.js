@@ -2761,12 +2761,16 @@ Enigmail.msg = {
       callbackArg.attachment
     ).replace(/\.(asc|pgp|gpg)$/i, "");
 
+    // TODO: We don't have code yet to extract the original filename
+    // from an encrypted data block.
+    /*
     if (callbackArg.actionType != "importKey") {
       origFilename = EnigmailAttachment.getFileName(window, callbackArg.data);
       if (origFilename && origFilename.length > rawFileName.length) {
         rawFileName = origFilename;
       }
     }
+    */
 
     if (callbackArg.actionType == "saveAttachment") {
       outFile = EnigmailDialog.filePicker(
