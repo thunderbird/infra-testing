@@ -4,46 +4,20 @@
 
 const EXPORTED_SYMBOLS = ["AddrBookDirectory", "closeConnectionTo"];
 
-ChromeUtils.defineModuleGetter(
-  this,
-  "FileUtils",
-  "resource://gre/modules/FileUtils.jsm"
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
 );
-ChromeUtils.defineModuleGetter(
-  this,
-  "MailServices",
-  "resource:///modules/MailServices.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  this,
-  "Services",
-  "resource://gre/modules/Services.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  this,
-  "SimpleEnumerator",
-  "resource:///modules/AddrBookUtils.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  this,
-  "fixIterator",
-  "resource:///modules/iteratorUtils.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  this,
-  "AddrBookCard",
-  "resource:///modules/AddrBookCard.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  this,
-  "AddrBookMailingList",
-  "resource:///modules/AddrBookMailingList.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  this,
-  "newUID",
-  "resource:///modules/AddrBookUtils.jsm"
-);
+
+XPCOMUtils.defineLazyModuleGetters(this, {
+  AddrBookCard: "resource:///modules/AddrBookCard.jsm",
+  AddrBookMailingList: "resource:///modules/AddrBookMailingList.jsm",
+  FileUtils: "resource://gre/modules/FileUtils.jsm",
+  fixIterator: "resource:///modules/iteratorUtils.jsm",
+  MailServices: "resource:///modules/MailServices.jsm",
+  newUID: "resource:///modules/AddrBookUtils.jsm",
+  Services: "resource://gre/modules/Services.jsm",
+  SimpleEnumerator: "resource:///modules/AddrBookUtils.jsm",
+});
 
 // Keep track of all database connections, and close them at shutdown, since
 // nothing else ever tells us to close them.
@@ -178,6 +152,18 @@ class AddrBookDirectory {
 
     this._fileName = fileName;
     directories.set(fileName, this);
+
+    // If this._readOnly is true, the user is prevented from making changes to
+    // the contacts. Subclasses may override this (for example to sync with a
+    // server) by setting this._overrideReadOnly to true, but must clear it
+    // before yielding to another thread (e.g. awaiting a Promise).
+
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "_readOnly",
+      `${this.dirPrefId}.readOnly`,
+      false
+    );
   }
   destroy() {}
 
@@ -511,7 +497,7 @@ class AddrBookDirectory {
   /* nsIAbDirectory */
 
   get readOnly() {
-    return false;
+    return this._readOnly;
   }
   get isRemote() {
     return false;
@@ -769,6 +755,13 @@ class AddrBookDirectory {
     return new SimpleEnumerator(results);
   }
   deleteDirectory(directory) {
+    if (this._readOnly) {
+      throw new Components.Exception(
+        "Directory is read-only",
+        Cr.NS_ERROR_FAILURE
+      );
+    }
+
     let list = this._lists.get(directory.UID);
     list = new AddrBookMailingList(
       list.uid,
@@ -820,6 +813,13 @@ class AddrBookDirectory {
     return this.dropCard(card, false);
   }
   modifyCard(card) {
+    if (this._readOnly && !this._overrideReadOnly) {
+      throw new Components.Exception(
+        "Directory is read-only",
+        Cr.NS_ERROR_FAILURE
+      );
+    }
+
     let oldProperties = this._loadCardProperties(card.UID);
     let newProperties = new Map();
     for (let { name, value } of fixIterator(card.properties, Ci.nsIProperty)) {
@@ -856,6 +856,13 @@ class AddrBookDirectory {
     );
   }
   deleteCards(cards) {
+    if (this._readOnly && !this._overrideReadOnly) {
+      throw new Components.Exception(
+        "Directory is read-only",
+        Cr.NS_ERROR_FAILURE
+      );
+    }
+
     if (cards === null) {
       throw Components.Exception("", Cr.NS_ERROR_INVALID_POINTER);
     }
@@ -889,6 +896,13 @@ class AddrBookDirectory {
     deleteCardStatement.finalize();
   }
   dropCard(card, needToCopyCard) {
+    if (this._readOnly && !this._overrideReadOnly) {
+      throw new Components.Exception(
+        "Directory is read-only",
+        Cr.NS_ERROR_FAILURE
+      );
+    }
+
     if (!card.UID) {
       throw new Error("Card must have a UID to be added to this directory.");
     }
@@ -944,6 +958,13 @@ class AddrBookDirectory {
     );
   }
   addMailList(list) {
+    if (this._readOnly) {
+      throw new Components.Exception(
+        "Directory is read-only",
+        Cr.NS_ERROR_FAILURE
+      );
+    }
+
     if (!list.isMailList) {
       throw Components.Exception(
         "Can't add; not a mail list",
