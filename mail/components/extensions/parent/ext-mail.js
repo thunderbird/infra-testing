@@ -1445,6 +1445,9 @@ class WindowManager extends WindowManagerBase {
  * @return {Object}
  */
 function convertMailIdentity(account, identity) {
+  if (!account || !identity) {
+    return null;
+  }
   identity = identity.QueryInterface(Ci.nsIMsgIdentity);
   return {
     accountId: account.key,
