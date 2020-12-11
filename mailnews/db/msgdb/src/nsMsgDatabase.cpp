@@ -2183,14 +2183,16 @@ NS_IMETHODIMP nsMsgDatabase::SetStringPropertyByHdr(nsIMsgDBHdr* msgHdr,
 
   // Precall OnHdrPropertyChanged to store prechange status
   nsTArray<uint32_t> statusArray(m_ChangeListeners.Length());
-  uint32_t status;
   nsCOMPtr<nsIDBChangeListener> listener;
   if (notify) {
     nsTObserverArray<nsCOMPtr<nsIDBChangeListener>>::ForwardIterator listeners(
         m_ChangeListeners);
     while (listeners.HasMore()) {
       listener = listeners.GetNext();
-      listener->OnHdrPropertyChanged(msgHdr, true, &status, nullptr);
+      // initialize |status| because some implementations of
+      // OnHdrPropertyChanged does not set the value.
+      uint32_t status = 0;
+      (void) listener->OnHdrPropertyChanged(msgHdr, true, &status, nullptr);
       // ignore errors, but append element to keep arrays in sync
       statusArray.AppendElement(status);
     }
@@ -2211,8 +2213,8 @@ NS_IMETHODIMP nsMsgDatabase::SetStringPropertyByHdr(nsIMsgDBHdr* msgHdr,
         m_ChangeListeners);
     for (uint32_t i = 0; listeners.HasMore(); i++) {
       listener = listeners.GetNext();
-      status = statusArray[i];
-      listener->OnHdrPropertyChanged(msgHdr, false, &status, nullptr);
+      uint32_t status = statusArray[i];
+      (void) listener->OnHdrPropertyChanged(msgHdr, false, &status, nullptr);
       // ignore errors
     }
   }
@@ -2237,14 +2239,16 @@ nsMsgDatabase::SetUint32PropertyByHdr(nsIMsgDBHdr* aMsgHdr,
 
   // Precall OnHdrPropertyChanged to store prechange status.
   nsTArray<uint32_t> statusArray(m_ChangeListeners.Length());
-  uint32_t status;
   nsCOMPtr<nsIDBChangeListener> listener;
   if (notify) {
     nsTObserverArray<nsCOMPtr<nsIDBChangeListener>>::ForwardIterator listeners(
         m_ChangeListeners);
     while (listeners.HasMore()) {
       listener = listeners.GetNext();
-      listener->OnHdrPropertyChanged(aMsgHdr, true, &status, nullptr);
+      // initialize |status| because some implementations of
+      // OnHdrPropertyChanged does not set the value.
+      uint32_t status = 0;
+      (void) listener->OnHdrPropertyChanged(aMsgHdr, true, &status, nullptr);
       // Ignore errors, but append element to keep arrays in sync.
       statusArray.AppendElement(status);
     }
@@ -2259,8 +2263,8 @@ nsMsgDatabase::SetUint32PropertyByHdr(nsIMsgDBHdr* aMsgHdr,
         m_ChangeListeners);
     for (uint32_t i = 0; listeners.HasMore(); i++) {
       listener = listeners.GetNext();
-      status = statusArray[i];
-      listener->OnHdrPropertyChanged(aMsgHdr, false, &status, nullptr);
+      uint32_t status = statusArray[i];
+      (void) listener->OnHdrPropertyChanged(aMsgHdr, false, &status, nullptr);
       // Ignore errors.
     }
   }
