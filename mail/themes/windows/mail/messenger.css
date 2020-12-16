@@ -160,6 +160,7 @@ toolbar[brighttext] {
   }
 
   :root:not(:-moz-lwtheme) .toolbar,
+  :root:not(:-moz-lwtheme) #quick-filter-bar,
   :root:not(:-moz-lwtheme) .contentTabToolbox,
   :root:not(:-moz-lwtheme) #header-view-toolbar,
   :root:not(:-moz-lwtheme) #ab-toolbox > toolbar,
