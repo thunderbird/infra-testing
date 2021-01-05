@@ -885,6 +885,7 @@ class AddrBookDirectory {
     for (let card of cards) {
       MailServices.ab.notifyDirectoryItemDeleted(this, card);
       Services.obs.notifyObservers(card, "addrbook-contact-deleted", this.UID);
+      card.directoryUID = null;
     }
 
     // We could just delete all non-existent cards from list_cards, but a
