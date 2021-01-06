@@ -57,6 +57,9 @@ add_task(async function testMarkedAsRead() {
     "should get marked as read"
   );
   be_in_folder(inboxFolder);
-  folder.deleteSelf(null);
+  folder.parent.deleteSubFolders(
+    toXPCOMArray([folder], Ci.nsIMutableArray),
+    null
+  );
   Services.prefs.clearUserPref("mailnews.mark_message_read.auto");
 });
