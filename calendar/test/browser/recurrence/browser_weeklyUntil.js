@@ -35,7 +35,7 @@ var { cal } = ChromeUtils.import("resource:///modules/calendar/calUtils.jsm");
 var controller = mozmill.getMail3PaneController();
 var { lookupEventBox } = helpersForController(controller);
 
-const ENDDATE = new Date(2009, 0, 26); // Last Monday in month.
+const ENDDATE = cal.createDateTime("20090126T000000Z"); // Last Monday in month.
 const HOUR = 8;
 
 add_task(async function testWeeklyUntilRecurrence() {
@@ -151,9 +151,7 @@ function setRecurrence(recurrence) {
   recurrence.keypress(untilInput, "a", { accelKey: true });
   recurrence.keypress(untilInput, "VK_DELETE", {});
 
-  let endDateString = cal.dtz.formatter.formatDateShort(
-    cal.dtz.jsDateToDateTime(ENDDATE, cal.dtz.floating)
-  );
+  let endDateString = cal.dtz.formatter.formatDateShort(ENDDATE);
   recsleep(SHORT_SLEEP);
   recurrence.type(untilInput, endDateString);
 

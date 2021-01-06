@@ -40,7 +40,7 @@ var controller = mozmill.getMail3PaneController();
 var { lookup, lookupEventBox } = helpersForController(controller);
 
 const HOUR = 8;
-const STARTDATE = new Date(2009, 0, 6);
+const STARTDATE = cal.createDateTime("20090106T000000Z");
 const TITLE = "Event";
 
 add_task(async function testWeeklyWithExceptionRecurrence() {

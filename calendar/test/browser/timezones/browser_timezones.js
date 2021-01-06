@@ -22,6 +22,7 @@ var {
 } = ChromeUtils.import("resource://testing-common/mozmill/CalendarUtils.jsm");
 var { setData } = ChromeUtils.import("resource://testing-common/mozmill/ItemEditingHelpers.jsm");
 
+var { cal } = ChromeUtils.import("resource:///modules/calendar/calUtils.jsm");
 var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 var controller = mozmill.getMail3PaneController();
@@ -49,10 +50,6 @@ var TIMEZONES = [
   "Australia/Adelaide",
 ];
 
-add_task(function testTimezones1_SetGMT() {
-  Services.prefs.setStringPref("calendar.timezone.local", "Europe/London");
-});
-
 add_task(async function testTimezones2_CreateEvents() {
   createCalendar(controller, CALENDARNAME);
   goToDate(controller, 2009, 1, 1);
@@ -68,18 +65,18 @@ add_task(async function testTimezones2_CreateEvents() {
     [19, 45],
     [1, 30],
   ];
-  let time = new Date();
+  let time = cal.createDateTime();
   for (let i = 0; i < TIMEZONES.length; i++) {
     let eventBox = lookupEventBox("day", CANVAS_BOX, null, 1, i + 11);
     await invokeEventDialog(controller, eventBox, async (event, iframe) => {
-      time.setHours(times[i][0]);
-      time.setMinutes(times[i][1]);
+      time.hour = times[i][0];
+      time.minute = times[i][1];
 
       // Set event data.
       await setData(event, iframe, {
         title: TIMEZONES[i],
         repeat: "weekly",
-        repeatuntil: new Date(2009, 11, 31),
+        repeatuntil: cal.createDateTime("20091231T000000Z"),
         starttime: time,
         timezone: TIMEZONES[i],
       });
@@ -895,5 +892,4 @@ function verify(dates, timezones, times) {
 
 registerCleanupFunction(() => {
   deleteCalendars(controller, CALENDARNAME);
-  Services.prefs.clearUserPref("calendar.timezone.local");
 });
