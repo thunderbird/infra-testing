@@ -24,6 +24,10 @@ var {
   "resource://testing-common/mozmill/FolderDisplayHelpers.jsm"
 );
 
+var { toXPCOMArray } = ChromeUtils.import(
+  "resource:///modules/iteratorUtils.jsm"
+);
+
 /**
  * Tests that a message containing an invalid vcard can be displayed.
  */
