@@ -6,12 +6,6 @@
  * Tests for the CalStorageCalendar.getItems method.
  */
 
-const { CalendarTestUtils } = ChromeUtils.import(
-  "resource://testing-common/mozmill/CalendarTestUtils.jsm"
-);
-const { CalEvent } = ChromeUtils.import("resource:///modules/CalEvent.jsm");
-const { CalTodo } = ChromeUtils.import("resource:///modules/CalTodo.jsm");
-
 do_get_profile();
 
 /**
@@ -153,7 +147,7 @@ async function doPropertiesTest(filterType, originalItem, originalProps, changed
  * Test event exceptions load their properties.
  */
 add_task(async function testEventPropertiesForRecurringExceptionsLoad() {
-  let event = new CalEvent(CalendarTestUtils.dedent`
+  let event = cal.createEvent(dedent`
       BEGIN:VEVENT
       CREATED:20201211T000000Z
       LAST-MODIFIED:20201211T000000Z
@@ -190,7 +184,7 @@ add_task(async function testEventPropertiesForRecurringExceptionsLoad() {
  * Test todo exceptions load their properties.
  */
 add_task(async function testTodoPropertiesForRecurringExceptionsLoad() {
-  let todo = new CalTodo(CalendarTestUtils.dedent`
+  let todo = cal.createTodo(dedent`
       BEGIN:VTODO
       CREATED:20201211T000000Z
       LAST-MODIFIED:20201211T000000Z
