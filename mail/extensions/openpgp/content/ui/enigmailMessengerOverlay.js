@@ -437,6 +437,11 @@ Enigmail.msg = {
     Enigmail.msg.allAttachmentsDone = false;
     Enigmail.msg.messageDecryptDone = false;
 
+    let cryptoBox = document.getElementById("cryptoBox");
+    if (cryptoBox) {
+      cryptoBox.removeAttribute("decryptDone");
+    }
+
     Enigmail.msg.authorEmailFetched = false;
     Enigmail.msg.authorEmail = "";
     Enigmail.msg.attachedKeys = [];
@@ -662,14 +667,25 @@ Enigmail.msg = {
   },
 
   // callback function for automatic decryption
-  messageAutoDecrypt() {
+  async messageAutoDecrypt() {
     EnigmailLog.DEBUG("enigmailMessengerOverlay.js: messageAutoDecrypt:\n");
-    Enigmail.msg.messageDecrypt(null, true);
+    await Enigmail.msg.messageDecrypt(null, true);
   },
 
   async notifyMessageDecryptDone() {
     Enigmail.msg.messageDecryptDone = true;
     Enigmail.msg.processAfterAttachmentsAndDecrypt();
+
+    // To allow the automated tests to access the messageDecryptDone
+    // state, we set an attribute with value "true".
+    // TODO: Replace with an event based system, but that will require
+    //       to rewrite the message parsing, so that we can reliably
+    //       await the state of all pending processing, in particular
+    //       see the hack in msgDirectCallback which uses setTimeout(0).
+    let cryptoBox = document.getElementById("cryptoBox");
+    if (cryptoBox) {
+      cryptoBox.setAttribute("decryptDone", "true");
+    }
 
     // Interrupt if the message wasn't properly decrypted.
     if (
@@ -695,7 +711,7 @@ Enigmail.msg = {
   },
 
   // analyse message header and decrypt/verify message
-  messageDecrypt(event, isAuto) {
+  async messageDecrypt(event, isAuto) {
     EnigmailLog.DEBUG(
       "enigmailMessengerOverlay.js: messageDecrypt: " + event + "\n"
     );
@@ -719,7 +735,7 @@ Enigmail.msg = {
       contentType.search(/application\/pgp-encrypted/i) > 0
     ) {
       this.movePEPsubject();
-      this.messageDecryptCb(event, isAuto, null);
+      await this.messageDecryptCb(event, isAuto, null);
       this.notifyMessageDecryptDone();
       return;
     } else if (
@@ -727,7 +743,7 @@ Enigmail.msg = {
       contentType.search(/application\/pgp-signature/i) > 0
     ) {
       this.movePEPsubject();
-      this.messageDecryptCb(event, isAuto, null);
+      await this.messageDecryptCb(event, isAuto, null);
       this.notifyMessageDecryptDone();
       return;
     }
@@ -736,8 +752,8 @@ Enigmail.msg = {
       EnigmailMime.getMimeTreeFromUrl(
         this.getCurrentMsgUrl().spec,
         false,
-        function(mimeMsg) {
-          Enigmail.msg.messageDecryptCb(event, isAuto, mimeMsg);
+        async function(mimeMsg) {
+          await Enigmail.msg.messageDecryptCb(event, isAuto, mimeMsg);
           Enigmail.msg.notifyMessageDecryptDone();
         }
       );
@@ -747,7 +763,7 @@ Enigmail.msg = {
           ex.toString() +
           "\n"
       );
-      this.messageDecryptCb(event, isAuto, null);
+      await this.messageDecryptCb(event, isAuto, null);
       this.notifyMessageDecryptDone();
     }
   },
@@ -927,7 +943,7 @@ Enigmail.msg = {
               "application/pgp-encrypted"
             )
           ) {
-            this.messageParse(
+            await this.messageParse(
               event,
               false,
               Enigmail.msg.savedHeaders["content-transfer-encoding"],
@@ -1039,7 +1055,13 @@ Enigmail.msg = {
 
       // inline-PGP messages
       if (!isAuto || EnigmailPrefs.getPref("autoDecrypt")) {
-        this.messageParse(event, false, contentEncoding, msgUriSpec, isAuto);
+        await this.messageParse(
+          event,
+          false,
+          contentEncoding,
+          msgUriSpec,
+          isAuto
+        );
       }
     } catch (ex) {
       EnigmailLog.writeException(
@@ -1289,8 +1311,8 @@ Enigmail.msg = {
           {
             label: buttonLabel,
             popup: null,
-            callback(aNotification, aButton) {
-              Enigmail.msg.processOpenPGPSubset();
+            async callback(aNotification, aButton) {
+              await Enigmail.msg.processOpenPGPSubset();
               return false; // Close notification.
             },
           },
@@ -1330,9 +1352,9 @@ Enigmail.msg = {
 
     var urlSpec = mailNewsUrl ? mailNewsUrl.spec : "";
 
-    let retry = charset != "UTF-8" ? 1 : 2;
+    let retry = 1;
 
-    Enigmail.msg.messageParseCallback(
+    await Enigmail.msg.messageParseCallback(
       msgText,
       contentEncoding,
       charset,
@@ -1391,7 +1413,7 @@ Enigmail.msg = {
 
   async processOpenPGPSubset() {
     Enigmail.msg.showPartialDecryptionReminder = true;
-    this.messageDecrypt(null, false);
+    await this.messageDecrypt(null, false);
   },
 
   getBodyElement() {
@@ -1565,7 +1587,7 @@ Enigmail.msg = {
       // Bad signature/armor
       if (retry == 1) {
         msgText = EnigmailData.convertFromUnicode(msgText, "UTF-8");
-        Enigmail.msg.messageParseCallback(
+        await Enigmail.msg.messageParseCallback(
           msgText,
           contentEncoding,
           charset,
@@ -1600,8 +1622,8 @@ Enigmail.msg = {
         );
         return;
       } else if (retry == 3) {
-        msgText = EnigmailData.convertToUnicode(msgText, "UTF-8");
-        Enigmail.msg.messageParseCallback(
+        msgText = EnigmailData.convertFromUnicode(msgText, "UTF-8");
+        await Enigmail.msg.messageParseCallback(
           msgText,
           contentEncoding,
           charset,
@@ -2457,7 +2479,6 @@ Enigmail.msg = {
     }
 
     var msgText = callbackArg.data;
-    msgText = EnigmailData.convertFromUnicode(msgText, "UTF-8");
 
     EnigmailLog.DEBUG(
       "enigmailMessengerOverlay.js: msgDirectCallback: msgText='" +
