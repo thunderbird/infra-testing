@@ -682,6 +682,22 @@ function OnLoadMessenger() {
     document.getElementById("multimessage")
   );
 
+  // Depending on the pref, hide/show the gloda toolbar search widgets.
+  XPCOMUtils.defineLazyPreferenceGetter(
+    this,
+    "gGlodaEnabled",
+    "mailnews.database.global.indexer.enabled",
+    true,
+    (pref, oldVal, newVal) => {
+      for (let widget of document.querySelectorAll(".gloda-search-widget")) {
+        widget.hidden = !newVal;
+      }
+    }
+  );
+  for (let widget of document.querySelectorAll(".gloda-search-widget")) {
+    widget.hidden = !this.gGlodaEnabled;
+  }
+
   window.addEventListener("AppCommand", HandleAppCommandEvent, true);
 
   // Set up the appmenus. (This has to happen after the DOM has loaded.)
