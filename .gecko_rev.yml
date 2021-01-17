@@ -1,8 +1,8 @@
 ---
 GECKO_BASE_REPOSITORY: https://hg.mozilla.org/mozilla-unified
 GECKO_HEAD_REPOSITORY: https://hg.mozilla.org/releases/mozilla-esr78
-GECKO_HEAD_REF: FIREFOX_78_6_1esr_RELEASE
-GECKO_HEAD_REV: df0581e37d875577ff1f2be1d5943e0d03c9e796
+GECKO_HEAD_REF: default
+GECKO_HEAD_REV: 0b2a3be4915be03d5434bd445234b7145f4d7dab
 
 ### For comm-central
 # GECKO_BASE_REPOSITORY: https://hg.mozilla.org/mozilla-unified
