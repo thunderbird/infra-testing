@@ -139,7 +139,7 @@
   }
 
   #MsgHeadersToolbar:not(:-moz-lwtheme)
-    .address-pill:not([selected],.editing):hover .pill-indicator {
+    .address-pill:not([selected]):not(.editing):hover .pill-indicator {
     fill: Highlight;
   }
 }
