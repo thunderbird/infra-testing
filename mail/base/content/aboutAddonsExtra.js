@@ -15,6 +15,10 @@ const THUNDERBIRD_THEME_PREVIEWS = new Map([
   ],
 ]);
 
+XPCOMUtils.defineLazyModuleGetters(this, {
+  ExtensionData: "resource://gre/modules/Extension.jsm",
+});
+
 /* This file runs in both the outer window, which controls the categories list, search bar, etc.,
  * and the inner window which is the list of add-ons or the detail view. */
 (async function() {
@@ -67,5 +71,45 @@ const THUNDERBIRD_THEME_PREVIEWS = new Map([
       return THUNDERBIRD_THEME_PREVIEWS.get(addon.id);
     }
     return _getScreenshotUrlForAddon(addon);
+  };
+
+  // Override parts of the addon-permission-list customElement to be able
+  // to show the usage of Experiments in the permission list.
+  await customElements.whenDefined("addon-permissions-list");
+  AddonPermissionsList.prototype.renderExperimentOnly = function() {
+    let appName = brandBundle.GetStringFromName("brandShortName");
+    this.textContent = "";
+
+    let msg = browserBundle.formatStringFromName(
+      "webextPerms.description.experiment",
+      [appName]
+    );
+    let row = document.createElement("div");
+    row.classList.add("addon-detail-row", "permission-info");
+    row.textContent = msg;
+    this.appendChild(row);
+
+    // Add a learn more link.
+    let learnMoreRow = document.createElement("div");
+    learnMoreRow.classList.add("addon-detail-row");
+    let learnMoreLink = document.createElement("a", { is: "support-link" });
+    learnMoreLink.setAttribute("support-page", "extension-permissions");
+    learnMoreLink.textContent = browserBundle.GetStringFromName(
+      "webextPerms.learnMore"
+    );
+    learnMoreRow.appendChild(learnMoreLink);
+    this.appendChild(learnMoreRow);
+  };
+  // We change this function from sync to async, which does not matter.
+  // It calls this.render() which is async without awaiting it anyway.
+  AddonPermissionsList.prototype.setAddon = async function(addon) {
+    this.addon = addon;
+    let data = new ExtensionData(addon.getResourceURI());
+    await data.loadManifest();
+    if (data.manifest.experiment_apis) {
+      this.renderExperimentOnly();
+    } else {
+      this.render();
+    }
   };
 })();
