@@ -410,6 +410,8 @@ label.label {
 #preview-border {
   border: none;
   padding: 0px;
+  display: flex;
+  -moz-box-flex: 1;
 }
 
 /*--------------------------------------------------------------------
