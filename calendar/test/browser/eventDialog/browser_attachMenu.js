@@ -99,7 +99,7 @@ add_task(async function testAttachWebPage() {
 
   // Open the event to verify the attachment is shown in the summary dialog.
   let eventBox = await getEventBox("calendar-month-day-box-item");
-  Assert.ok(eventBox.item.getAttachments()[0].uri.spec, url, "event has attachment URL");
+  Assert.equal(eventBox.item.getAttachments()[0].uri.spec, url, "event has attachment URL");
 
   // Clean up.
   eventBox.focus();
