@@ -475,16 +475,18 @@ class CardDAVDirectory extends AddrBookDirectory {
 
     this._syncInProgress = true;
 
-    if (this._syncToken) {
-      await this.updateAllFromServerV2();
-    } else {
-      await this.updateAllFromServerV1();
+    try {
+      if (this._syncToken) {
+        await this.updateAllFromServerV2();
+      } else {
+        await this.updateAllFromServerV1();
+      }
+    } finally {
+      if (shouldResetTimer) {
+        this._scheduleNextSync();
+      }
+      this._syncInProgress = false;
     }
-
-    if (shouldResetTimer) {
-      this._scheduleNextSync();
-    }
-    this._syncInProgress = false;
   }
 
   /**
