@@ -73,8 +73,9 @@ nsAbContentHandler::HandleContent(const char* aContentType,
         NS_ENSURE_SUCCESS(rv, rv);
 
         nsCOMPtr<nsIAbCard> cardFromVCard;
-        rv = vCardService->EscapedVCardToAbCard(unescapedData.get(),
-                                                getter_AddRefs(cardFromVCard));
+        rv = vCardService->EscapedVCardToAbCard(
+            NS_ConvertUTF8toUTF16(unescapedData),
+            getter_AddRefs(cardFromVCard));
         NS_ENSURE_SUCCESS(rv, rv);
 
         nsCOMPtr<nsISupportsInterfacePointer> ifptr =
@@ -149,8 +150,8 @@ nsAbContentHandler::OnStreamComplete(nsIStreamLoader* aLoader,
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIAbCard> cardFromVCard;
-  rv = vCardService->EscapedVCardToAbCard((const char*)data,
-                                          getter_AddRefs(cardFromVCard));
+  rv = vCardService->EscapedVCardToAbCard(
+      NS_ConvertUTF8toUTF16((const char*)data), getter_AddRefs(cardFromVCard));
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<mozIDOMWindowProxy> domWindow = do_GetInterface(aContext);
