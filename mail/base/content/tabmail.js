@@ -915,12 +915,15 @@
           }
         }
 
+        let panel = document.getElementById(firstTab.tabNode.linkedPanel);
+        panel.setAttribute("selected", "true");
+
         // Dispatch tab opening event
         let evt = new CustomEvent("TabOpen", {
           bubbles: true,
           detail: { tabInfo: firstTab, moving: false },
         });
-        document.querySelector("#tabmail-tabs tab").dispatchEvent(evt);
+        firstTab.tabNode.dispatchEvent(evt);
       }
     }
 
@@ -1041,6 +1044,16 @@
           p.hasAttribute("selected")
         );
         if (oldPanel) {
+          // Remember what has focus for when we return to this tab.
+          if (
+            oldPanel.compareDocumentPosition(document.activeElement) &
+            Node.DOCUMENT_POSITION_CONTAINED_BY
+          ) {
+            oldTab.lastActiveElement = document.activeElement;
+            document.activeElement.blur();
+          } else {
+            delete oldTab.lastActiveElement;
+          }
           oldPanel.removeAttribute("selected");
         }
 
@@ -1113,6 +1126,8 @@
           // do themselves when we open them.
           UpdateMailToolbar("tabmail");
         }
+
+        this.panelContainer.selectedPanel.focus();
 
         let moving = restoreState ? restoreState.moving : null;
         // Dispatch tab opening event
@@ -1736,6 +1751,19 @@
         ]);
         // Update the selected attribute on the current and old tab panel.
         if (oldPanel) {
+          // Remember what has focus for when we return to this tab. Check for
+          // anything inside tabmail-container rather than the panel because
+          // focus could be in the Today Pane.
+          let container = document.getElementById("tabmail-container");
+          if (
+            container.compareDocumentPosition(document.activeElement) &
+            Node.DOCUMENT_POSITION_CONTAINED_BY
+          ) {
+            oldTab.lastActiveElement = document.activeElement;
+            document.activeElement.blur();
+          } else {
+            delete oldTab.lastActiveElement;
+          }
           oldPanel.removeAttribute("selected");
         }
 
@@ -1779,6 +1807,14 @@
         // We switched tabs, so we don't need to know the last tab
         // opener anymore.
         this.mLastTabOpener = null;
+
+        // Try to set focus where it was when the tab was last selected.
+        this.panelContainer.selectedPanel.focus();
+        if (tab.lastActiveElement) {
+          tab.lastActiveElement.focus();
+          delete tab.lastActiveElement;
+        }
+
         let evt = new CustomEvent("TabSelect", {
           bubbles: true,
           detail: { tabInfo: tab },
