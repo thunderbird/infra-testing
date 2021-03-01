@@ -81,13 +81,12 @@ function OnLoadImportDialog() {
 }
 
 /**
- * After importing, need to restart so that imported address books and mail
- * accounts can show up.
+ * After importing, need to restart so that mail accounts can show up.
  */
 function OnUnloadImportDialog() {
   let nextButton = document.getElementById("forward");
   if (
-    ["addressbook", "settings"].includes(gImportType) &&
+    gImportType == "settings" &&
     !gErrorStr.data &&
     nextButton.label == nextButton.getAttribute("finishedval")
   ) {

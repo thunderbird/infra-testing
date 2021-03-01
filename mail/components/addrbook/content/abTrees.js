@@ -112,6 +112,10 @@ abDirTreeItem.prototype = {
     return this._directory.URI;
   },
 
+  get uid() {
+    return this._directory.UID;
+  },
+
   _open: false,
   get open() {
     return this._open;
@@ -340,6 +344,10 @@ directoryTreeView.prototype = {
     }
 
     return -1;
+  },
+
+  getIndexForUID(uid) {
+    return this._rowMap.findIndex(r => r.uid == uid);
   },
 
   // nsIAbListener interfaces
