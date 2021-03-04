@@ -768,15 +768,16 @@
   <!-- preview -->
   <html:fieldset id="preview-border">
     <html:legend id="recurrence-preview-label">&event.recurrence.preview.label;</html:legend>
-    <hbox id="recurrence-preview">
+    <box id="recurrence-preview" flex="1">
       <vbox>
         <hbox>
             <calendar-minimonth readonly="true"/>
             <calendar-minimonth readonly="true"/>
             <calendar-minimonth readonly="true"/>
+            <spacer/>
         </hbox>
       </vbox>
-    </hbox>
+    </box>
   </html:fieldset>
 </dialog>
 </window>
