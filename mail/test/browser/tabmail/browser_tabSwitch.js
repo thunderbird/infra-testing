@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, you can obtain one at http://mozilla.org/MPL/2.0/. */
 
+var { be_in_folder, create_folder } = ChromeUtils.import(
+  "resource://testing-common/mozmill/FolderDisplayHelpers.jsm"
+);
+
 add_task(async function() {
   // Helper functions.
 
@@ -92,12 +96,17 @@ add_task(async function() {
 
   // Set the focus on the folder tree.
 
+  be_in_folder(create_folder("tabSwitch"));
   if (
     document.getElementById("folderpane_splitter").getAttribute("state") ==
     "collapsed"
   ) {
     window.MsgToggleFolderPane();
   }
+  Assert.notEqual(
+    document.getElementById("folderpane_splitter").getAttribute("state"),
+    "collapsed"
+  );
 
   EventUtils.synthesizeMouseAtCenter(folderTree, {});
   Assert.equal(document.activeElement, folderTree, "folder tree has focus");
@@ -118,7 +127,7 @@ add_task(async function() {
   assertSelected(calendarTabPanel, "calendar tab's panel");
   Assert.equal(
     document.activeElement,
-    document.body,
+    document.documentElement,
     "folder tree does NOT have focus"
   );
 
@@ -164,7 +173,7 @@ add_task(async function() {
   assertSelected(contentTabPanel, "content tab's panel");
   Assert.equal(
     document.activeElement,
-    document.body,
+    document.documentElement,
     "folder tree and calendar list do NOT have focus"
   );
 
@@ -196,7 +205,7 @@ add_task(async function() {
   assertSelected(contentTabPanel, "content tab's panel");
   Assert.equal(
     document.activeElement,
-    document.body,
+    document.documentElement,
     "folder tree and calendar list do NOT have focus"
   );
 
