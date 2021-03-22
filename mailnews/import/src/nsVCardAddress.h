@@ -9,7 +9,7 @@
 
 class nsIAbDirectory;
 class nsIFile;
-class nsIUnicharLineInputStream;
+class nsILineInputStream;
 
 class nsVCardAddress {
  public:
@@ -21,8 +21,8 @@ class nsVCardAddress {
                            uint32_t* pProgress);
 
  private:
-  static nsresult ReadRecord(nsIUnicharLineInputStream* aLineStream,
-                             nsString& aRecord, bool* aMore);
+  static nsresult ReadRecord(nsILineInputStream* aLineStream,
+                             nsCString& aRecord, bool* aMore);
 };
 
 #endif /* nsVCardAddress_h__ */
