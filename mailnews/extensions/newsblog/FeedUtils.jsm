@@ -1408,7 +1408,10 @@ var FeedUtils = {
     let rssServer = aServer.QueryInterface(Ci.nsIRssIncomingServer);
     let feedsFile = rssServer.subscriptionsPath; // Path to feeds.json
     let exists = feedsFile.exists();
-    let ds = new JSONFile({ path: feedsFile.path });
+    let ds = new JSONFile({
+      path: feedsFile.path,
+      backupTo: feedsFile.path + ".backup",
+    });
     ds.ensureDataReady();
     if (!this[aServer.serverURI]) {
       this[aServer.serverURI] = {};
@@ -1481,7 +1484,10 @@ var FeedUtils = {
     let rssServer = aServer.QueryInterface(Ci.nsIRssIncomingServer);
     let itemsFile = rssServer.feedItemsPath; // Path to feeditems.json
     let exists = itemsFile.exists();
-    let ds = new JSONFile({ path: itemsFile.path });
+    let ds = new JSONFile({
+      path: itemsFile.path,
+      backupTo: itemsFile.path + ".backup",
+    });
     ds.ensureDataReady();
     if (!this[aServer.serverURI]) {
       this[aServer.serverURI] = {};
