@@ -273,7 +273,7 @@ var EnigmailEncryption = {
     }
 
     if (encrypt) {
-      if (foundKey && foundKey.getEncryptionValidity().keyValid) {
+      if (foundKey && foundKey.getEncryptionValidity(true).keyValid) {
         canEncrypt = true;
       }
     }

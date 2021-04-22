@@ -78,7 +78,7 @@ var EnigmailErrorHandling = {
         keySpec: keyId,
       });
     }
-    let r = key.getEncryptionValidity();
+    let r = key.getEncryptionValidity(false);
     if (!r.keyValid) {
       reasonMsg = r.reason;
     }

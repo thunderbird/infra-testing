@@ -1387,12 +1387,6 @@ var gKeyListView = {
           case "q":
             keyTrustStyle = "enigmail_keyValid_unknown";
             break;
-          case "i":
-            keyTrustStyle = "enigmail_keyValid_invalid";
-            break;
-          case "d":
-            keyTrustStyle = "enigmail_keyValid_disabled";
-            break;
           case "r":
             keyTrustStyle = "enigmail_keyValid_revoked";
             break;
@@ -1419,14 +1413,9 @@ var gKeyListView = {
             break;
         }
 
-        if (keyObj.keyUseFor.includes("D")) {
-          keyTrustStyle = "enigmail_keyValid_disabled";
-        }
-
         if (
-          (keyObj.keyTrust.length > 0 &&
-            ENIG_KEY_NOT_VALID.includes(keyObj.keyTrust.charAt(0))) ||
-          keyObj.keyUseFor.includes("D")
+          keyObj.keyTrust.length > 0 &&
+          ENIG_KEY_NOT_VALID.includes(keyObj.keyTrust.charAt(0))
         ) {
           keyTrustStyle += " enigKeyInactive";
         }
