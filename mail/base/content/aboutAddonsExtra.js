@@ -73,6 +73,44 @@ XPCOMUtils.defineLazyModuleGetters(this, {
     return _getScreenshotUrlForAddon(addon);
   };
 
+  // Override parts of the addon-card customElement to be able
+  // to add a dedicated button for extension preferences.
+  await customElements.whenDefined("addon-card");
+  AddonCard.prototype.addOptionsButton = async function() {
+    let { addon, optionsButton } = this;
+    if (addon.type != "extension") {
+      return;
+    }
+
+    let addonOptionsButton = this.querySelector(".extension-options-button");
+    if (addon.isActive) {
+      if (!addon.optionsType) {
+        // Upon fresh install the manifest has not been parsed and optionsType
+        // is not known, manually trigger parsing.
+        let data = new ExtensionData(addon.getResourceURI());
+        await data.loadManifest();
+      }
+      if (addon.optionsType) {
+        if (!addonOptionsButton) {
+          addonOptionsButton = document.createElement("button");
+          addonOptionsButton.classList.add("extension-options-button");
+          addonOptionsButton.setAttribute("action", "preferences");
+          optionsButton.parentNode.insertBefore(
+            addonOptionsButton,
+            optionsButton
+          );
+        }
+      }
+    } else if (addonOptionsButton) {
+      addonOptionsButton.remove();
+    }
+  };
+  AddonCard.prototype._update = AddonCard.prototype.update;
+  AddonCard.prototype.update = function() {
+    this._update();
+    this.addOptionsButton();
+  };
+
   // Override parts of the addon-permission-list customElement to be able
   // to show the usage of Experiments in the permission list.
   await customElements.whenDefined("addon-permissions-list");
