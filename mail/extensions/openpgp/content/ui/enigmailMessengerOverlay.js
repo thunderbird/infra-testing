@@ -137,9 +137,6 @@ var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 var KeyLookupHelper = ChromeUtils.import(
   "chrome://openpgp/content/modules/keyLookupHelper.jsm"
 ).KeyLookupHelper;
-var { uidHelper } = ChromeUtils.import(
-  "chrome://openpgp/content/modules/uidHelper.jsm"
-);
 var { PgpSqliteDb2 } = ChromeUtils.import(
   "chrome://openpgp/content/modules/sqliteDb.jsm"
 );
@@ -3546,11 +3543,9 @@ Enigmail.msg = {
         continue;
       }
 
-      let splitUid = {};
-      uidHelper.getPartsFromUidStr(id.userId, splitUid);
-      splitUid.email = splitUid.email.toLowerCase();
-
-      if (splitUid.email == authorEmail) {
+      if (
+        EnigmailFuncs.getEmailFromUserID(id.userId).toLowerCase() == authorEmail
+      ) {
         return true;
       }
     }

@@ -11,7 +11,7 @@
 /* global EnigCleanGuiList: false, EnigGetTrustLabel: false, EnigShowPhoto: false, EnigSignKey: false */
 /* global EnigEditKeyExpiry: false, EnigEditKeyTrust: false, EnigChangeKeyPwd: false */
 /* global EnigCreateRevokeCert: false, EnigmailTimer: false, EnigmailCryptoAPI: false */
-/* global PgpSqliteDb2: false, l10n: false, EnigmailDialog: false */
+/* global PgpSqliteDb2: false, l10n: false, EnigmailDialog: false, EnigmailFuncs: false */
 
 // from enigmailKeyManager.js:
 /* global keyMgrAddPhoto: false, EnigmailCompat: false */
@@ -19,10 +19,6 @@
 "use strict";
 
 var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
-var { uidHelper } = ChromeUtils.import(
-  "chrome://openpgp/content/modules/uidHelper.jsm"
-);
 
 var gModePersonal = false;
 
@@ -162,10 +158,9 @@ async function reloadData(firstLoad) {
 
   gUserId = keyObj.userId;
 
-  let splitUid = {};
-  uidHelper.getPartsFromUidStr(keyObj.userId, splitUid);
-  if (splitUid.email) {
-    gAllEmails.push(splitUid.email);
+  let userEmail = EnigmailFuncs.getEmailFromUserID(keyObj.userId);
+  if (userEmail) {
+    gAllEmails.push(userEmail);
   }
 
   setLabel("userId", gUserId);
@@ -288,10 +283,11 @@ function createUidData(listNode, keyDetails) {
         item.setAttribute("class", "enigmailDisabled");
       }
 
-      let splitUid = {};
-      uidHelper.getPartsFromUidStr(keyDetails.userIds[i].userId, splitUid);
-      if (splitUid.email) {
-        gAllEmails.push(splitUid.email);
+      let uidEmail = EnigmailFuncs.getEmailFromUserID(
+        keyDetails.userIds[i].userId
+      );
+      if (uidEmail) {
+        gAllEmails.push(uidEmail);
       }
     }
   }

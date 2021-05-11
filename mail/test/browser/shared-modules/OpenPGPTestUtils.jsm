@@ -21,8 +21,8 @@ const { EnigmailFiles } = ChromeUtils.import(
 const { PgpSqliteDb2 } = ChromeUtils.import(
   "chrome://openpgp/content/modules/sqliteDb.jsm"
 );
-const { uidHelper } = ChromeUtils.import(
-  "chrome://openpgp/content/modules/uidHelper.jsm"
+const { EnigmailFuncs } = ChromeUtils.import(
+  "chrome://openpgp/content/modules/funcs.jsm"
 );
 const { RNP } = ChromeUtils.import("chrome://openpgp/content/modules/RNP.jsm");
 
@@ -186,9 +186,8 @@ const OpenPGPTestUtils = {
     let ids = Array.isArray(id) ? id : [id];
     for (let i = 0; i < ids.length; i++) {
       let key = EnigmailKeyRing.getKeyById(ids[i]);
-      let parts = {};
-      uidHelper.getPartsFromUidStr(key.userId, parts);
-      await PgpSqliteDb2.updateAcceptance(key.fpr, [parts.email], acceptance);
+      let email = EnigmailFuncs.getEmailFromUserID(key.userId);
+      await PgpSqliteDb2.updateAcceptance(key.fpr, [email], acceptance);
     }
     return ids.slice();
   },

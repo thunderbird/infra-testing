@@ -24,8 +24,8 @@ var { OpenPGPMasterpass } = ChromeUtils.import(
 var { PgpSqliteDb2 } = ChromeUtils.import(
   "chrome://openpgp/content/modules/sqliteDb.jsm"
 );
-var { uidHelper } = ChromeUtils.import(
-  "chrome://openpgp/content/modules/uidHelper.jsm"
+const { EnigmailFuncs } = ChromeUtils.import(
+  "chrome://openpgp/content/modules/funcs.jsm"
 );
 var { GPGME } = ChromeUtils.import(
   "chrome://openpgp/content/modules/GPGME.jsm"
@@ -1357,13 +1357,13 @@ var RNP = {
         if (uid.type !== "uid") {
           continue;
         }
-        let split = {};
-        if (uidHelper.getPartsFromUidStr(uid.userId, split)) {
-          let uidEmail = split.email.toLowerCase();
-          if (uidEmail === fromLower) {
-            fromMatchesAnyUid = true;
-            break;
-          }
+
+        if (
+          EnigmailFuncs.getEmailFromUserID(uid.userId).toLowerCase() ===
+          fromLower
+        ) {
+          fromMatchesAnyUid = true;
+          break;
         }
       }
 
@@ -2186,10 +2186,10 @@ var RNP = {
               if (uid.type != "uid") {
                 continue;
               }
-              let splitUid = {};
-              uidHelper.getPartsFromUidStr(uid.userId, splitUid);
-              if (splitUid.email) {
-                allEmails.push(splitUid.email);
+
+              let uidEmail = EnigmailFuncs.getEmailFromUserID(uid.userId);
+              if (uidEmail) {
+                allEmails.push(uidEmail);
               }
             }
             await PgpSqliteDb2.updateAcceptance(k.fpr, allEmails, acceptance);
@@ -2798,10 +2798,9 @@ var RNP = {
             let userId = uid_str.readStringReplaceMalformed();
             RNPLib.rnp_buffer_destroy(uid_str);
 
-            let split = {};
             if (
-              uidHelper.getPartsFromUidStr(userId, split) &&
-              split.email.toLowerCase() == emailWithoutBrackets
+              EnigmailFuncs.getEmailFromUserID(userId).toLowerCase() ==
+              emailWithoutBrackets
             ) {
               foundUid = true;
 

@@ -36,8 +36,8 @@ const { OpenPGPAlias } = ChromeUtils.import(
 const { PgpSqliteDb2 } = ChromeUtils.import(
   "chrome://openpgp/content/modules/sqliteDb.jsm"
 );
-const { uidHelper } = ChromeUtils.import(
-  "chrome://openpgp/content/modules/uidHelper.jsm"
+const { EnigmailFuncs } = ChromeUtils.import(
+  "chrome://openpgp/content/modules/funcs.jsm"
 );
 var { RNP } = ChromeUtils.import("chrome://openpgp/content/modules/RNP.jsm");
 
@@ -181,13 +181,12 @@ var EnigmailKeyRing = {
           continue;
         }
 
-        let split = {};
-        if (uidHelper.getPartsFromUidStr(userId.userId, split)) {
-          let uidEmail = split.email.toLowerCase();
-          if (uidEmail === email) {
-            res.push(key);
-            break;
-          }
+        if (
+          EnigmailFuncs.getEmailFromUserID(userId.userId).toLowerCase() ===
+          email
+        ) {
+          res.push(key);
+          break;
         }
       }
     }
@@ -1031,13 +1030,13 @@ var EnigmailKeyRing = {
         if (uid.type !== "uid") {
           continue;
         }
-        let split = {};
-        if (uidHelper.getPartsFromUidStr(uid.userId, split)) {
-          let uidEmail = split.email.toLowerCase();
-          if (uidEmail === emailAddr) {
-            uidMatch = true;
-            break;
-          }
+
+        if (
+          EnigmailFuncs.getEmailFromUserID(uid.userId).toLowerCase() ===
+          emailAddr
+        ) {
+          uidMatch = true;
+          break;
         }
       }
       if (!uidMatch) {
@@ -1543,12 +1542,11 @@ var EnigmailKeyRing = {
       case "r":
         return null;
     }
-    let split = {};
-    if (uidHelper.getPartsFromUidStr(keyObj.userId, split)) {
-      let uidEmail = split.email.toLowerCase();
-      if (uidEmail !== email) {
-        return null;
-      }
+
+    if (
+      EnigmailFuncs.getEmailFromUserID(keyObj.userId).toLowerCase() !== email
+    ) {
+      return null;
     }
     return RNP.getAutocryptKeyB64(keyId, "0x" + subKey.keyId, keyObj.userId);
   },
