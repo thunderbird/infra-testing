@@ -16,6 +16,9 @@ const { OpenPGPMasterpass } = ChromeUtils.import(
 const { EnigmailConstants } = ChromeUtils.import(
   "chrome://openpgp/content/modules/constants.jsm"
 );
+const { EnigmailFiles } = ChromeUtils.import(
+  "chrome://openpgp/content/modules/files.jsm"
+);
 const { EnigmailKeyRing } = ChromeUtils.import(
   "chrome://openpgp/content/modules/keyRing.jsm"
 );
@@ -137,5 +140,36 @@ add_task(async function testSecretKeys() {
   Assert.ok(
     keyObj && keyObj.secretAvailable,
     "after import, EnigmailKeyRing.getKeyById should return an object with a secret key"
+  );
+});
+
+add_task(async function testImportOfflinePrimaryKey() {
+  let keyBlock = EnigmailFiles.readFile(
+    do_get_file(`${keyDir}/ofelia-secret-subkeys.asc`)
+  );
+
+  let cancelPassword = function(win, keyId, resultFlags) {
+    resultFlags.canceled = true;
+    return "";
+  };
+
+  let importResult = await RNP.importKeyBlockImpl(
+    null,
+    cancelPassword,
+    keyBlock,
+    false,
+    true
+  );
+
+  Assert.ok(importResult.exitCode == 0);
+
+  let primaryKey = await RNP.findKeyByEmail("<ofelia@openpgp.example>", false);
+
+  let encSubKey = RNP.getSuitableSubkey(primaryKey, "encrypt");
+  let keyId = RNP.getKeyIDFromHandle(encSubKey);
+  Assert.equal(
+    keyId,
+    "31C31DF1DFB67601",
+    "should obtain key ID of encryption subkey"
   );
 });
