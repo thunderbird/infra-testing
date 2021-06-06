@@ -81,7 +81,7 @@
   }
 
   :root:not([lwt-tree]) #folderTree treechildren::-moz-tree-row(selected, focus) {
-    appearance: none;
+    -moz-appearance: none;
     background-color: Highlight;
   }
 

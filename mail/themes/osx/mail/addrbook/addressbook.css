@@ -77,7 +77,7 @@
   }
 
   :root:not([lwt-tree]) #dirTree treechildren::-moz-tree-row(selected, focus) {
-    appearance: none;
+    -moz-appearance: none;
     background-color: Highlight;
   }
 
