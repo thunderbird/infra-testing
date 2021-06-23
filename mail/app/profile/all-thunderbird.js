@@ -179,6 +179,7 @@ pref("extensions.blocklist.itemURL", "https://blocked.cdn.mozilla.net/%blockID%.
 
 // Show new install UI with permission lists
 pref("extensions.webextPermissionPrompts", true);
+pref("extensions.webextOptionalPermissionPrompts", true);
 
 // 1 = allow "Man In The Middle" (local proxy, web filter, etc.) for certificate
 //     pinning checks.
