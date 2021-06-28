@@ -5429,9 +5429,11 @@ void nsImapProtocol::StartTLS() {
         nsCString expectBadResponse = tag + " BAD "_ns;
         if (!PL_strncasecmp(serverResponse, expectBadResponse.get(),
                             expectBadResponse.Length())) {
+          PR_Free(serverResponse);
           break;
         }
       }
+      PR_Free(serverResponse);
     } while (serverResponse && !ok);
   }
   // ok == false implies a "<tag> BAD " response or time out on socket read.
