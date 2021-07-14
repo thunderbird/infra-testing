@@ -358,8 +358,6 @@
 @RESPATH@/components/calRecurrenceRule.js
 @RESPATH@/components/calTimezone.js
 
-@RESPATH@/features/wetransfer@extensions.thunderbird.net/
-
 @RESPATH@/components/servicesComponents.manifest
 @RESPATH@/components/servicesSettings.manifest
 @RESPATH@/components/cryptoComponents.manifest
