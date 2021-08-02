@@ -388,7 +388,7 @@ var calitip = {
         }
         if (delTime) {
           data.label = cal.l10n.getLtnString("imipBarReplyToRecentlyRemovedItem", [
-            delTime.toString(),
+            cal.dtz.formatter.formatTime(delTime),
           ]);
         } else {
           data.label = cal.l10n.getLtnString("imipBarReplyToNotExistingItem");
