@@ -5195,7 +5195,7 @@ function moveSelectedPillsOnCommand(targetRecipientType) {
 /**
  * Check if there are too many public recipients and offer to send them as BCC.
  */
-async function checkPublicRecipientsLimit() {
+function checkPublicRecipientsLimit() {
   let notification = gComposeNotification.getNotificationWithValue(
     "warnPublicRecipientsNotification"
   );
@@ -5277,9 +5277,7 @@ async function checkPublicRecipientsLimit() {
   };
 
   notification = gComposeNotification.appendNotification(
-    await document.l10n.formatValue("many-public-recipients-info", {
-      count: publicAddressPillsCount,
-    }),
+    "", // "many-public-recipients-info"
     "warnPublicRecipientsNotification",
     null,
     gComposeNotification.PRIORITY_WARNING_MEDIUM,
@@ -5289,6 +5287,12 @@ async function checkPublicRecipientsLimit() {
         ignoreButton.callback();
       }
     }
+  );
+
+  document.l10n.setAttributes(
+    notification.messageText,
+    "many-public-recipients-info",
+    { count: publicAddressPillsCount }
   );
 }
 
