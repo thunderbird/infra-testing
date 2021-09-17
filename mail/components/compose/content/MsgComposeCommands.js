@@ -5323,11 +5323,7 @@ async function checkEncryptedBccRecipients() {
     pill => pill.emailAddress == gCurrentIdentity.email
   );
 
-  if (
-    !(gSendEncrypted && gSelectedTechnologyIsPGP) ||
-    !bccRecipients.length ||
-    bccIsSender
-  ) {
+  if (!gSendEncrypted || !bccRecipients.length || bccIsSender) {
     if (notification) {
       gComposeNotification.removeNotification(notification);
     }
