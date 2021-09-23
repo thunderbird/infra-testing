@@ -54,7 +54,7 @@ function Recipients2CompFields(msgCompFields) {
 
   for (let pill of document.getElementsByTagName("mail-address-pill")) {
     let fieldValue = pill.fullAddress;
-    let headerParser = MailServices.headerParser;
+  let headerParser = MailServices.headerParser;
     let recipient = headerParser
       .makeFromDisplayAddress(fieldValue)
       .map(fullValue =>
@@ -91,7 +91,7 @@ function Recipients2CompFields(msgCompFields) {
         follow_Sep = ",";
         break;
     }
-  }
+}
 
   for (let otherHeaderRow of document.querySelectorAll(
     ".address-row[data-labeltype=addr_other]"
@@ -99,7 +99,7 @@ function Recipients2CompFields(msgCompFields) {
     let headerValue = otherHeaderRow.querySelector("input").value.trim();
     if (headerValue) {
       msgCompFields.setRawHeader(otherHeaderRow.dataset.labelid, headerValue);
-    }
+  }
   }
 
   msgCompFields.to = addrTo;
@@ -194,7 +194,7 @@ function CompFields2Recipients(msgCompFields) {
         showAddressRow(
           document.getElementById("addr_newsgroups"),
           "addressRowNewsgroups"
-        );
+      );
         input.value = msgCompFields.newsgroups;
         recipientAddPills(input, true);
       }
@@ -410,9 +410,10 @@ function awAddRecipients(msgCompFields, recipientType, recipientsList) {
  */
 function awAddRecipientsArray(aRecipientType, addressArray, select = false) {
   let label = document.getElementById(aRecipientType);
-  let addresses = addressArray.map(
-    addr => MailServices.headerParser.makeFromDisplayAddress(addr)[0]
-  );
+  let addresses = [];
+  for (let addr of addressArray) {
+    addresses.push(...MailServices.headerParser.makeFromDisplayAddress(addr));
+  }
   let element = document.getElementById(label.getAttribute("control"));
 
   if (label && element.closest(".address-row").classList.contains("hidden")) {
@@ -498,7 +499,7 @@ function DropRecipient(target, recipient) {
 
     if (!container) {
       return;
-    }
+  }
     input = container.querySelector(
       `.address-container > input[is="autocomplete-input"]`
     );
@@ -1211,15 +1212,15 @@ function showAddressRowKeyPress(event, rowID) {
       // Bail out if there's only one item left, so nowhere to go with focus.
       if (lastIndex == 0) {
         break;
-      }
+  }
       // Move focus inside the panel focus ring.
       let index = focusable.indexOf(label);
       let newIndex;
       if (event.key == "ArrowDown" || event.key == "ArrowRight") {
         newIndex = index == lastIndex ? 0 : ++index;
-      } else {
+  } else {
         newIndex = index == 0 ? lastIndex : --index;
-      }
+    }
       focusable[newIndex].focus();
       // Prevent the keys from being handled again by our listeners on the panel.
       event.stopPropagation();
