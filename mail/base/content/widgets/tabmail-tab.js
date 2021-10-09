@@ -159,14 +159,6 @@
       });
 
       this.addEventListener(
-        "contextmenu",
-        event => {
-          document.popupNode = this;
-        },
-        true
-      );
-
-      this.addEventListener(
         "dblclick",
         event => {
           if (event.button != 0) {
