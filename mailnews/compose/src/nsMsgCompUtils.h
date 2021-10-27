@@ -11,6 +11,7 @@
 #include "nsMsgCompFields.h"
 #include "nsIMsgSend.h"
 #include "nsIMsgCompUtils.h"
+#include "mozilla/Logging.h"
 
 class nsIArray;
 class nsIDocument;
@@ -23,6 +24,8 @@ class nsIPrompt;
 // messages to send later.
 #define ORIG_URI_PROPERTY "origURIs"
 #define QUEUED_DISPOSITION_PROPERTY "queuedDisposition"
+
+extern mozilla::LazyLogModule Compose;
 
 class nsMsgCompUtils : public nsIMsgCompUtils {
  public:
