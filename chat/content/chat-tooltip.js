@@ -77,6 +77,11 @@
     }
 
     _onPopupShowing() {
+      // No tooltip above the context menu.
+      if (document.popupNode) {
+        return false;
+      }
+
       // No tooltip for elements that have already been removed.
       if (!this.triggerNode.parentNode) {
         return false;
