@@ -389,14 +389,16 @@ nsPop3Sink::IncorporateBegin(const char* uidlString, nsIURI* aURL,
   if (pPrefBranch) {
     nsCOMPtr<nsIMsgIncomingServer> server;
     m_folder->GetServer(getter_AddRefs(server));
-    nsCString plugStoreContract;
-    server->GetCharValue("storeContractID", plugStoreContract);
-    // Maildir doesn't care about quaranting, but other stores besides berkeley
-    // mailbox might. We should probably make this an attribute on the pluggable
-    // store, though.
-    if (plugStoreContract.Equals("@mozilla.org/msgstore/berkeleystore;1"_ns))
-      pPrefBranch->GetBoolPref("mailnews.downloadToTempFile",
-                               &m_downloadingToTempFile);
+    if (server) {
+      nsCString plugStoreContract;
+      server->GetCharValue("storeContractID", plugStoreContract);
+      // Maildir doesn't care about quaranting, but other stores besides berkeley
+      // mailbox might. We should probably make this an attribute on the pluggable
+      // store, though.
+      if (plugStoreContract.Equals("@mozilla.org/msgstore/berkeleystore;1"_ns))
+        pPrefBranch->GetBoolPref("mailnews.downloadToTempFile",
+                                 &m_downloadingToTempFile);
+    }
   }
 
   nsCOMPtr<nsIMsgDBHdr> newHdr;
