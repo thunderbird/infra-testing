@@ -575,7 +575,7 @@ nsresult nsMsgAttachmentHandler::SnarfMsgAttachment(
       if (NS_FAILED(rv)) goto done;
 
       nsCOMPtr<nsIURI> dummyNull;
-      rv = messageService->DisplayMessage(uri.get(), m_mime_parser, nullptr,
+      rv = messageService->DisplayMessage(uri, m_mime_parser, nullptr,
                                           nullptr, false,
                                           getter_AddRefs(dummyNull));
     }

@@ -1324,7 +1324,7 @@ NS_IMETHODIMP nsNntpService::DisplayMessageForPrinting(
     const char* aMessageURI, nsISupports* aDisplayConsumer,
     nsIMsgWindow* aMsgWindow, nsIUrlListener* aUrlListener, nsIURI** aURL) {
   mPrintingOperation = true;
-  nsresult rv = DisplayMessage(aMessageURI, aDisplayConsumer, aMsgWindow,
+  nsresult rv = DisplayMessage(nsDependentCString(aMessageURI), aDisplayConsumer, aMsgWindow,
                                aUrlListener, false, aURL);
   mPrintingOperation = false;
   return rv;
