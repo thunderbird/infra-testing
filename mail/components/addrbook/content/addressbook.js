@@ -162,6 +162,7 @@ function OnLoadAddressBook() {
     chatHandler.ChatCore.init();
   }
 
+  updateTroubleshootMenuItem();
   delayedOnLoadAddressBook();
 }
 

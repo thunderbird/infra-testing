@@ -721,6 +721,7 @@ var gMailInit = {
     this.delayedStartupFinished = true;
     Services.obs.notifyObservers(window, "mail-delayed-startup-finished");
 
+    updateTroubleshootMenuItem();
     // Load the entire UI only if we already have at least one account available
     // otherwise the verifyExistingAccounts will trigger the account wizard.
     if (verifyExistingAccounts()) {
