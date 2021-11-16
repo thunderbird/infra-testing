@@ -1235,6 +1235,7 @@ var detailsPane = {
     "WorkState",
     "WorkZipCode",
     "WorkCountry",
+    "WebPage1",
     "Custom1",
     "Custom2",
     "Custom3",
