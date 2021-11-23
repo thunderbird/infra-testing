@@ -132,7 +132,7 @@ async function testBodyWithLongLine() {
     '<meta http-equiv="content-type" content="text/html; charset=utf-8">' +
     "</head><body>" +
     longMultibyteLine +
-    "</body></html>\r\n";
+    "</body></html>\r\n\r\n";
   fields.body = htmlMessage;
   await richCreateMessage(fields, [], identity);
   checkDraftHeadersAndBody(
@@ -163,7 +163,7 @@ async function testBodyWithLongLine() {
     '<meta http-equiv="content-type" content="text/html; charset=utf-8">' +
     "</head><body>" +
     longMultibyteLineCJK +
-    "</body></html>\r\n";
+    "</body></html>\r\n\r\n";
   fields.body = htmlMessage;
   await richCreateMessage(fields, [], identity);
   checkDraftHeadersAndBody(
@@ -194,7 +194,7 @@ async function testBodyWithLongLine() {
     '<meta http-equiv="content-type" content="text/html; charset=ISO-2022-JP">' +
     "</head><body>" +
     longMultibyteLineJapanese +
-    "</body></html>\r\n";
+    "</body></html>\r\n\r\n";
   fields.body = htmlMessage;
   await richCreateMessage(fields, [], identity);
   checkDraftHeadersAndBody(
