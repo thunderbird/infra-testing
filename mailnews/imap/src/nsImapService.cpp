@@ -761,8 +761,7 @@ NS_IMETHODIMP nsImapService::CopyMessages(
 NS_IMETHODIMP nsImapService::Search(nsIMsgSearchSession* aSearchSession,
                                     nsIMsgWindow* aMsgWindow,
                                     nsIMsgFolder* aMsgFolder,
-                                    const char* aSearchUri) {
-  NS_ENSURE_ARG_POINTER(aSearchUri);
+                                    const nsACString& aSearchUri) {
   NS_ENSURE_ARG_POINTER(aMsgFolder);
   nsresult rv;
 
@@ -797,8 +796,7 @@ NS_IMETHODIMP nsImapService::Search(nsIMsgSearchSession* aSearchSession,
     // it will be unescaped in nsImapUrl::ParseUrl().
     nsCString escapedSearchUri;
 
-    MsgEscapeString(nsDependentCString(aSearchUri), nsINetUtil::ESCAPE_XALPHAS,
-                    escapedSearchUri);
+    MsgEscapeString(aSearchUri, nsINetUtil::ESCAPE_XALPHAS, escapedSearchUri);
     urlSpec.Append(escapedSearchUri);
     rv = mailNewsUrl->SetSpecInternal(urlSpec);
     if (NS_SUCCEEDED(rv))
@@ -1881,7 +1879,7 @@ nsresult nsImapService::OfflineAppendFromFile(
       op->SetOperation(
           nsIMsgOfflineImapOperation::kAppendDraft);  // ### do we care if it's
                                                       // a template?
-      op->SetDestinationFolderURI(destFolderUri.get());
+      op->SetDestinationFolderURI(destFolderUri);
       nsCOMPtr<nsIOutputStream> offlineStore;
       nsCOMPtr<nsIMsgPluggableStore> msgStore;
       nsCOMPtr<nsIMsgIncomingServer> dstServer;
@@ -3186,7 +3184,7 @@ NS_IMETHODIMP nsImapService::HandleContent(
       NS_ENSURE_SUCCESS(rv, rv);
 
       rv = messengerWindowService->OpenMessengerWindowWithUri(
-          "mail:3pane", unescapedUriStr.get(), nsMsgKey_None);
+          "mail:3pane", unescapedUriStr, nsMsgKey_None);
       NS_ENSURE_SUCCESS(rv, rv);
     }
   } else {
