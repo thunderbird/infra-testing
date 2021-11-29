@@ -1640,9 +1640,6 @@ var gAccountSetup = {
       return;
     }
 
-    // Update the incoming auth method selection to Auto.
-    document.getElementById("incomingAuthMethod").value = 0;
-
     let input = document.getElementById("incomingPort");
 
     // Bail out if the socketType doesn't match a known type and select the
@@ -1681,9 +1678,6 @@ var gAccountSetup = {
     if (outgoing.port && !gAllStandardPorts.includes(outgoing.port)) {
       return;
     }
-
-    // Update the outgoing auth method selection to Auto.
-    document.getElementById("outgoingAuthMethod").value = 0;
 
     let input = document.getElementById("outgoingPort");
 
@@ -1731,7 +1725,6 @@ var gAccountSetup = {
     }
     if (newInSocketType != undefined) {
       document.getElementById("incomingSsl").value = newInSocketType;
-      document.getElementById("incomingAuthMethod").value = 0; // auto
     }
   },
 
@@ -1759,7 +1752,6 @@ var gAccountSetup = {
     }
     if (newOutSocketType != undefined) {
       document.getElementById("outgoingSsl").value = newOutSocketType;
-      document.getElementById("outgoingAuthMethod").value = 0; // auto
     }
   },
 
