@@ -2118,7 +2118,7 @@ nsMsgDBFolder::OnMessageClassified(const char* aMsgURI,
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIMsgDBHdr> msgHdr;
-  rv = GetMsgDBHdrFromURI(aMsgURI, getter_AddRefs(msgHdr));
+  rv = GetMsgDBHdrFromURI(nsDependentCString(aMsgURI), getter_AddRefs(msgHdr));
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsMsgKey msgKey;
@@ -2176,7 +2176,7 @@ nsMsgDBFolder::OnMessageTraitsClassified(const char* aMsgURI,
 
   nsresult rv;
   nsCOMPtr<nsIMsgDBHdr> msgHdr;
-  rv = GetMsgDBHdrFromURI(aMsgURI, getter_AddRefs(msgHdr));
+  rv = GetMsgDBHdrFromURI(nsDependentCString(aMsgURI), getter_AddRefs(msgHdr));
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsMsgKey msgKey;

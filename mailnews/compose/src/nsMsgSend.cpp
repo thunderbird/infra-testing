@@ -2179,8 +2179,7 @@ nsresult nsMsgComposeAndSend::InitCompositionFields(
             do_GetService(NS_MSGACCOUNTMANAGER_CONTRACTID, &rv);
         if (NS_SUCCEEDED(rv)) {
           nsCOMPtr<nsIMsgDBHdr> msgHdr;
-          rv = GetMsgDBHdrFromURI(PromiseFlatCString(aOriginalMsgURI).get(),
-                                  getter_AddRefs(msgHdr));
+          rv = GetMsgDBHdrFromURI(aOriginalMsgURI, getter_AddRefs(msgHdr));
           if (NS_SUCCEEDED(rv)) {
             nsCOMPtr<nsIMsgFolder> folder;
             msgHdr->GetFolder(getter_AddRefs(folder));
@@ -4184,7 +4183,7 @@ nsresult nsMsgComposeAndSend::StartMessageCopyOperation(
   else
     GetFolderURIFromUserPrefs(mode, mUserIdentity, m_folderName);
 
-  if (mListener) mListener->OnGetDraftFolderURI(m_folderName.get());
+  if (mListener) mListener->OnGetDraftFolderURI(m_folderName);
 
   rv = mCopyObj->StartCopyOperation(mUserIdentity, aFile, mode, this,
                                     m_folderName, mMsgToReplace);

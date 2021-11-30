@@ -94,7 +94,7 @@ class MAPISendListener : public nsIMsgSendListener,
   }
 
   /* void OnGetDraftFolderURI (); */
-  NS_IMETHOD OnGetDraftFolderURI(const char* aFolderURI) { return NS_OK; }
+  NS_IMETHOD OnGetDraftFolderURI(const nsACString& aFolderURI) { return NS_OK; }
 
   bool IsDone() { return m_done; }
 
