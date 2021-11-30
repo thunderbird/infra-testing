@@ -139,8 +139,7 @@ nsresult nsMailboxService::FetchMessage(
     const char* aMessageURI, nsISupports* aDisplayConsumer,
     nsIMsgWindow* aMsgWindow, nsIUrlListener* aUrlListener,
     const char* aFileName, /* only used by open attachment... */
-    nsMailboxAction mailboxAction, bool aOverrideCharset,
-    nsIURI** aURL) {
+    nsMailboxAction mailboxAction, bool aOverrideCharset, nsIURI** aURL) {
   nsresult rv = NS_OK;
   nsCOMPtr<nsIMailboxUrl> mailboxurl;
   nsMailboxAction actionToUse = mailboxAction;
@@ -275,8 +274,7 @@ nsMailboxService::StreamMessage(const nsACString& aMessageURI,
   }
 
   return FetchMessage(aURIString.get(), aConsumer, aMsgWindow, aUrlListener,
-                      nullptr, nsIMailboxUrl::ActionFetchMessage, false,
-                      aURL);
+                      nullptr, nsIMailboxUrl::ActionFetchMessage, false, aURL);
 }
 
 NS_IMETHODIMP nsMailboxService::StreamHeaders(const char* aMessageURI,

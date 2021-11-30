@@ -69,7 +69,7 @@ nsresult NS_NewMailnewsURI(nsIURI** aURI, const nsACString& aSpec,
     }
     // If we're for some reason not on the main thread, dispatch to main
     // or else we'll crash.
-    auto NewURI = [&aSpec, &aCharset, &aBaseURI, aURI, &rv]() -> auto {
+    auto NewURI = [&aSpec, &aCharset, &aBaseURI, aURI, &rv ]() -> auto {
       rv = nsSmtpService::NewMailtoURI(aSpec, aCharset, aBaseURI, aURI);
     };
     nsCOMPtr<nsIRunnable> task = NS_NewRunnableFunction("NewURI", NewURI);

@@ -2641,33 +2641,33 @@ MOZ_CAN_RUN_SCRIPT nsresult QuotingOutputStreamListener::InsertToCompose(
 
   if (aEditor) {
     if (aEditor) {
-  RefPtr<Selection> selection;
-  nsCOMPtr<nsINode> parent;
-  int32_t offset;
-  nsresult rv;
+      RefPtr<Selection> selection;
+      nsCOMPtr<nsINode> parent;
+      int32_t offset;
+      nsresult rv;
 
-  // get parent and offset of mailcite
-  rv = GetNodeLocation(nodeInserted, address_of(parent), &offset);
-  NS_ENSURE_SUCCESS(rv, rv);
+      // get parent and offset of mailcite
+      rv = GetNodeLocation(nodeInserted, address_of(parent), &offset);
+      NS_ENSURE_SUCCESS(rv, rv);
 
-  // get selection
-  aEditor->GetSelection(getter_AddRefs(selection));
-  if (selection) {
-    // place selection after mailcite
-    selection->CollapseInLimiter(parent, offset + 1);
-    // insert a break at current selection
-    aEditor->InsertLineBreak();
-    selection->CollapseInLimiter(parent, offset + 1);
-  }
-  nsCOMPtr<nsISelectionController> selCon;
-  aEditor->GetSelectionController(getter_AddRefs(selCon));
+      // get selection
+      aEditor->GetSelection(getter_AddRefs(selection));
+      if (selection) {
+        // place selection after mailcite
+        selection->CollapseInLimiter(parent, offset + 1);
+        // insert a break at current selection
+        aEditor->InsertLineBreak();
+        selection->CollapseInLimiter(parent, offset + 1);
+      }
+      nsCOMPtr<nsISelectionController> selCon;
+      aEditor->GetSelectionController(getter_AddRefs(selCon));
 
-  if (selCon)
-    // After ScrollSelectionIntoView(), the pending notifications might be
-    // flushed and PresShell/PresContext/Frames may be dead. See bug 418470.
-    selCon->ScrollSelectionIntoView(
-        nsISelectionController::SELECTION_NORMAL,
-        nsISelectionController::SELECTION_ANCHOR_REGION, true);
+      if (selCon)
+        // After ScrollSelectionIntoView(), the pending notifications might be
+        // flushed and PresShell/PresContext/Frames may be dead. See bug 418470.
+        selCon->ScrollSelectionIntoView(
+            nsISelectionController::SELECTION_NORMAL,
+            nsISelectionController::SELECTION_ANCHOR_REGION, true);
     }
   }
 

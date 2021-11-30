@@ -1070,8 +1070,8 @@ nsresult nsMsgAccountManager::LoadAccounts() {
     // If we have an existing account with the same server, ignore this account
     if (serverAccount) continue;
 
-    if (NS_FAILED(
-            createKeyedAccount(accountsArray[i], true, getter_AddRefs(account))) ||
+    if (NS_FAILED(createKeyedAccount(accountsArray[i], true,
+                                     getter_AddRefs(account))) ||
         !account) {
       NS_WARNING("unexpected entry in account list; prefs corrupt?");
       continue;
@@ -1573,7 +1573,8 @@ nsresult nsMsgAccountManager::createKeyedAccount(const nsCString& key,
     }
   }
 
-  if (!forcePositionToEnd && !localFoldersAccountKey.IsEmpty() && !lastFolderAccountKey.IsEmpty() &&
+  if (!forcePositionToEnd && !localFoldersAccountKey.IsEmpty() &&
+      !lastFolderAccountKey.IsEmpty() &&
       lastFolderAccountKey == localFoldersAccountKey) {
     // Insert account before Local Folders if that is the last account.
     m_accounts.InsertElementAt(m_accounts.Length() - 1, account);

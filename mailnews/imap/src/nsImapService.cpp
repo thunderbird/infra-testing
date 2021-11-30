@@ -657,8 +657,9 @@ NS_IMETHODIMP nsImapService::DisplayMessageForPrinting(
     const char* aMessageURI, nsISupports* aDisplayConsumer,
     nsIMsgWindow* aMsgWindow, nsIUrlListener* aUrlListener, nsIURI** aURL) {
   mPrintingOperation = true;
-  nsresult rv = DisplayMessage(nsDependentCString(aMessageURI), aDisplayConsumer, aMsgWindow,
-                               aUrlListener, false, aURL);
+  nsresult rv =
+      DisplayMessage(nsDependentCString(aMessageURI), aDisplayConsumer,
+                     aMsgWindow, aUrlListener, false, aURL);
   mPrintingOperation = false;
   return rv;
 }
