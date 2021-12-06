@@ -57,6 +57,7 @@ Enigmail.hdrView = {
   msgSignatureKeyId: "",
   msgEncryptionKeyId: null,
   msgEncryptionAllKeyIds: null,
+  msgHasKeyAttached: false,
 
   alreadyWrappedCDA: false,
 
@@ -68,6 +69,7 @@ Enigmail.hdrView = {
     this.msgSignatureKeyId = "";
     this.msgEncryptionKeyId = null;
     this.msgEncryptionAllKeyIds = null;
+    this.msgHasKeyAttached = false;
     for (let value of ["decryptionFailed", "brokenExchange"]) {
       Enigmail.msg.removeNotification(value);
     }
@@ -521,11 +523,7 @@ Enigmail.hdrView = {
     if (signed) {
       this.msgSignedStateString = signed;
     }
-    setMessageEncryptionStateButton(
-      "OpenPGP",
-      this.msgEncryptedStateString,
-      this.msgSignedStateString
-    );
+    this.updateEncryptionStateButton();
 
     /*
     // special handling after trying to fix buggy mail format (see buggyExchangeEmailContent in code)
@@ -554,6 +552,29 @@ Enigmail.hdrView = {
         })
       );
     }
+  },
+
+  /**
+   * Should be called as soon as it is known that the message has
+   * an OpenPGP key attached.
+   */
+  notifyHasKeyAttached() {
+    this.msgHasKeyAttached = true;
+    this.updateEncryptionStateButton();
+  },
+
+  /**
+   * Should be called whenever more information about the OpenPGP
+   * message state became available, such as encryption or signature
+   * status, or the availability of an attached key.
+   */
+  updateEncryptionStateButton() {
+    setMessageEncryptionStateButton(
+      "OpenPGP",
+      this.msgEncryptedStateString,
+      this.msgSignedStateString,
+      this.msgHasKeyAttached
+    );
   },
 
   editKeyExpiry() {
