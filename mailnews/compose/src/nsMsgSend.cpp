@@ -3549,7 +3549,7 @@ nsMsgComposeAndSend::CreateAndSendMessage(
     nsIEditor* aEditor, nsIMsgIdentity* aUserIdentity, const char* aAccountKey,
     nsIMsgCompFields* fields, bool digest_p, bool dont_deliver_p,
     nsMsgDeliverMode mode, nsIMsgDBHdr* msgToReplace,
-    const char* attachment1_type, const nsACString& attachment1_body,
+    const char* attachment1_type, const nsAString& attachment1_body,
     mozIDOMWindowProxy* parentWindow, nsIMsgProgress* progress,
     nsIMsgSendListener* aListener, const nsAString& password,
     const nsACString& aOriginalMsgURI, MSG_ComposeType aType,
@@ -3570,7 +3570,8 @@ nsMsgComposeAndSend::CreateAndSendMessage(
 
   rv = Init(aUserIdentity, aAccountKey, (nsMsgCompFields*)fields, nullptr,
             digest_p, dont_deliver_p, mode, msgToReplace, attachment1_type,
-            attachment1_body, {}, password, aOriginalMsgURI, aType);
+            NS_ConvertUTF16toUTF8(attachment1_body), {}, password,
+            aOriginalMsgURI, aType);
 
   if (NS_FAILED(rv) && mSendReport)
     mSendReport->SetError(nsIMsgSendReport::process_Current, rv, false);
