@@ -432,14 +432,24 @@ NS_IMETHODIMP nsMsgCompFields::GetBodyIsAsciiOnly(bool* _retval) {
 }
 
 NS_IMETHODIMP nsMsgCompFields::SetBody(const nsAString& value) {
-  m_body = value;
+  CopyUTF16toUTF8(value, m_body);
   return NS_OK;
 }
 
 NS_IMETHODIMP nsMsgCompFields::GetBody(nsAString& _retval) {
-  _retval = m_body;
+  CopyUTF8toUTF16(m_body, _retval);
   return NS_OK;
 }
+
+nsresult nsMsgCompFields::SetBody(const char* value) {
+  if (value)
+    m_body = value;
+  else
+    m_body.Truncate();
+  return NS_OK;
+}
+
+const char* nsMsgCompFields::GetBody() { return m_body.get(); }
 
 NS_IMETHODIMP nsMsgCompFields::GetAttachments(
     nsTArray<RefPtr<nsIMsgAttachment>>& attachments) {
@@ -515,10 +525,13 @@ NS_IMETHODIMP nsMsgCompFields::ConvertBodyToPlainText() {
   nsresult rv = NS_OK;
 
   if (!m_body.IsEmpty()) {
+    nsAutoString body;
+    rv = GetBody(body);
     if (NS_SUCCEEDED(rv)) {
       bool flowed, formatted;
       GetSerialiserFlags(&flowed, &formatted);
-      rv = ConvertBufToPlainText(m_body, flowed, formatted, true);
+      rv = ConvertBufToPlainText(body, flowed, formatted, true);
+      if (NS_SUCCEEDED(rv)) rv = SetBody(body);
     }
   }
   return rv;

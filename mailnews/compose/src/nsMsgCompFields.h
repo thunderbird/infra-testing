@@ -183,13 +183,16 @@ class nsMsgCompFields : public nsIMsgCompFields {
   bool GetBodyIsAsciiOnly() { return m_bodyIsAsciiOnly; }
   bool GetForceMsgEncoding() { return m_forceMsgEncoding; }
 
+  nsresult SetBody(const char* value);
+  const char* GetBody();
+
   nsresult SplitRecipientsEx(const nsAString& recipients,
                              nsTArray<nsMsgRecipient>& aResult);
 
  protected:
   virtual ~nsMsgCompFields();
   nsCString m_headers[MSG_MAX_HEADERS];
-  nsString m_body;
+  nsCString m_body;
   nsTArray<RefPtr<nsIMsgAttachment>> m_attachments;
   bool m_attachVCard;
   bool m_attachmentReminder;

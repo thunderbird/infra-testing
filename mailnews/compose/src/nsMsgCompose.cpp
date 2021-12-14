@@ -1038,9 +1038,7 @@ nsMsgCompose::SendMsgToServer(MSG_DeliverMode deliverMode,
     if (!mMsgSend) mMsgSend = do_CreateInstance(NS_MSGSEND_CONTRACTID);
 
     if (mMsgSend) {
-      nsString bodyString;
-      rv = m_compFields->GetBody(bodyString);
-      NS_ENSURE_SUCCESS(rv, rv);
+      nsCString bodyString(m_compFields->GetBody());
 
       // Create the listener for the send operation...
       nsCOMPtr<nsIMsgComposeSendListener> composeSendListener =
@@ -1100,7 +1098,9 @@ NS_IMETHODIMP nsMsgCompose::SendMsg(MSG_DeliverMode deliverMode,
   nsString msgBody;
   if (m_editor) {
     // Reset message body previously stored in the compose fields
-    m_compFields->SetBody(EmptyString());
+    // There is 2 nsIMsgCompFields::SetBody() functions using a pointer as
+    // argument, therefore a casting is required.
+    m_compFields->SetBody((const char*)nullptr);
 
     uint32_t flags = nsIDocumentEncoder::OutputCRLineBreak |
                      nsIDocumentEncoder::OutputLFLineBreak;
@@ -1117,7 +1117,7 @@ NS_IMETHODIMP nsMsgCompose::SendMsg(MSG_DeliverMode deliverMode,
       // Don't lose NBSP in the plain text encoder.
       flags |= nsIDocumentEncoder::OutputPersistNBSP;
     }
-    nsresult rv = m_editor->OutputToString(contentType, flags, msgBody);
+    rv = m_editor->OutputToString(contentType, flags, msgBody);
     NS_ENSURE_SUCCESS(rv, rv);
   } else {
     m_compFields->GetBody(msgBody);
@@ -1127,13 +1127,16 @@ NS_IMETHODIMP nsMsgCompose::SendMsg(MSG_DeliverMode deliverMode,
     if (!StringEndsWith(msgBody, u"\r\n"_ns)) msgBody.AppendLiteral("\r\n");
     bool isAsciiOnly = mozilla::IsAsciiNullTerminated(
         static_cast<const char16_t*>(msgBody.get()));
-
-    if (m_compFields->GetForceMsgEncoding()) {
-      isAsciiOnly = false;
+    // Convert body to UTF-8
+    nsCString outCString;
+    outCString.Assign(NS_ConvertUTF16toUTF8(msgBody));
+    if (m_compFields->GetForceMsgEncoding()) isAsciiOnly = false;
+    if (NS_SUCCEEDED(rv) && !outCString.IsEmpty()) {
+      m_compFields->SetBodyIsAsciiOnly(isAsciiOnly);
+      m_compFields->SetBody(outCString.get());
+    } else {
+      m_compFields->SetBody(NS_ConvertUTF16toUTF8(msgBody).get());
     }
-
-    m_compFields->SetBodyIsAsciiOnly(isAsciiOnly);
-    m_compFields->SetBody(msgBody);
   }
 
   // Let's open the progress dialog
@@ -1392,6 +1395,11 @@ MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHODIMP nsMsgCompose::InitEditor(
                          NS_OK);
     return rv;
   }
+}
+
+NS_IMETHODIMP nsMsgCompose::GetBodyRaw(nsACString& aBodyRaw) {
+  aBodyRaw.Assign((char*)m_compFields->GetBody());
+  return NS_OK;
 }
 
 nsresult nsMsgCompose::GetBodyModified(bool* modified) {
