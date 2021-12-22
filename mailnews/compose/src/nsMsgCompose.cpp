@@ -5214,7 +5214,9 @@ void nsMsgCompose::DeleteTmpAttachments() {
   for (nsIMsgAttachment* attachment : attachments) {
     bool isTemporary;
     attachment->GetTemporary(&isTemporary);
-    if (isTemporary) {
+    bool sentViaCloud;
+    attachment->GetSendViaCloud(&sentViaCloud);
+    if (isTemporary && !sentViaCloud) {
       nsCString url;
       attachment->GetUrl(url);
       nsCOMPtr<nsIFile> urlFile;
