@@ -20,13 +20,6 @@ const handlerService = Cc[
 const { MockFilePicker } = SpecialPowers;
 MockFilePicker.init(window);
 
-const {
-  saveToDisk,
-  alwaysAsk,
-  useHelperApp,
-  useSystemDefault,
-} = Ci.nsIHandlerInfo;
-
 let tempDir = FileUtils.getDir("TmpD", [], false);
 let saveDestination = FileUtils.getFile("TmpD", ["saveDestination"]);
 saveDestination.createUnique(Ci.nsIFile.DIRECTORY_TYPE, 0o755);
@@ -91,8 +84,13 @@ function createMockedHandler(type, preferredAction, alwaysAskBeforeHandling) {
 }
 
 let messageIndex = -1;
-function createAndLoadMessage(type) {
+function createAndLoadMessage(type, filename) {
   messageIndex++;
+
+  if (!filename) {
+    filename = `attachment${messageIndex}.test${messageIndex}`;
+  }
+
   add_message_to_folder(
     folder,
     create_message({
@@ -104,7 +102,7 @@ function createAndLoadMessage(type) {
         {
           contentType: type,
           body: `${type}Attachment`,
-          filename: `attachment${messageIndex}.test${messageIndex}`,
+          filename,
         },
       ],
     })
@@ -170,13 +168,21 @@ async function clickWithoutDialog() {
   );
 }
 
-async function checkFileSaved(parent = saveDestination) {
+async function checkFileSaved(parent = saveDestination, leafName) {
   let expectedFile = parent.clone();
-  expectedFile.append(`attachment${messageIndex}.test${messageIndex}`);
+  if (leafName) {
+    expectedFile.append(leafName);
+  } else {
+    expectedFile.append(`attachment${messageIndex}.test${messageIndex}`);
+  }
   await TestUtils.waitForCondition(
     () => expectedFile.exists(),
     `attachment was saved to ${expectedFile.path}`
   );
+  Assert.ok(expectedFile.exists(), `${expectedFile.path} exists`);
+  // Wait a moment in case the file is still locked for writing.
+  // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+  await new Promise(resolve => setTimeout(resolve, 250));
   expectedFile.remove(false);
 }
 
@@ -192,6 +198,19 @@ function checkHandler(type, preferredAction, alwaysAskBeforeHandling) {
     alwaysAskBeforeHandling,
     `alwaysAskBeforeHandling of ${type}`
   );
+}
+
+function promiseFileOpened() {
+  let __openTemporaryFile = window.AttachmentInfo.prototype._openTemporaryFile;
+  return new Promise(resolve => {
+    window.AttachmentInfo.prototype._openTemporaryFile = function(
+      mimeInfo,
+      tempFile
+    ) {
+      window.AttachmentInfo.prototype._openTemporaryFile = __openTemporaryFile;
+      resolve({ mimeInfo, tempFile });
+    };
+  });
 }
 
 /**
@@ -215,7 +234,7 @@ add_task(async function noHandler() {
   createAndLoadMessage("test/foo");
   await clickWithDialog({ rememberExpected: false, remember: true }, "accept");
   await checkFileSaved();
-  checkHandler("test/foo", saveToDisk, false);
+  checkHandler("test/foo", Ci.nsIHandlerInfo.saveToDisk, false);
 });
 
 /**
@@ -226,7 +245,7 @@ add_task(async function noHandlerNoSave() {
   createAndLoadMessage("test/bar");
   await clickWithDialog({ rememberExpected: false, remember: false }, "accept");
   await checkFileSaved();
-  checkHandler("test/bar", saveToDisk, true);
+  checkHandler("test/bar", Ci.nsIHandlerInfo.saveToDisk, true);
 });
 
 // Now we'll test the various states that handler info objects might be in.
@@ -237,11 +256,15 @@ add_task(async function noHandlerNoSave() {
  * Open a content type set to save to disk, but always ask.
  */
 add_task(async function saveToDiskAlwaysAsk() {
-  createMockedHandler("test/saveToDisk-true", saveToDisk, true);
+  createMockedHandler(
+    "test/saveToDisk-true",
+    Ci.nsIHandlerInfo.saveToDisk,
+    true
+  );
   createAndLoadMessage("test/saveToDisk-true");
   await clickWithDialog({ rememberExpected: false }, "accept");
   await checkFileSaved();
-  checkHandler("test/saveToDisk-true", saveToDisk, true);
+  checkHandler("test/saveToDisk-true", Ci.nsIHandlerInfo.saveToDisk, true);
 });
 
 /**
@@ -251,7 +274,11 @@ add_task(async function saveToDiskAlwaysAsk() {
 add_task(async function saveToDiskAlwaysAskPromptLocation() {
   Services.prefs.setBoolPref("browser.download.useDownloadDir", false);
 
-  createMockedHandler("test/saveToDisk-true", saveToDisk, true);
+  createMockedHandler(
+    "test/saveToDisk-true",
+    Ci.nsIHandlerInfo.saveToDisk,
+    true
+  );
   createAndLoadMessage("test/saveToDisk-true");
 
   let expectedFile = tempDir.clone();
@@ -271,7 +298,7 @@ add_task(async function saveToDiskAlwaysAskPromptLocation() {
  * Open a content type set to always ask in both fields.
  */
 add_task(async function alwaysAskAlwaysAsk() {
-  createMockedHandler("test/alwaysAsk-true", alwaysAsk, true);
+  createMockedHandler("test/alwaysAsk-true", Ci.nsIHandlerInfo.alwaysAsk, true);
   createAndLoadMessage("test/alwaysAsk-true");
   await clickWithDialog({ mode: "open", rememberExpected: false });
 });
@@ -280,7 +307,11 @@ add_task(async function alwaysAskAlwaysAsk() {
  * Open a content type set to use helper app, but always ask.
  */
 add_task(async function useHelperAppAlwaysAsk() {
-  createMockedHandler("test/useHelperApp-true", useHelperApp, true);
+  createMockedHandler(
+    "test/useHelperApp-true",
+    Ci.nsIHandlerInfo.useHelperApp,
+    true
+  );
   createAndLoadMessage("test/useHelperApp-true");
   await clickWithDialog({ mode: "open", rememberExpected: false });
 });
@@ -289,7 +320,11 @@ add_task(async function useHelperAppAlwaysAsk() {
  * Open a content type set to use the system default app, but always ask.
  */
 add_task(async function useSystemDefaultAlwaysAsk() {
-  createMockedHandler("test/useSystemDefault-true", useSystemDefault, true);
+  createMockedHandler(
+    "test/useSystemDefault-true",
+    Ci.nsIHandlerInfo.useSystemDefault,
+    true
+  );
   createAndLoadMessage("test/useSystemDefault-true");
   // Would be mode: "open" on all platforms except our handler isn't real.
   await clickWithDialog({
@@ -318,7 +353,11 @@ add_task(async function saveToDisk() {
 add_task(async function saveToDiskPromptLocation() {
   Services.prefs.setBoolPref("browser.download.useDownloadDir", false);
 
-  createMockedHandler("test/saveToDisk-true", saveToDisk, false);
+  createMockedHandler(
+    "test/saveToDisk-true",
+    Ci.nsIHandlerInfo.saveToDisk,
+    false
+  );
   createAndLoadMessage("test/saveToDisk-false");
 
   let expectedFile = tempDir.clone();
