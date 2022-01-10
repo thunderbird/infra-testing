@@ -4,14 +4,11 @@
 
 "use strict";
 
-/* globals MozElements MozXULElement */
+/* globals MozElements MozXULElement chatHandler */
 
 // Wrap in a block to prevent leaking to window scope.
 {
   const { Services } = ChromeUtils.import("resource:///modules/imServices.jsm");
-  const { XPCOMUtils } = ChromeUtils.import(
-    "resource://gre/modules/XPCOMUtils.jsm"
-  );
   const { ChatIcons } = ChromeUtils.import("resource:///modules/chatIcons.jsm");
 
   ChromeUtils.defineModuleGetter(this, "OTR", "resource:///modules/OTR.jsm");
@@ -20,13 +17,6 @@
     "OTRUI",
     "resource:///modules/OTRUI.jsm"
   );
-
-  XPCOMUtils.defineLazyGetter(this, "gOtrNotification", () => {
-    return new MozElements.NotificationBox(element => {
-      element.setAttribute("flex", "1");
-      document.getElementById("otr-notification-box").append(element);
-    });
-  });
 
   /**
    * The MozChatConversationInfo widget displays information about a chat:
@@ -69,7 +59,7 @@
             </html:div>
           </html:div>
           <hbox class="otr-container themeable-brighttext"
-                align="middle"
+                align="center"
                 hidden="true">
             <label class="otr-label"
                    crop="end"
@@ -105,7 +95,7 @@
       if (Services.prefs.getBoolPref("chat.otr.enable")) {
         let otrButton = this.querySelector(".otr-button");
         otrButton.addEventListener("command", this.otrButtonClicked);
-        OTRUI.setNotificationBox(gOtrNotification);
+        OTRUI.setNotificationBox(chatHandler.msgNotificationBar);
       }
       this.initializeAttributeInheritance();
     }

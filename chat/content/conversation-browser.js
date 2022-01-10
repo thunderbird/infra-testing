@@ -554,7 +554,7 @@
 
       // Right trim before displaying. This removes any OTR related
       // whitespace when the extension isn't enabled.
-      let msg = aMsg.displayMessage.trimRight();
+      let msg = aMsg.displayMessage?.trimRight() ?? "";
 
       // The slash of a leading '/me' should not be used to
       // format as italic, so we remove the '/me' text before
