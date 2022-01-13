@@ -13,6 +13,7 @@ transforms:
     - taskgraph.transforms.build_attrs:transforms
     - taskgraph.transforms.build_lints:transforms
     - taskgraph.transforms.job:transforms
+    - comm_taskgraph.transforms.tb_build:transforms
     - taskgraph.transforms.task:transforms
 
 jobs-from:
