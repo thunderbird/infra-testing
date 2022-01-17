@@ -625,7 +625,7 @@ var OTRUI = {
       null,
       this.globalBox.PRIORITY_WARNING_MEDIUM,
       buttons
-    )
+    );
 
     // Set the user attribute so we can show and hide notifications based on the
     // currently viewed conversation.
@@ -706,7 +706,7 @@ var OTRUI = {
       ];
     }
 
-     // Change priority type based on the passed key.
+    // Change priority type based on the passed key.
     let priority = this.globalBox.PRIORITY_WARNING_HIGH;
     let dismissable = true;
     switch (key) {
