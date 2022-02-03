@@ -1211,6 +1211,10 @@ async function atStartupRestoreTabs(aDontRestoreFirstTab) {
   Services.tm.dispatchToMainThread(loadExtraTabs);
   SessionStoreManager._restored = true;
   Services.obs.notifyObservers(window, "mail-tabs-session-restored");
+  // Also fire the mozilla-central variant of this event, to trigger the
+  // browserStartupPromise used for delayed background startup for WebExtensions.
+  Services.obs.notifyObservers(window, "sessionstore-windows-restored");
+
   return !!state;
 }
 
