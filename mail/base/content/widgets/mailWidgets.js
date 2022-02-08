@@ -53,28 +53,34 @@
     "resource:///modules/TagUtils.jsm"
   );
 
+  /**
+   * Set the aria-label for the given header element using the given value and
+   * the header name fetched from the header row's label. Thus, this must be
+   * called on a node *after* it has already been connected.
+   *
+   * This is used as a temporary fix for a screen reader problem: Bug 1493608.
+   *
+   * @param {Element} headerEl - The element to set the aria-label on.
+   * @param {string} headerVal - The text value of the header.
+   */
+  function setHeaderAriaLabel(headerEl, headerVal) {
+    let headerName =
+      headerEl.closest("tr")?.querySelector(".headerName")?.value;
+    if (!headerName) {
+      throw new Error("Missing label for header");
+    }
+    headerEl.setAttribute("aria-label", `${headerName}: ${headerVal}`);
+  }
+
   class MozMailHeaderfield extends MozXULElement {
     connectedCallback() {
       this.setAttribute("context", "copyPopup");
       this.classList.add("headerValue");
-
-      this._ariaBaseLabel = null;
-      if (this.getAttribute("aria-labelledby")) {
-        this._ariaBaseLabel = document.getElementById(
-          this.getAttribute("aria-labelledby")
-        );
-        this.removeAttribute("aria-labelledby");
-      }
     }
 
     set headerValue(val) {
-      // Solve the accessibility problem by manually fetching the translated
-      // string from the label and updating the attribute. Bug 1493608
-      if (this._ariaBaseLabel) {
-        this.setAttribute("aria-label", `${this._ariaBaseLabel.value}: ${val}`);
-      }
-
       this.textContent = val;
+      setHeaderAriaLabel(this, val);
     }
   }
   customElements.define("mail-headerfield", MozMailHeaderfield);
@@ -150,15 +156,8 @@
           "color: " + textColor + "; background-color: " + color + ";"
         );
 
-        // Solve the accessibility problem by manually fetching the translated
-        // string from the label and updating the attribute. Bug 1493608
-        let ariaLabel = document.getElementById(
-          this.getAttribute("aria-labelledby")
-        );
-        label.setAttribute("aria-label", `${ariaLabel.value}: ${tagName}`);
-        label.removeAttribute("aria-labelledby");
-
         this.appendChild(label);
+        setHeaderAriaLabel(label, tagName);
       }
     }
   }
@@ -169,17 +168,9 @@
       this.classList.add("emailDisplayButton");
       this.setAttribute("context", "newsgroupPopup");
       this.setAttribute("popup", "newsgroupPopup");
-
-      // Solve the accessibility problem by manually fetching the translated
-      // string from the label and updating the attribute. Bug 1493608
-      let ariaLabel = document.getElementById(
-        this.getAttribute("aria-labelledby")
-      );
-      this.setAttribute(
-        "aria-label",
-        `${ariaLabel.value}: ${this.getAttribute("newsgroup")}`
-      );
-      this.removeAttribute("aria-labelledby");
+      let newsgroup = this.getAttribute("newsgroup");
+      this.textContent = newsgroup;
+      setHeaderAriaLabel(this, newsgroup);
     }
   }
   customElements.define("mail-newsgroup", MozMailNewsgroup);
@@ -204,12 +195,7 @@
           this.appendChild(textNode);
         }
 
-        newNode.textContent = this.mNewsgroups[i];
         newNode.setAttribute("newsgroup", this.mNewsgroups[i]);
-        newNode.setAttribute(
-          "aria-labelledby",
-          this.getAttribute("aria-labelledby")
-        );
         this.appendChild(newNode);
       }
     }
@@ -249,7 +235,12 @@
     }
 
     _updateAttributes() {
-      this.textContent = this.label || "";
+      if (!this.isConnected) {
+        return;
+      }
+      let val = this.label || "";
+      this.textContent = val;
+      setHeaderAriaLabel(this, val);
     }
 
     set label(val) {
@@ -501,17 +492,18 @@
     }
 
     attributeChangedCallback() {
-      if (!this.isConnectedAndReady) {
-        return;
-      }
       this._update();
     }
 
     _update() {
+      if (!this.isConnectedAndReady) {
+        return;
+      }
       const emailLabel = this.querySelector(".emaillabel");
 
       this._updateNodeAttributes(emailLabel, "crop");
       this._updateNodeAttributes(emailLabel, "value", "label");
+      setHeaderAriaLabel(this, this.getAttribute("label"));
     }
 
     _updateNodeAttributes(attrNode, attr, mappedAttr) {
@@ -537,11 +529,6 @@
       this._mailEmailAddress = document.createXULElement("mail-emailaddress");
       this._mailEmailAddress.classList.add("headerValue");
       this._mailEmailAddress.setAttribute("containsEmail", "true");
-      this._mailEmailAddress.setAttribute(
-        "aria-labelledby",
-        this.getAttribute("aria-labelledby")
-      );
-      this._mailEmailAddress.removeAttribute("aria-labelledby");
 
       this.appendChild(this._mailEmailAddress);
     }
@@ -1115,19 +1102,6 @@
         // Stash the headerName somewhere that UpdateEmailNodeDetails will be
         // able to find it.
         newAddressNode.setAttribute("headerName", this.headerName);
-
-        // Solve the accessibility problem by manually fetching the translated
-        // string from the label and updating the attribute. Bug 1493608
-        let ariaLabel = document.getElementById(
-          this.getAttribute("aria-labelledby")
-        );
-        newAddressNode.setAttribute(
-          "aria-label",
-          `${ariaLabel.value}: ${this.addresses[i].fullAddress ||
-            this.addresses[i].displayName ||
-            ""}`
-        );
-        newAddressNode.removeAttribute("aria-labelledby");
 
         this._updateEmailAddressNode(newAddressNode, this.addresses[i]);
         newAddressNode = this.emailAddresses.appendChild(newAddressNode);

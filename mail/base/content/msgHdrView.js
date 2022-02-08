@@ -1141,7 +1141,6 @@ function HeaderView(headerName, label) {
     newLabelNode.setAttribute("id", "expanded" + headerName + "Label");
     newLabelNode.setAttribute("value", label);
     newLabelNode.setAttribute("class", "headerName");
-    newLabelNode.setAttribute("control", idName);
     let newTHNode = document.createElementNS(
       "http://www.w3.org/1999/xhtml",
       "th"
