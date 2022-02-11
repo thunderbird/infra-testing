@@ -9416,6 +9416,7 @@ function InitEditor() {
   );
 
   window.content.browsingContext.allowJavascript = false;
+  window.content.browsingContext.docShell.allowAuth = false;
   gMsgCompose.initEditor(editor, window.content);
 
   // Then, we enable related UI entries.
