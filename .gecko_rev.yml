@@ -1,8 +1,8 @@
 ---
 GECKO_BASE_REPOSITORY: https://hg.mozilla.org/mozilla-unified
 GECKO_HEAD_REPOSITORY: https://hg.mozilla.org/releases/mozilla-esr91
-GECKO_HEAD_REF: FIREFOX_91_7_0esr_BUILD3
-GECKO_HEAD_REV: a9d3c0f4732a9a62428089fff64ae8ff3d608918
+GECKO_HEAD_REF: default
+GECKO_HEAD_REV: 333794dc5892259730cd7cdd66e17e3d5d072ac6
 
 ### For comm-central
 # GECKO_BASE_REPOSITORY: https://hg.mozilla.org/mozilla-unified
