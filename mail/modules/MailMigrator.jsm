@@ -127,7 +127,7 @@ var MailMigrator = {
   _migrateUI() {
     // The code for this was ported from
     // mozilla/browser/components/nsBrowserGlue.js
-    const UI_VERSION = 30;
+    const UI_VERSION = 32;
     const MESSENGER_DOCURL = "chrome://messenger/content/messenger.xhtml";
     const MESSENGERCOMPOSE_DOCURL =
       "chrome://messenger/content/messengercompose/messengercompose.xhtml";
@@ -611,6 +611,12 @@ var MailMigrator = {
       // Clear ui.systemUsesDarkTheme after bug 1736252.
       if (currentUIVersion < 30) {
         Services.prefs.clearUserPref("ui.systemUsesDarkTheme");
+      }
+
+      if (currentUIVersion < 32) {
+        this._migrateIncomingToOAuth2("imap.gmail.com");
+        this._migrateIncomingToOAuth2("pop.gmail.com");
+        this._migrateSMTPToOAuth2("smtp.gmail.com");
       }
 
       // Update the migration version.
