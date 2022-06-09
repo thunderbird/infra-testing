@@ -687,7 +687,7 @@ var OTR = {
 
   /** @param {Context} wContext - wrapped context. */
   getAccountPrefBranch(wContext) {
-    let account = Services.accounts
+    let account = IMServices.accounts
       .getAccounts()
       .find(
         acc =>
