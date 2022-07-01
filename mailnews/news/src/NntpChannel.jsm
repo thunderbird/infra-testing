@@ -26,6 +26,8 @@ class NntpChannel {
     "nsICacheEntryOpenCallback",
   ]);
 
+  _logger = lazy.NntpUtils.logger;
+
   /**
    * @param {nsIURI} uri - The uri to construct the channel from.
    * @param {nsILoadInfo} loadInfo - The loadInfo associated with the channel.
@@ -177,7 +179,9 @@ class NntpChannel {
         if (this._readFromOfflineStorage()) {
           return;
         }
-      } catch (e) {}
+      } catch (e) {
+        this._logger.warn(e);
+      }
 
       let uri = this.URI;
       if (this.URI.spec.includes("?")) {
@@ -198,6 +202,7 @@ class NntpChannel {
         this
       );
     } catch (e) {
+      this._logger.warn(e);
       this._readFromServer();
     }
   }
@@ -213,7 +218,7 @@ class NntpChannel {
     if (!this._newsFolder.hasMsgOffline(this._articleNumber)) {
       return false;
     }
-    let hdr = this._newsFolder.getMessageHeader(this._articleNumber);
+    let hdr = this._newsFolder.GetMessageHeader(this._articleNumber);
     let stream = this._newsFolder.getLocalMsgStream(hdr);
     this._readFromCacheStream(stream);
     return true;
