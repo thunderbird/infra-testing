@@ -10,14 +10,14 @@ const EXPORTED_SYMBOLS = [
   "StrictLinkClickHandlerParent",
 ];
 
-var { XPCOMUtils } = ChromeUtils.import(
+const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
 XPCOMUtils.defineLazyScriptGetter(
   this,
   "openLinkExternally",
-  "chrome://communicator/content/contentAreaClick.js"
+  "chrome://browser/content/utilityOverlay.js"
 );
 
 class LinkClickHandlerParent extends JSWindowActorParent {
