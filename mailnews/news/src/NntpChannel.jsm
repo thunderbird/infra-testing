@@ -213,7 +213,7 @@ class NntpChannel {
     if (!this._newsFolder.hasMsgOffline(this._articleNumber)) {
       return false;
     }
-    let hdr = this._newsFolder.getMessageHeader(this._articleNumber);
+    let hdr = this._newsFolder.GetMessageHeader(this._articleNumber);
     let stream = this._newsFolder.getLocalMsgStream(hdr);
     this._readFromCacheStream(stream);
     return true;
