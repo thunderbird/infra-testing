@@ -1358,7 +1358,8 @@ async function openPgpExportPublicKey(keyId) {
   let exitCodeObj = {};
   let errorMsgObj = {};
   await EnigmailKeyRing.extractPublicKeys(
-    [keyId],
+    [keyId], // full
+    null,
     null,
     outFile,
     exitCodeObj,
