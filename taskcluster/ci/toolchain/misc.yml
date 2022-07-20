@@ -4,8 +4,25 @@
 ---
 
 job-defaults:
+    worker-type: b-linux
+    worker:
+        max-run-time: 1800
     treeherder:
         kind: build
         platform: toolchains/opt
         tier: 1
     run-on-projects: []
+
+linux64-makecab:
+    description: "makecab toolchain build"
+    treeherder:
+        symbol: TL(cab)
+    run:
+        using: toolchain-script
+        script: build-makecab.sh
+        toolchain-artifact: public/build/makecab.tar.zst
+    fetches:
+        fetch:
+            - makecab-backport
+        toolchain:
+            - linux64-rust
