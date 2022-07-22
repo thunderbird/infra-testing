@@ -53,7 +53,7 @@ job-defaults:
         product: thunderbird
         channel: "release-localtest-next"
         include-version: release-next
-        last-watershed: "91.13.0"
+        last-watershed: "91.9.0"
 
 jobs:
     thunderbird-next-linux:
