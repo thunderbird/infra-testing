@@ -12,6 +12,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   Services: "resource://gre/modules/Services.jsm",
   MailServices: "resource:///modules/MailServices.jsm",
   NntpChannel: "resource:///modules/NntpChannel.jsm",
+  NntpUtils: "resource:///modules/NntpUtils.jsm",
 });
 
 /**
@@ -21,6 +22,8 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 class BaseMessageService {
   QueryInterface = ChromeUtils.generateQI(["nsIMsgMessageService"]);
 
+  _logger = NntpUtils.logger;
+
   DisplayMessage(
     messageURI,
     displayConsumer,
@@ -29,6 +32,7 @@ class BaseMessageService {
     autodetectCharset,
     outURL
   ) {
+    this._logger.debug("DisplayMessage", messageURI);
     let uri = this.getUrlForUri(messageURI, msgWindow);
     if (urlListener) {
       uri.RegisterListener(urlListener);
@@ -118,6 +122,7 @@ class BaseMessageService {
   }
 
   streamMessage(messageUri, consumer, msgWindow, urlListener, convertData) {
+    this._logger.debug("streamMessage", messageUri);
     this.DisplayMessage(messageUri, consumer, msgWindow, urlListener, false);
   }
 
