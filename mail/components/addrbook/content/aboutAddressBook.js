@@ -955,7 +955,12 @@ class AbTreeListbox extends customElements.get("tree-listbox") {
       // pressed. Open near the menu button.
       popup.openPopup(
         row.querySelector(".bookRow-container, .listRow-container"),
-        { triggerEvent: event, position: "end_before", x: -26, y: 30 }
+        {
+          triggerEvent: event,
+          position: "end_before",
+          x: -26,
+          y: 30,
+        }
       );
     }
     event.preventDefault();
@@ -2817,14 +2822,21 @@ var detailsPane = {
         if (date.month && date.day) {
           return new Services.intl.DateTimeFormat(
             Services.locale.appLocalesAsBCP47,
-            { month: "long", day: "numeric", year: "numeric" }
+            {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            }
           ).format(new Date(date.year, date.month - 1, date.day));
         }
         return date.year;
       } else if (date.month && date.day) {
         return new Services.intl.DateTimeFormat(
           Services.locale.appLocalesAsBCP47,
-          { month: "long", day: "numeric" }
+          {
+            month: "long",
+            day: "numeric",
+          }
         ).format(new Date(2024, date.month - 1, date.day));
       }
       return "";
