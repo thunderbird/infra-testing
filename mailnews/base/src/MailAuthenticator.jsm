@@ -13,6 +13,9 @@ var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 var { MailServices } = ChromeUtils.import(
   "resource:///modules/MailServices.jsm"
 );
+var { MailStringUtils } = ChromeUtils.import(
+  "resource:///modules/MailStringUtils.jsm"
+);
 
 /**
  * A base class for interfaces when authenticating a mail connection.
@@ -59,6 +62,24 @@ class MailAuthenticator {
       "getPassword not implemented",
       Cr.NS_ERROR_NOT_IMPLEMENTED
     );
+  }
+
+  /**
+   * Get the ByteString form of the current password.
+   * @returns string
+   */
+  getByteStringPassword() {
+    return MailStringUtils.stringToByteString(this.getPassword());
+  }
+
+  /**
+   * Get the PLAIN auth token for a connection.
+   * @returns string
+   */
+  getPlainToken() {
+    // According to rfc4616#section-2, password should be UTF-8 BinaryString
+    // before base64 encoded.
+    return btoa("\0" + this.username + "\0" + this.getByteStringPassword());
   }
 
   /**
