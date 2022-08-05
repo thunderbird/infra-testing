@@ -2798,7 +2798,7 @@ var detailsPane = {
     document.getElementById("viewPrimaryEmail").textContent = card.primaryEmail;
 
     document.getElementById("viewContactPhoto").src =
-      card.photoURL || "chrome://messenger/skin/icons/contact.svg";
+      card.photoURL || "chrome://messenger/skin/icons/new/compact/user.svg";
 
     // TODO no!
     document.getElementById("viewContactPhoto").hidden = document.querySelector(
@@ -3113,7 +3113,7 @@ var detailsPane = {
    */
   showEditPhoto(url) {
     this.photoInput.querySelector(".contact-photo").src =
-      url || "chrome://messenger/skin/icons/contact.svg";
+      url || "chrome://messenger/skin/icons/new/compact/user.svg";
   },
 
   /**
