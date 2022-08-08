@@ -129,7 +129,6 @@ class Pop3Client {
     this._logger.debug(
       `Connecting to pop://${this._server.hostName}:${this._server.port}`
     );
-    this.runningUri.SetUrlState(true, Cr.NS_OK);
     this._server.serverBusy = true;
     this._secureTransport = this._server.socketType == Ci.nsMsgSocketType.SSL;
     this._socket = new TCPSocket(this._server.hostName, this._server.port, {
@@ -1029,14 +1028,13 @@ class Pop3Client {
           this._newUidlMap = this._uidlMap;
         }
 
-        let messagesToDownload = this._messagesToHandle.filter(msg =>
-          [UIDL_FETCH_BODY, UIDL_TOO_BIG].includes(msg.status)
-        );
-        this._totalDownloadSize = messagesToDownload.reduce(
-          (acc, msg) => acc + this._messageSizeMap.get(msg.messageNumber),
+        let totalDownloadSize = this._messagesToHandle.reduce(
+          (acc, msg) =>
+            msg.status == UIDL_FETCH_BODY
+              ? acc + this._messageSizeMap.get(msg.messageNumber)
+              : acc,
           0
         );
-        this._totalReceivedSize = 0;
         try {
           let localFolder = this._sink.folder.QueryInterface(
             Ci.nsIMsgLocalMailFolder
@@ -1044,7 +1042,7 @@ class Pop3Client {
           if (
             localFolder.warnIfLocalFileTooBig(
               this._msgWindow,
-              this._totalDownloadSize
+              totalDownloadSize
             )
           ) {
             throw new Error("Not enough disk space");
@@ -1061,9 +1059,12 @@ class Pop3Client {
         // This discards staled uidls that are no longer on the server.
         this._uidlMap = this._newUidlMap;
 
-        this._sink.setMsgsToDownload(messagesToDownload.length);
+        this._sink.setMsgsToDownload(
+          this._messagesToHandle.filter(msg =>
+            [UIDL_FETCH_BODY, UIDL_TOO_BIG].includes(msg.status)
+          ).length
+        );
         this._actionHandleMessage();
-        this._updateProgress();
       }
     );
   };
@@ -1209,8 +1210,6 @@ class Pop3Client {
         }
       },
       () => {
-        // Don't count the ending indicator.
-        this._totalReceivedSize -= ".\r\n".length;
         try {
           this._sink.incorporateComplete(
             this._msgWindow,
@@ -1232,9 +1231,6 @@ class Pop3Client {
         }
       }
     );
-
-    this._totalReceivedSize += res.data.length;
-    this._updateProgress();
   };
 
   /**
@@ -1314,7 +1310,6 @@ class Pop3Client {
     this._writeUidlState(true);
     this.urlListener?.OnStopRunningUrl(this.runningUri, status);
     this.quit();
-    this.runningUri.SetUrlState(false, Cr.NS_OK);
 
     if (this._folderLocked) {
       this._sink.abortMailDelivery(this);
@@ -1348,15 +1343,6 @@ class Pop3Client {
         this._server.prettyName,
         status,
       ])
-    );
-  }
-
-  /**
-   * Show a progress bar in the status bar.
-   */
-  _updateProgress() {
-    this._msgWindow?.statusFeedback?.showProgress(
-      Math.floor((this._totalReceivedSize * 100) / this._totalDownloadSize)
     );
   }
 
