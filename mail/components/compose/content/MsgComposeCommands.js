@@ -6857,6 +6857,9 @@ function InitLanguageMenu() {
       item.setAttribute("value", dict.localeCode);
       item.setAttribute("type", "checkbox");
       item.setAttribute("selection-type", "multiple");
+      if (dictList.length > 1) {
+        item.setAttribute("closemenu", "none");
+      }
       return item;
     }),
     ...getMoreArray
