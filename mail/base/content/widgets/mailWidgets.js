@@ -28,11 +28,6 @@
   );
   ChromeUtils.defineModuleGetter(
     LazyModules,
-    "DisplayNameUtils",
-    "resource:///modules/DisplayNameUtils.jsm"
-  );
-  ChromeUtils.defineModuleGetter(
-    LazyModules,
     "MailUtils",
     "resource:///modules/MailUtils.jsm"
   );
@@ -1425,7 +1420,7 @@
       if (
         !isNewsgroup &&
         !this.isMailList &&
-        !LazyModules.DisplayNameUtils.getCardForEmail(this.emailAddress)?.card
+        !MailServices.ab.cardForEmailAddress(this.emailAddress)
       ) {
         this.setAttribute(
           "tooltiptext",

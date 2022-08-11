@@ -466,9 +466,15 @@
       }
 
       this.abIndicator.hidden = false;
-      this.cardDetails = DisplayNameUtils.getCardForEmail(
+      let card = MailServices.ab.cardForEmailAddress(
         this.#recipient.emailAddress
       );
+      this.cardDetails = {
+        card,
+        book: card
+          ? MailServices.ab.getDirectoryFromUID(card.directoryUID)
+          : null,
+      };
 
       let displayName = DisplayNameUtils.formatDisplayName(
         this.emailAddress,
