@@ -16,7 +16,7 @@
 /*global gSendEncrypted: true, gOptionalEncryption: true, gSendSigned: true, gSelectedTechnologyIsPGP: true */
 /*global gIsRelatedToEncryptedOriginal: true, gIsRelatedToSignedOriginal: true, gAttachMyPublicPGPKey: true */
 /*global gEncryptSubject: true, setEncSigStatusUI: false, gEncryptedURIService: false */
-/* global setSendEncryptedAndSigned: true */
+/* global updateE2eeOptions: true */
 /* global gAttachmentBucket: true */
 
 var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
@@ -428,11 +428,11 @@ Enigmail.msg = {
         case EnigmailConstants.ENIG_UNDEF:
           break;
         case EnigmailConstants.ENIG_ALWAYS:
-          setSendEncryptedAndSigned(true);
+          updateE2eeOptions(true);
           break;
         case EnigmailConstants.ENIG_NEVER:
         default:
-          setSendEncryptedAndSigned(false);
+          updateE2eeOptions(false);
           break;
       }
       gOptionalEncryption = false;
@@ -637,7 +637,7 @@ Enigmail.msg = {
             EnigmailLog.DEBUG(
               "originalMsgURI=" + gMsgCompose.originalMsgURI + "\n"
             );
-            setSendEncryptedAndSigned(true);
+            updateE2eeOptions(true);
             gSelectedTechnologyIsPGP = true;
             useEncryptionUnlessWeHaveDraftInfo = false;
             usePGPUnlessWeKnowOtherwise = false;
@@ -648,7 +648,7 @@ Enigmail.msg = {
       }
 
       if (useEncryptionUnlessWeHaveDraftInfo) {
-        setSendEncryptedAndSigned(true);
+        updateE2eeOptions(true);
       }
       if (gSendEncrypted && !obtainedDraftFlagsObj.value) {
         gSendSigned = true;
@@ -2515,7 +2515,7 @@ Enigmail.msg = {
       // automatic enabling encryption currently depends on
       // adjustSignEncryptAfterIdentityChanged to be always reached
       gIsRelatedToEncryptedOriginal = true;
-      setSendEncryptedAndSigned(gSendEncrypted);
+      updateE2eeOptions(gSendEncrypted);
       gSendSigned = true;
     }
     //}
