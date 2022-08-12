@@ -2375,7 +2375,7 @@ MatrixAccount.prototype = {
           this.reportSessionsChanged(),
         ])
       )
-      .then(() => {
+      .finally(() => {
         // We can disable the unknown devices error thanks to cross signing.
         this._client.setGlobalErrorOnUnknownDevices(false);
       })
