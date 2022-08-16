@@ -794,6 +794,7 @@ class Pop3Client {
     }
 
     if (firstToken) {
+      this._nextAction = this._actionAuthGssapi;
       this._send(firstToken, true);
       return;
     }
@@ -822,6 +823,7 @@ class Pop3Client {
     }
 
     if (firstToken) {
+      this._nextAction = this._actionAuthNtlm;
       this._send(firstToken, true);
       return;
     }
