@@ -18,12 +18,17 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 /**
  * A message service for news-message://, mainly used for displaying messages.
  * @implements {nsIMsgMessageService}
+ * @implements {nsIMsgMessageFetchPartService}
  */
 class BaseMessageService {
-  QueryInterface = ChromeUtils.generateQI(["nsIMsgMessageService"]);
+  QueryInterface = ChromeUtils.generateQI([
+    "nsIMsgMessageService",
+    "nsIMsgMessageFetchPartService",
+  ]);
 
   _logger = NntpUtils.logger;
 
+  /** @see nsIMsgMessageService */
   DisplayMessage(
     messageURI,
     displayConsumer,
@@ -99,6 +104,25 @@ class BaseMessageService {
         Cr.NS_ERROR_ILLEGAL_VALUE
       );
     }
+  }
+
+  CopyMessage(
+    messageUri,
+    copyListener,
+    moveMessage,
+    urlListener,
+    msgWindow,
+    outUrl
+  ) {
+    this._logger.debug("CopyMessage", messageUri);
+    this.DisplayMessage(
+      messageUri,
+      copyListener,
+      msgWindow,
+      urlListener,
+      false,
+      outUrl
+    );
   }
 
   SaveMessageToDisk(
@@ -215,6 +239,18 @@ class BaseMessageService {
       url.port = folder.server.port;
     }
     return url.toString();
+  }
+
+  /** @see nsIMsgMessageFetchPartService */
+  fetchMimePart(uri, messageUri, displayConsumer, msgWindow, urlListener) {
+    this._logger.debug("fetchMimePart", uri.spec);
+    this.DisplayMessage(
+      uri.spec,
+      displayConsumer,
+      msgWindow,
+      urlListener,
+      false
+    );
   }
 }
 
