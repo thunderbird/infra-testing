@@ -393,24 +393,23 @@ function importBook() {
  * of the address book view.
  *
  * @FIXME Replace with fluent strings for 103+.
- *
- * @param {number} total
  */
-async function setAddressBookCount(total) {
-  let statusTextElement = document.getElementById("about-addr-book-count");
+async function updateAddressBookCount() {
+  let statusTextElement = document.getElementById("aboutAddressBookCount");
   let stringBundle = Services.strings.createBundle(
     "chrome://messenger/locale/addressbook/addressBook.properties"
   );
+  let totalCount = document.getElementById("cards")._view.rowCount;
   let totalCountMessage = "";
   if (booksList.selectedRow._book) {
     totalCountMessage = stringBundle.formatStringFromName(
       "totalContactStatus",
-      [booksList.selectedRow._book.dirName, total]
+      [booksList.selectedRow._book.dirName, totalCount]
     );
   } else if (booksList.selectedRow._list) {
     totalCountMessage = stringBundle.formatStringFromName(
       "totalContactStatus",
-      [booksList.selectedRow._list.dirName, total]
+      [booksList.selectedRow._list.dirName, totalCount]
     );
   } else if (booksList.selectedIndex == 0) {
     let [allAddressBookString] = await document.l10n.formatValues([
@@ -420,7 +419,7 @@ async function setAddressBookCount(total) {
     ]);
     totalCountMessage = stringBundle.formatStringFromName(
       "totalContactStatus",
-      [allAddressBookString, total]
+      [allAddressBookString, totalCount]
     );
   }
 
@@ -472,7 +471,7 @@ class AbTreeListbox extends customElements.get("tree-listbox") {
     // Add event listener to update the total count of the selected address
     // book.
     this.addEventListener("select", e => {
-      setAddressBookCount(document.getElementById("cards").childElementCount);
+      updateAddressBookCount();
     });
   }
 
@@ -653,7 +652,7 @@ class AbTreeListbox extends customElements.get("tree-listbox") {
     let directory = MailServices.ab.getDirectoryFromUID(row.dataset.uid);
     directory = CardDAVDirectory.forFile(directory.fileName);
     directory.syncWithServer().then(res => {
-      setAddressBookCount(document.getElementById("cards").childElementCount);
+      updateAddressBookCount();
     });
   }
 
@@ -2496,6 +2495,7 @@ var detailsPane = {
     switch (topic) {
       case "addrbook-contact-created":
         subject.QueryInterface(Ci.nsIAbCard);
+        updateAddressBookCount();
         if (
           !this.currentCard ||
           this.currentCard.directoryUID != data ||
@@ -2532,6 +2532,7 @@ var detailsPane = {
         break;
       case "addrbook-contact-deleted":
         subject.QueryInterface(Ci.nsIAbCard);
+        updateAddressBookCount();
         if (
           !this.currentCard ||
           this.currentCard.directoryUID != data ||
