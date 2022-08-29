@@ -313,7 +313,8 @@ nsMsgComposeService::GetOrigWindowSelection(MSG_ComposeType type,
     }
 
     if (!charsOnlyIf.IsEmpty()) {
-      if (MsgFindCharInSet(NS_ConvertUTF16toUTF8(selPlain), charsOnlyIf.get()) < 0)
+      if (MsgFindCharInSet(NS_ConvertUTF16toUTF8(selPlain), charsOnlyIf.get()) <
+          0)
         return NS_ERROR_ABORT;
     }
   }
