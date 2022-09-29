@@ -14,7 +14,7 @@ var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 // calendar provider. The core of the test lives in this file and the tests call it when ready.
 
 do_get_profile();
-add_task(async () => {
+add_setup(async () => {
   await new Promise(resolve => cal.manager.startup({ onResult: resolve }));
   await new Promise(resolve => cal.timezoneService.startup({ onResult: resolve }));
   cal.manager.addCalendarObserver(calendarObserver);
