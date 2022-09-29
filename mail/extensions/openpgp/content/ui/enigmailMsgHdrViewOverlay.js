@@ -207,7 +207,7 @@ Enigmail.hdrView = {
       );
     }
 
-    if (!replaceUid) {
+    if (!replaceUid && userId) {
       replaceUid = userId.replace(/\n.*$/gm, "");
     }
 
