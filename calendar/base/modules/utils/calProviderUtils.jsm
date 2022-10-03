@@ -5,6 +5,9 @@
 var { MailServices } = ChromeUtils.import("resource:///modules/MailServices.jsm");
 var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 var { XPCOMUtils } = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+var { CalReadableStreamFactory } = ChromeUtils.import(
+  "resource:///modules/CalReadableStreamFactory.jsm"
+);
 
 ChromeUtils.defineModuleGetter(this, "cal", "resource:///modules/calendar/calUtils.jsm");
 
@@ -540,6 +543,21 @@ var calprovider = {
       } else {
         cal.ASSERT(this.mBatchCount > 0, "unexpected endBatch!");
       }
+    }
+
+    /**
+     * Implementation of calICalendar.getItems(). This should be overridden by
+     * all child classes.
+     *
+     * @param {number} itemFilter
+     * @param {number} count
+     * @param {calIDateTime} rangeStart
+     * @param {calIDateTime} rangeEnd
+     *
+     * @return {ReadableStream<calIItemBase>}
+     */
+    getItems(itemFilter, count, rangeStart, rangeEnd) {
+      return CalReadableStreamFactory.createEmptyReadableStream();
     }
 
     /**
