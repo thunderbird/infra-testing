@@ -331,20 +331,9 @@ var CardDAVUtils = {
     let details = OAuth2Providers.getHostnameDetails(url.host);
     if (details) {
       let [issuer, scope] = details;
-      let [
-        clientId,
-        clientSecret,
-        authorizationEndpoint,
-        tokenEndpoint,
-      ] = OAuth2Providers.getIssuerDetails(issuer);
+      let issuerDetails = OAuth2Providers.getIssuerDetails(issuer);
 
-      oAuth = new OAuth2(
-        authorizationEndpoint,
-        tokenEndpoint,
-        scope,
-        clientId,
-        clientSecret
-      );
+      oAuth = new OAuth2(scope, issuerDetails);
       oAuth._isNew = true;
       oAuth._loginOrigin = `oauth://${issuer}`;
       oAuth._scope = scope;
