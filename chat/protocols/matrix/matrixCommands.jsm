@@ -365,7 +365,7 @@ var commands = [
   {
     name: "part",
     get helpString() {
-      return _("command.leave", "leave");
+      return _("command.leave", "part");
     },
     run: clientCommand("leave", 0),
   },
