@@ -659,7 +659,7 @@ var DefaultController = {
             return false;
           }
         }
-        let targetURI = Services.prefs.getCharPref(
+        let targetURI = Services.prefs.getStringPref(
           "mail.last_msg_movecopy_target_uri"
         );
         if (!targetURI) {
@@ -1079,7 +1079,7 @@ var DefaultController = {
         break;
       case "cmd_moveToFolderAgain":
         var folder = MailUtils.getOrCreateFolder(
-          Services.prefs.getCharPref("mail.last_msg_movecopy_target_uri")
+          Services.prefs.getStringPref("mail.last_msg_movecopy_target_uri")
         );
         if (Services.prefs.getBoolPref("mail.last_msg_movecopy_was_move")) {
           MsgMoveMessage(folder);
