@@ -79,7 +79,6 @@ UIFontSize.registerWindow(window);
 var booksList;
 
 window.addEventListener("load", () => {
-
   document.addEventListener("keydown", event => {
     if (
       !(AppConstants.platform == "macosx" ? event.metaKey : event.ctrlKey) ||
@@ -102,7 +101,6 @@ window.addEventListener("load", () => {
       }
     }
   });
-
 
   document
     .getElementById("toolbarCreateBook")
