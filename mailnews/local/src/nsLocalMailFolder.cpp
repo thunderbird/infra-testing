@@ -1250,7 +1250,7 @@ nsMsgLocalMailFolder::OnCopyCompleted(nsISupports* srcSupport,
   }
   if (moveCopySucceeded && mDatabase) {
     mDatabase->SetSummaryValid(true);
-    (void)CloseDBIfFolderNotOpen();
+    (void)CloseDBIfFolderNotOpen(false);
   }
 
   delete mCopyState;
@@ -3085,7 +3085,7 @@ nsMsgLocalMailFolder::NotifyCompactCompleted() {
   // if compacted, processing flags probably also aren't valid.
   ClearProcessingFlags();
   (void)RefreshSizeOnDisk();
-  (void)CloseDBIfFolderNotOpen();
+  (void)CloseDBIfFolderNotOpen(false);
   NotifyFolderEvent(kCompactCompleted);
   return NS_OK;
 }
