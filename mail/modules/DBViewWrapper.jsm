@@ -11,6 +11,7 @@ const { MailViewConstants, MailViewManager } = ChromeUtils.import(
   "resource:///modules/MailViewManager.jsm"
 );
 const { SearchSpec } = ChromeUtils.import("resource:///modules/SearchSpec.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { VirtualFolderHelper } = ChromeUtils.import(
   "resource:///modules/VirtualFolderWrapper.jsm"
 );
@@ -793,6 +794,24 @@ DBViewWrapper.prototype = {
       this._showServer();
       return;
     }
+
+    let typeForTelemetry =
+      [
+        "Inbox",
+        "Drafts",
+        "Trash",
+        "SentMail",
+        "Templates",
+        "Junk",
+        "Archive",
+        "Queue",
+        "Virtual",
+      ].find(x => aFolder.getFlag(Ci.nsMsgFolderFlags[x])) || "Other";
+    Services.telemetry.keyedScalarAdd(
+      "tb.mails.folder_opened",
+      typeForTelemetry,
+      1
+    );
 
     this.beginViewUpdate();
     let msgDatabase;
