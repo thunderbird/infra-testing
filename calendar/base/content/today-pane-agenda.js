@@ -29,6 +29,9 @@
             this.editSelectedItem();
             break;
           case "Delete":
+          // Fall through to "Backspace". Handling "Backspace" is crucial on
+          // macOS to avoid deleting messages, and won't hurt on Windows/Linux.
+          case "Backspace":
             this.deleteSelectedItem();
             event.stopPropagation();
             event.preventDefault();
