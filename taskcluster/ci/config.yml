@@ -155,7 +155,7 @@ workers:
             provisioner: 'comm-{level}'
             implementation: docker-worker
             os: linux
-            worker-type: '{alias}'
+            worker-type: '{alias}-gcp'
         b-win2012:
             provisioner: 'comm-{level}'
             implementation: generic-worker
@@ -165,7 +165,7 @@ workers:
             provisioner: 'comm-{level}'
             implementation: docker-worker
             os: linux
-            worker-type: '{alias}'
+            worker-type: '{alias}-gcp'
         balrog:
             provisioner: scriptworker-k8s
             implementation: balrog
@@ -235,7 +235,7 @@ workers:
             provisioner: comm-t
             implementation: docker-worker
             os: linux
-            worker-type: '{alias}'
+            worker-type: '{alias}-gcp'
         t-osx-1015-r8:
             provisioner: releng-hardware
             implementation: generic-worker
@@ -260,7 +260,7 @@ workers:
             provisioner: comm-t
             implementation: docker-worker
             os: linux
-            worker-type: misc
+            worker-type: misc-gcp
 
 mac-notarization:
     mac-behavior:
