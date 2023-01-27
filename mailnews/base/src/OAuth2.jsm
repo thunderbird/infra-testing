@@ -37,10 +37,10 @@ function OAuth2(scope, issuerDetails) {
   this.authorizationEndpoint = issuerDetails.authorizationEndpoint;
   this.clientId = issuerDetails.clientId;
   this.consumerSecret = issuerDetails.clientSecret || null;
-  this.useCORS = issuerDetails.useCORS;
   this.redirectionEndpoint =
     issuerDetails.redirectionEndpoint || "http://localhost";
   this.tokenEndpoint = issuerDetails.tokenEndpoint;
+  this.useHttpChannel = issuerDetails.useHttpChannel || false;
 
   this.extraAuthParams = [];
 
@@ -58,7 +58,7 @@ OAuth2.prototype = {
   requestWindowFeatures: "chrome,private,centerscreen,width=980,height=750",
   requestWindowTitle: "",
   scope: null,
-  useCORS: true,
+  useHttpChannel: false,
 
   accessToken: null,
   refreshToken: null,
@@ -256,53 +256,138 @@ OAuth2.prototype = {
       data.append("redirect_uri", this.redirectionEndpoint);
     }
 
-    const fetchOptions = {
-      method: "POST",
-      cache: "no-cache",
-      body: data,
-    };
+    // Microsoft's OAuth explicitly breaks on receiving an Origin header, and
+    // we don't have control over whether fetch() sends Origin. Later versions
+    // of Gecko don't send it in this instance, but we have to work around it in
+    // this one.
+    if (this.useHttpChannel) {
+      // Get the request body as a string-based stream
+      let stream = Cc["@mozilla.org/io/string-input-stream;1"].createInstance(
+        Ci.nsIStringInputStream
+      );
 
-    if (!this.useCORS) {
-      fetchOptions.mode = "no-cors";
-    }
+      let body = data.toString();
+      stream.setUTF8Data(body, body.length);
 
-    fetch(this.tokenEndpoint, fetchOptions)
-      .then(response => response.json())
-      .then(result => {
-        let resultStr = JSON.stringify(result, null, 2);
-        if ("error" in result) {
-          // RFC 6749 section 5.2. Error Response
-          this.log.info(
-            `The authorization server returned an error response: ${resultStr}`
-          );
-          // Typically in production this would be {"error": "invalid_grant"}.
-          // That is, the token expired or was revoked (user changed password?).
-          // Reset the tokens we have and call success so that the auth flow
-          // will be re-triggered.
-          this.accessToken = null;
-          this.refreshToken = null;
-          this.connectSuccessCallback();
-          return;
-        }
+      // Set up an HTTP channel in order to make our request
+      let channel = Services.io.newChannelFromURI(
+        Services.io.newURI(this.tokenEndpoint),
+        null,
+        Services.scriptSecurityManager.getSystemPrincipal(),
+        null,
+        Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL,
+        Ci.nsIContentPolicy.TYPE_OTHER
+      );
 
-        // RFC 6749 section 5.1. Successful Response
-        this.log.info(
-          `Successful response from the authorization server: ${resultStr}`
-        );
-        this.accessToken = result.access_token;
-        if ("refresh_token" in result) {
-          this.refreshToken = result.refresh_token;
-        }
-        if ("expires_in" in result) {
-          this.tokenExpires = new Date().getTime() + result.expires_in * 1000;
-        } else {
-          this.tokenExpires = Number.MAX_VALUE;
-        }
-        this.connectSuccessCallback();
-      })
-      .catch(err => {
-        this.log.info(`Connection to authorization server failed: ${err}`);
-        this.connectFailureCallback(err);
+      channel.QueryInterface(Ci.nsIHttpChannel);
+      channel.setRequestHeader(
+        "Content-Type",
+        "application/x-www-form-urlencoded",
+        false
+      );
+
+      channel.QueryInterface(Ci.nsIUploadChannel);
+      channel.setUploadStream(stream, "application/x-www-form-urlencoded", -1);
+      channel.requestMethod = "POST";
+
+      // Set up a response handler for our request
+      let listener = Cc["@mozilla.org/network/stream-loader;1"].createInstance(
+        Ci.nsIStreamLoader
+      );
+
+      const oauth = this;
+
+      listener.init({
+        onStreamComplete(loader, context, status, resultLength, resultBytes) {
+          try {
+            let resultStr = new TextDecoder().decode(
+              Uint8Array.from(resultBytes)
+            );
+            let result = JSON.parse(resultStr);
+
+            if ("error" in result) {
+              // RFC 6749 section 5.2. Error Response
+              oauth.log.info(
+                `The authorization server returned an error response: ${resultStr}`
+              );
+              // Typically in production this would be {"error": "invalid_grant"}.
+              // That is, the token expired or was revoked (user changed password?).
+              // Reset the tokens we have and call success so that the auth flow
+              // will be re-triggered.
+              oauth.accessToken = null;
+              oauth.refreshToken = null;
+              oauth.connectSuccessCallback();
+              return;
+            }
+
+            // RFC 6749 section 5.1. Successful Response
+            oauth.log.info(
+              `Successful response from the authorization server: ${resultStr}`
+            );
+            oauth.accessToken = result.access_token;
+            if ("refresh_token" in result) {
+              oauth.refreshToken = result.refresh_token;
+            }
+            if ("expires_in" in result) {
+              oauth.tokenExpires =
+                new Date().getTime() + result.expires_in * 1000;
+            } else {
+              oauth.tokenExpires = Number.MAX_VALUE;
+            }
+
+            oauth.connectSuccessCallback();
+          } catch (err) {
+            oauth.log.info(`Connection to authorization server failed: ${err}`);
+            oauth.connectFailureCallback(err);
+          }
+        },
       });
+
+      // Make the request
+      channel.asyncOpen(listener, channel);
+    } else {
+      fetch(this.tokenEndpoint, {
+        method: "POST",
+        cache: "no-cache",
+        body: data,
+      })
+        .then(response => response.json())
+        .then(result => {
+          let resultStr = JSON.stringify(result, null, 2);
+          if ("error" in result) {
+            // RFC 6749 section 5.2. Error Response
+            this.log.info(
+              `The authorization server returned an error response: ${resultStr}`
+            );
+            // Typically in production this would be {"error": "invalid_grant"}.
+            // That is, the token expired or was revoked (user changed password?).
+            // Reset the tokens we have and call success so that the auth flow
+            // will be re-triggered.
+            this.accessToken = null;
+            this.refreshToken = null;
+            this.connectSuccessCallback();
+            return;
+          }
+
+          // RFC 6749 section 5.1. Successful Response
+          this.log.info(
+            `Successful response from the authorization server: ${resultStr}`
+          );
+          this.accessToken = result.access_token;
+          if ("refresh_token" in result) {
+            this.refreshToken = result.refresh_token;
+          }
+          if ("expires_in" in result) {
+            this.tokenExpires = new Date().getTime() + result.expires_in * 1000;
+          } else {
+            this.tokenExpires = Number.MAX_VALUE;
+          }
+          this.connectSuccessCallback();
+        })
+        .catch(err => {
+          this.log.info(`Connection to authorization server failed: ${err}`);
+          this.connectFailureCallback(err);
+        });
+    }
   },
 };
