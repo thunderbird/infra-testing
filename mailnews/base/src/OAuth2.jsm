@@ -363,7 +363,9 @@ OAuth2.prototype = {
             if ("error_uri" in result) {
               err += "; " + result.error_uri;
             }
-            this.log.warn(`Error response from the authorization server: ${err}`);
+            this.log.warn(
+              `Error response from the authorization server: ${err}`
+            );
             this.log.info(`Error response details: ${resultStr}`);
 
             // Typically in production this would be {"error": "invalid_grant"}.
