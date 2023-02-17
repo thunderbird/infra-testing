@@ -3089,9 +3089,11 @@ function GetFolderMessages() {
   for (var i = 0; i < folders.length; i++) {
     var serverType = folders[i].server.type;
     if (folders[i].isServer && serverType == "nntp") {
-      // If we're doing "get msgs" on a news server,
-      // update unread counts on this server.
+      // If we're doing "get msgs" on a news server.
+      // Update unread counts on this server.
       folders[i].server.performExpand(msgWindow);
+    } else if (folders[i].isServer && serverType == "imap") {
+      GetMessagesForInboxOnServer(folders[i].server);
     } else if (serverType == "none") {
       // If "Local Folders" is selected and the user does "Get Msgs" and
       // LocalFolders is not deferred to, get new mail for the default account
@@ -3140,6 +3142,9 @@ TransportErrorUrlListener.prototype = {
   OnStartRunningUrl(url) {},
 
   OnStopRunningUrl(url, exitCode) {
+    if (Components.isSuccessCode(exitCode)) {
+      return;
+    }
     let nssErrorsService = Cc["@mozilla.org/nss_errors_service;1"].getService(
       Ci.nsINSSErrorsService
     );
