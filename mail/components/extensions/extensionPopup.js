@@ -131,6 +131,11 @@ var gBrowserInit = {
       }
     });
   },
+
+  isAdoptingTab() {
+    // Required for compatibility with toolkit's ext-webNavigation.js
+    return false;
+  },
 };
 
 // The listener of DOMContentLoaded must be set on window, rather than
