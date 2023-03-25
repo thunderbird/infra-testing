@@ -7,7 +7,7 @@ const EXPORTED_SYMBOLS = ["MatrixMessageContent"];
 var { XPCOMUtils, l10nHelper } = ChromeUtils.import(
   "resource:///modules/imXPCOMUtils.jsm"
 );
-const { MatrixSDK, getHttpUriForMxc } = ChromeUtils.import(
+const { MatrixSDK } = ChromeUtils.import(
   "resource:///modules/matrix-sdk.jsm"
 );
 XPCOMUtils.defineLazyModuleGetters(this, {
@@ -45,14 +45,14 @@ XPCOMUtils.defineLazyGetter(this, "_", () =>
  */
 function getAttachmentUrl(content, homeserverUrl) {
   if (content.file?.v == "v2") {
-    return getHttpUriForMxc(homeserverUrl, content.file.url);
+    return MatrixSDK.getHttpUriForMxc(homeserverUrl, content.file.url);
     //TODO Actually handle encrypted file contents.
   }
   if (!content.url.startsWith("mxc:")) {
     // Ignore content not served by the homeserver's media repo
     return "";
   }
-  return getHttpUriForMxc(homeserverUrl, content.url);
+  return MatrixSDK.getHttpUriForMxc(homeserverUrl, content.url);
 }
 
 /**
@@ -215,7 +215,7 @@ function formatHTMLBody(event, homeserverUrl, getEvent, includeReply = true) {
     if (image.alt) {
       if (image.src.startsWith("mxc:")) {
         const link = parsedBody.createElement("a");
-        link.href = getHttpUriForMxc(homeserverUrl, image.src);
+        link.href = MatrixSDK.getHttpUriForMxc(homeserverUrl, image.src);
         link.textContent = image.alt;
         if (image.title) {
           link.title = image.title;
