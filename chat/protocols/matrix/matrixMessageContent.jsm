@@ -7,9 +7,7 @@ const EXPORTED_SYMBOLS = ["MatrixMessageContent"];
 var { XPCOMUtils, l10nHelper } = ChromeUtils.import(
   "resource:///modules/imXPCOMUtils.jsm"
 );
-const { MatrixSDK } = ChromeUtils.import(
-  "resource:///modules/matrix-sdk.jsm"
-);
+const { MatrixSDK } = ChromeUtils.import("resource:///modules/matrix-sdk.jsm");
 XPCOMUtils.defineLazyModuleGetters(this, {
   getMatrixTextForEvent: "resource:///modules/matrixTextForEvent.jsm",
 });
