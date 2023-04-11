@@ -71,7 +71,7 @@ function really_run_test() {
   let timezone = getTz("America/New_York");
   let utc = cal.dtz.UTC;
   // Timezones used in tests.
-  let belize = getTz("America/Belize");
+  let cst = getTz("America/Bahia_Banderas");
   let dawson = getTz("America/Dawson");
 
   /*
@@ -100,8 +100,8 @@ function really_run_test() {
   );
 
   // This represents 03:00:23 on October 14, 2004 in Central Standard Time.
-  testRfc3339("2004-10-14T03:00:23-06:00", timezone, [2004, 10, 14, 3, 0, 23, belize, false]);
-  testRfc3339("2004-10-14T03:00:23-06:00", utc, [2004, 10, 14, 3, 0, 23, belize, false]);
+  testRfc3339("2004-10-14T03:00:23-06:00", timezone, [2004, 10, 14, 3, 0, 23, cst, false]);
+  testRfc3339("2004-10-14T03:00:23-06:00", utc, [2004, 10, 14, 3, 0, 23, cst, false]);
 
   /*
    * The following tests are the RFC 3339 examples
