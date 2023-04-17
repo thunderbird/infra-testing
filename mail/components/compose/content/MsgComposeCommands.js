@@ -3440,8 +3440,12 @@ async function checkRecipientKeys() {
  * by calling continueCheckRecipientCerts().
  */
 function checkRecipientCerts() {
+  let remindSMIME = Services.prefs.getBoolPref(
+    "mail.smime.remind_encryption_possible"
+  );
+
   async function continueCheckRecipientCerts() {
-    if (!Services.prefs.getBoolPref("mail.smime.remind_encryption_possible")) {
+    if (!remindSMIME) {
       // No UI updates necessary, our processing did the necessary
       // filling of the OCSP cache.
       return;
@@ -3480,6 +3484,10 @@ function checkRecipientCerts() {
   }
 
   if (!isSmimeEncryptionConfigured()) {
+    return;
+  }
+
+  if (!remindSMIME && !gSendEncrypted) {
     return;
   }
 
