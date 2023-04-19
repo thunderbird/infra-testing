@@ -610,7 +610,6 @@ class SMimeVerificationTask final : public CryptoTask {
   }
   virtual void CallCallback(nsresult rv) override {
     MOZ_ASSERT(NS_IsMainThread());
-    mozilla::StaticMutexAutoLock lock(sMutex);
     mListener->Notify(mMessage, rv);
   }
 
