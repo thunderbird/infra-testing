@@ -434,7 +434,6 @@ html[dir="rtl"] .bar-link {
   background-position: right 4px center;
   background-size: 11px;
   background-repeat: no-repeat;
-  transition: all ease 140ms;
 }
 
 .results-message-showall-button:hover,
@@ -692,7 +691,6 @@ span.empty {
   padding-top: 2px;
   padding-bottom: 2px;
   overflow: visible;
-  transition: all .2s;
   /* Put facet-date at the top */
   order: -1;
 }
@@ -701,4 +699,11 @@ span.empty {
   max-height: 0;
   padding-top: 0;
   padding-bottom: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #facet-date,
+  .results-message-showall-button {
+    transition: all 200ms ease;
+  }
 }
