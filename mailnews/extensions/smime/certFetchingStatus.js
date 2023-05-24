@@ -211,6 +211,11 @@ boundListener.prototype.onLDAPInit = function(aConn, aStatus) {
 };
 
 boundListener.prototype.onLDAPError = function(aStatus, aSecInfo, location) {
+  if (aSecInfo) {
+    console.warn(`LDAP connection security error for ${location}`);
+  } else {
+    console.warn(`LDAP error: ${aStatus}`);
+  }
   window.close();
 };
 
@@ -247,3 +252,16 @@ ldapMessageListener.prototype.onLDAPMessage = function(aMessage) {
 };
 
 ldapMessageListener.prototype.onLDAPInit = function(aConn, aStatus) {};
+
+ldapMessageListener.prototype.onLDAPError = function(
+  aStatus,
+  aSecInfo,
+  location
+) {
+  if (aSecInfo) {
+    console.warn(`LDAP connection security error for ${location}`);
+  } else {
+    console.warn(`LDAP error: ${aStatus}`);
+  }
+  window.close();
+};
