@@ -3634,8 +3634,8 @@ const trashButtonClickHandler = event => {
   if (event.button == 0) {
     goDoCommand(
       event.shiftKey && event.target.dataset.imapDeleted == "false"
-        ? "cmd_shiftDelete"
-        : "cmd_delete"
+        ? "cmd_shiftDeleteMessage"
+        : "cmd_deleteMessage"
     );
   }
 };
