@@ -40,6 +40,10 @@ const { ensure_cards_view, ensure_table_view } = ChromeUtils.importESModule(
   "resource://testing-common/MailViewHelpers.sys.mjs"
 );
 
+const { PromiseTestUtils } = ChromeUtils.importESModule(
+  "resource://testing-common/mailnews/PromiseTestUtils.sys.mjs"
+);
+
 const about3Pane = get_about_3pane();
 const aboutMessage = get_about_message();
 
@@ -464,7 +468,12 @@ add_task(async function test_focus_after_button_click() {
 
   const tree = about3Pane.document.getElementById("threadTree");
   const rowCount = tree.view.rowCount;
+  const deletePromise = PromiseTestUtils.promiseFolderEvent(
+    folder,
+    "DeleteOrMoveMsgCompleted"
+  );
   await clickButtonAndCheckFocus("hdrTrashButton", true);
+  await deletePromise;
   await TestUtils.waitForTick();
   Assert.equal(
     tree.view.rowCount,
