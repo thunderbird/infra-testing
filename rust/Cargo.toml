@@ -206,8 +206,7 @@ wasi_0_11 = { package = "wasi", path = "../../build/rust/wasi" }
 backtrace = { path = "../../build/rust/backtrace" }
 bindgen_0_63 = { package = "bindgen", path = "../../build/rust/bindgen-0.63" }
 bindgen = { path = "../../third_party/rust/bindgen" }
-nix_0_26 = { package = "nix", path = "../../build/rust/nix" }
-nix_0_30 = { package = "nix", path = "../../build/rust/nix-0.29" }
+nix = { path = "../../build/rust/nix" }
 derive_more = { path = "../../build/rust/derive_more" }
 autocfg = { path = "../../third_party/rust/autocfg" }
 goblin = { path = "../../build/rust/goblin" }
