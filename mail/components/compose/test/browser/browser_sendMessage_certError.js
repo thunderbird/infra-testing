@@ -92,7 +92,7 @@ async function subtest(serverDef, hostname, expectedDialogText, expectedCert) {
         undefined,
         "chrome://pippki/content/exceptionDialog.xhtml",
         {
-          callback(win) {
+          async callback(win) {
             const location =
               win.document.getElementById("locationTextBox").value;
             Assert.equal(
@@ -108,6 +108,21 @@ async function subtest(serverDef, hostname, expectedDialogText, expectedCert) {
               expectedDialogText,
               "the exception dialog should state the problem"
             );
+
+            const viewButton = win.document.getElementById("viewCertButton");
+            const tabmail = document.getElementById("tabmail");
+            const tabPromise = BrowserTestUtils.waitForEvent(
+              tabmail.tabContainer,
+              "TabOpen"
+            );
+            viewButton.click();
+            const {
+              detail: { tabInfo },
+            } = await tabPromise;
+            await BrowserTestUtils.browserLoaded(tabInfo.browser, false, url =>
+              url.startsWith("about:certificate?cert=")
+            );
+            tabmail.closeTab(tabInfo);
 
             EventUtils.synthesizeMouseAtCenter(
               win.document.querySelector("dialog").getButton("extra1"),

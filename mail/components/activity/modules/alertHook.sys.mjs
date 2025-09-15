@@ -190,7 +190,7 @@ export var alertHook = {
         .openDialog(
           "chrome://pippki/content/exceptionDialog.xhtml",
           "",
-          "chrome,centerscreen,modal",
+          "chrome,centerscreen,dependent",
           params
         );
       activeAlerts.delete(data);
