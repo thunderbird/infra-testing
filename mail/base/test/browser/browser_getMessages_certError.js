@@ -47,16 +47,9 @@ add_setup(async function () {
   localAccount = MailServices.accounts.createLocalMailAccount();
   localRootFolder = localAccount.incomingServer.rootFolder;
 
-  const alertsService = new MockObjectRegisterer(
-    "@mozilla.org/alerts-service;1",
-    MockAlertsService
-  );
-  alertsService.register();
-
   registerCleanupFunction(async () => {
     MailServices.accounts.removeAccount(localAccount, false);
     certOverrideService.clearAllOverrides();
-    alertsService.unregister();
   });
 });
 
@@ -211,6 +204,10 @@ async function subsubtest(
 ) {
   info(`getting messages for ${inbox.server.type} inbox`);
 
+  const infoPromise = BrowserTestUtils.promiseAlertDialogOpen();
+  await testCallback();
+  const infoDialog = await infoPromise;
+
   const dialogPromise = BrowserTestUtils.promiseAlertDialogOpen(
     undefined,
     "chrome://pippki/content/exceptionDialog.xhtml",
@@ -262,29 +259,8 @@ async function subsubtest(
     }
   );
 
-  await testCallback();
-
-  const alert = await TestUtils.waitForCondition(
-    () => MockAlertsService._alert,
-    "waiting for connection alert to show"
-  );
-
-  Assert.equal(
-    alert.imageURL,
-    AppConstants.platform == "macosx"
-      ? ""
-      : "chrome://branding/content/icon48.png"
-  );
-  Assert.stringContains(
-    alert.text,
-    inbox.server.hostName,
-    "the alert text should include the hostname of the server"
-  );
-  Assert.stringContains(
-    alert.text,
-    expectedAlertText,
-    "the alert text should state the problem"
-  );
+  infoDialog.document.querySelector("dialog").getButton("accept").click();
+  await dialogPromise;
 
   // There could be multiple alerts for the same problem. These are swallowed
   // while the first alert is open, but we should wait a while for them.
@@ -310,12 +286,6 @@ async function subsubtest(
     });
   }
 
-  MockAlertsService._listener.observe(null, "alertclickcallback", alert.cookie);
-  MockAlertsService._listener.observe(null, "alertfinished", alert.cookie);
-  delete MockAlertsService._alert;
-  delete MockAlertsService._listener;
-
-  await dialogPromise;
   await SimpleTest.promiseFocus(window);
 
   if (expectedCert) {
@@ -349,34 +319,4 @@ async function subsubtest(
   await promiseServerIdle(inbox.server);
   inbox.server.closeCachedConnections();
   certOverrideService.clearAllOverrides();
-}
-
-class MockAlertsService {
-  QueryInterface = ChromeUtils.generateQI(["nsIAlertsService"]);
-
-  static _alert;
-
-  showPersistentNotification(persistentData, alert) {
-    info(`showPersistentNotification: ${alert.text}`);
-    Assert.ok(false, "unexpected call to showPersistentNotification");
-  }
-
-  showAlert(alert, listener) {
-    info(`showAlert: ${alert.text}`);
-    Assert.ok(
-      !MockAlertsService._alert,
-      "showAlert should not be called while an alert is showing"
-    );
-    MockAlertsService._alert = alert;
-    MockAlertsService._listener = listener;
-  }
-
-  showAlertNotification(imageUrl, title, text) {
-    info(`showAlertNotification: ${text}`);
-    Assert.ok(false, "unexpected call to showAlertNotification");
-  }
-
-  closeAlert() {
-    Assert.ok(false, "unexpected call to closeAlert");
-  }
 }

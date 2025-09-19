@@ -123,7 +123,7 @@ export var alertHook = {
   },
 
   async onCertError(securityInfo, url) {
-    const cookie = `${url.hostPort} certError`;
+    const cookie = `certError`;
     if (activeAlerts.has(cookie)) {
       return;
     }
@@ -157,44 +157,66 @@ export var alertHook = {
         break;
     }
 
-    const alert = Cc["@mozilla.org/alert-notification;1"].createInstance(
-      Ci.nsIAlertNotification
+    const info = await l10n.formatValue(errorString, errorArgs);
+
+    // temporarily reuse string from editContactOverlay
+    // until backport to 140 is shipped
+    const oldBundle = Services.strings.createBundle(
+      "chrome://global/locale/dialog.properties"
     );
-    alert.init(
-      "" /* name */,
-      // Don't add an icon on macOS, the app icon is already shown.
-      AppConstants.platform == "macosx"
-        ? ""
-        : "chrome://branding/content/icon48.png",
+
+    const buttonPressed = Services.prompt.confirmEx(
+      null, // window
       this.brandShortName,
-      await l10n.formatValue(errorString, errorArgs),
-      true /* clickable */,
-      cookie
+      info,
+      Services.prompt.BUTTON_TITLE_CANCEL * Services.prompt.BUTTON_POS_1 +
+        Services.prompt.BUTTON_TITLE_IS_STRING * Services.prompt.BUTTON_POS_0 +
+        Services.prompt.BUTTON_POS_1_DEFAULT,
+      oldBundle.GetStringFromName("button-disclosure"),
+      null,
+      null,
+      null,
+      {}
     );
-    this.alertService.showAlert(alert, this);
+
+    if (buttonPressed == 1) {
+      activeAlerts.delete(cookie);
+      return;
+    }
+
+    const params = {
+      exceptionAdded: false,
+      securityInfo,
+      prefetchCert: true,
+      location: url.asciiHostPort,
+    };
+
+    const deferred = Promise.withResolvers();
+    const dialog = Services.wm
+      .getMostRecentWindow("")
+      .openDialog(
+        "chrome://pippki/content/exceptionDialog.xhtml",
+        "",
+        "chrome,centerscreen,dependent",
+        params
+      );
+
+    function onWindowClosed(win) {
+      if (win == dialog) {
+        Services.obs.removeObserver(onWindowClosed, "domwindowclosed");
+        deferred.resolve();
+      }
+    }
+    Services.obs.addObserver(onWindowClosed, "domwindowclosed");
+    await deferred.promise;
+
+    activeAlerts.delete(cookie);
   },
 
   // nsIObserver
 
   observe(subject, topic, data) {
-    if (topic == "alertclickcallback") {
-      const { securityInfo, url } = activeAlerts.get(data);
-      const params = {
-        exceptionAdded: false,
-        securityInfo,
-        prefetchCert: true,
-        location: url.asciiHostPort,
-      };
-      Services.wm
-        .getMostRecentWindow("")
-        .openDialog(
-          "chrome://pippki/content/exceptionDialog.xhtml",
-          "",
-          "chrome,centerscreen,dependent",
-          params
-        );
-      activeAlerts.delete(data);
-    } else if (topic == "alertfinished") {
+    if (topic == "alertfinished") {
       activeAlerts.delete(data);
     }
   },
