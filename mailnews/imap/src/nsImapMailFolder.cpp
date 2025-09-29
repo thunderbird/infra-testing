@@ -4108,21 +4108,8 @@ NS_IMETHODIMP nsImapMailFolder::GetMsgHdrsToDownload(
     return NS_OK;
   }
 
-  int32_t hdrChunkSize = 200;
-  nsresult rv;
-  nsCOMPtr<nsIPrefBranch> prefBranch(
-      do_GetService(NS_PREFSERVICE_CONTRACTID, &rv));
-  NS_ENSURE_SUCCESS(rv, rv);
-  if (prefBranch)
-    prefBranch->GetIntPref("mail.imap.hdr_chunk_size", &hdrChunkSize);
-
-  int32_t numKeysToFetch = m_keysToFetch.Length();
-  int32_t startIndex = 0;
-  if (hdrChunkSize > 0 && (int32_t)m_keysToFetch.Length() > hdrChunkSize) {
-    numKeysToFetch = hdrChunkSize;
-    *aMoreToDownload = true;
-    startIndex = m_keysToFetch.Length() - hdrChunkSize;
-  }
+  const int32_t numKeysToFetch = m_keysToFetch.Length();
+  const int32_t startIndex = 0;
   aKeys.AppendElements(&m_keysToFetch[startIndex], numKeysToFetch);
   // Remove these for the incremental header download case, so that
   // we know we don't have to download them again.
