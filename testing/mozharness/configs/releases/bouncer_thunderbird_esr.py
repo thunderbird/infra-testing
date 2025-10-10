@@ -5,7 +5,7 @@
 # lint_ignore=E501
 config = {
     "products": {
-        #"installer": {
+        # "installer": {
         #    "product-name": "Thunderbird-%(version)s",
         #    "platforms": [
         #        "linux",
@@ -14,8 +14,8 @@ config = {
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"installer-latest": {
+        # },
+        # "installer-latest": {
         #    "product-name": "Thunderbird-esr-latest",
         #    "platforms": [
         #        "linux",
@@ -24,8 +24,8 @@ config = {
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"installer-next-latest": {
+        # },
+        # "installer-next-latest": {
         #    "product-name": "Thunderbird-esr-next-latest",
         #    "platforms": [
         #        "linux",
@@ -34,8 +34,8 @@ config = {
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"installer-ssl": {
+        # },
+        # "installer-ssl": {
         #    "product-name": "Thunderbird-%(version)s-SSL",
         #    "platforms": [
         #        "linux",
@@ -44,8 +44,8 @@ config = {
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"installer-latest-ssl": {
+        # },
+        # "installer-latest-ssl": {
         #    "product-name": "Thunderbird-esr-latest-SSL",
         #    "platforms": [
         #        "linux",
@@ -54,8 +54,8 @@ config = {
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"installer-next-latest-ssl": {
+        # },
+        # "installer-next-latest-ssl": {
         #    "product-name": "Thunderbird-esr-next-latest-SSL",
         #    "platforms": [
         #        "linux",
@@ -64,62 +64,62 @@ config = {
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"msi": {
+        # },
+        # "msi": {
         #    "product-name": "Thunderbird-%(version)s-msi-SSL",
         #    "platforms": [
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"msi-latest": {
+        # },
+        # "msi-latest": {
         #    "product-name": "Thunderbird-esr-msi-latest-SSL",
         #    "platforms": [
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"msi-next-latest": {
+        # },
+        # "msi-next-latest": {
         #    "product-name": "Thunderbird-esr-next-msi-latest-SSL",
         #    "platforms": [
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"msix": {
+        # },
+        # "msix": {
         #    "product-name": "Thunderbird-%(version)s-msix-SSL",
         #    "platforms": [
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"msix-latest": {
+        # },
+        # "msix-latest": {
         #    "product-name": "Thunderbird-esr-msix-latest-SSL",
         #    "platforms": [
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"msix-next-latest": {
+        # },
+        # "msix-next-latest": {
         #    "product-name": "Thunderbird-esr-next-msix-latest-SSL",
         #    "platforms": [
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"pkg": {
+        # },
+        # "pkg": {
         #    "product-name": "Thunderbird-%(version)s-pkg-SSL",
         #    "platforms": ["osx"],
-        #},
-        #"pkg-latest": {
+        # },
+        # "pkg-latest": {
         #    "product-name": "Thunderbird-esr-pkg-latest-SSL",
         #    "platforms": ["osx"],
-        #},
-        #"pkg-next-latest": {
+        # },
+        # "pkg-next-latest": {
         #    "product-name": "Thunderbird-esr-next-pkg-latest-SSL",
         #    "platforms": ["osx"],
-        #},
-        #"langpack": {
+        # },
+        # "langpack": {
         #    "product-name": "Thunderbird-%(version)s-langpack-SSL",
         #    "platforms": [
         #        "linux",
@@ -128,8 +128,8 @@ config = {
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"langpack-latest": {
+        # },
+        # "langpack-latest": {
         #    "product-name": "Thunderbird-esr-langpack-latest-SSL",
         #    "platforms": [
         #        "linux",
@@ -138,8 +138,8 @@ config = {
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"langpack-latest-next": {
+        # },
+        # "langpack-latest-next": {
         #    "product-name": "Thunderbird-esr-next-langpack-latest-SSL",
         #    "platforms": [
         #        "linux",
@@ -148,8 +148,8 @@ config = {
         #        "win",
         #        "win64",
         #    ],
-        #},
-        #"complete-mar": {
+        # },
+        # "complete-mar": {
         #    "product-name": "Thunderbird-%(version)s-Complete",
         #    "platforms": [
         #        "linux",
@@ -158,10 +158,10 @@ config = {
         #        "win",
         #        "win64",
         #    ],
-        #},
+        # },
     },
     "partials": {
-        #"releases-dir": {
+        # "releases-dir": {
         #    "product-name": "Thunderbird-%(version)s-Partial-%(prev_version)s",
         #    "platforms": [
         #        "linux",
@@ -170,6 +170,6 @@ config = {
         #        "win",
         #        "win64",
         #    ],
-        #},
+        # },
     },
 }

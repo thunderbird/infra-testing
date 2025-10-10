@@ -24,4 +24,3 @@ def main(header, propFile):
         for key in sorted(keys)
     ]
     header.write(",\n".join(entries) + "\n")
-
