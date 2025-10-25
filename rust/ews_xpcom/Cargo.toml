@@ -9,6 +9,7 @@ cstr = "0.2"
 ews = { git = "https://github.com/thunderbird/ews-rs.git", rev = "ad3c9077987cbf28e9c60a868e5a258e20d4ba70", version = "0.1.0", features = [
     "interop",
 ] }
+firefox-on-glean = { version = "0.1.0", path = "../../../toolkit/components/glean/api" }
 fxhash = "0.2.1"
 log = "0.4.21"
 mail-parser = "0.9.3"
