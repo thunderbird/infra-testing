@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -34,7 +33,7 @@ void MIME_DecodeMimeHeader(const char* header, const char* default_charset,
 nsresult MIME_detect_charset(const char* aBuf, int32_t aLength,
                              nsACString& aCharset) {
   mozilla::UniquePtr<mozilla::EncodingDetector> detector =
-      mozilla::EncodingDetector::Create();
+      mozilla::EncodingDetector::Create(true);
   mozilla::Span<const uint8_t> src =
       mozilla::AsBytes(mozilla::Span(aBuf, aLength));
   (void)detector->Feed(src, true);

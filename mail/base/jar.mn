@@ -15,9 +15,9 @@ messenger.jar:
     content/messenger/aboutDialog.css               (content/aboutDialog.css)
     content/messenger/aboutDialog.js                (content/aboutDialog.js)
 *   content/messenger/aboutDialog.xhtml             (content/aboutDialog.xhtml)
+    content/messenger/aboutExtraStylesheet.js       (content/aboutExtraStylesheet.js)
     content/messenger/aboutMessage.js               (content/aboutMessage.js)
 *   content/messenger/aboutMessage.xhtml            (content/aboutMessage.xhtml)
-    content/messenger/aboutRights.xhtml             (content/aboutRights.xhtml)
     content/messenger/browserRequest.js             (content/browserRequest.js)
 *   content/messenger/browserRequest.xhtml          (content/browserRequest.xhtml)
     content/messenger/commonDialog.xhtml            (content/commonDialog.xhtml)
@@ -78,7 +78,6 @@ messenger.jar:
     content/messenger/searchBar.js                  (content/searchBar.js)
     content/messenger/SearchDialog.js               (content/SearchDialog.js)
 *   content/messenger/SearchDialog.xhtml            (content/SearchDialog.xhtml)
-    content/messenger/shortcutsOverlay.js           (content/shortcutsOverlay.js)
     content/messenger/spacesToolbar.js              (content/spacesToolbar.js)
     content/messenger/specialTabs.js                (content/specialTabs.js)
 #ifdef MOZ_SERVICES_SYNC
@@ -106,6 +105,7 @@ messenger.jar:
     content/messenger/attachment-list.mjs           (content/widgets/attachment-list.mjs)
     content/messenger/auto-tree-view.mjs            (content/widgets/auto-tree-view.mjs)
     content/messenger/browserPopups.js              (content/widgets/browserPopups.js)
+    content/messenger/checkbox-tree-table-row.mjs   (content/widgets/checkbox-tree-table-row.mjs)
     content/messenger/customizable-toolbar.js       (content/widgets/customizable-toolbar.js)
     content/messenger/drop-indicator.mjs            (content/widgets/drop-indicator.mjs)
     content/messenger/folder-tree-row.mjs           (content/widgets/folder-tree-row.mjs)
@@ -132,6 +132,8 @@ messenger.jar:
     content/messenger/thread-card.mjs               (content/widgets/treeview/thread-card.mjs)
     content/messenger/thread-row.mjs                (content/widgets/treeview/thread-row.mjs)
     content/messenger/conversation-view.mjs         (content/widgets/conversation-view/conversation-view.mjs)
+    content/messenger/lazy-findbar.mjs              (content/widgets/lazy-findbar.mjs)
+
 
 # the following files are mail-specific overrides
 *   content/messenger/license.html                  (/toolkit/content/license.html)

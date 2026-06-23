@@ -218,9 +218,9 @@ const signonsTreeView = {
 
     return "";
   },
-  setCellText(row, col, value) {
+  async setCellText(row, col, value) {
     const table = GetVisibleLogins();
-    function _editLogin(field) {
+    async function _editLogin(field) {
       if (value == table[row][field]) {
         return;
       }
@@ -228,18 +228,18 @@ const signonsTreeView = {
       table[row][field] = value;
       table[row].timePasswordChanged = Date.now();
       reloadDisplay = false;
-      Services.logins.modifyLogin(existingLogin, table[row]);
+      await Services.logins.modifyLoginAsync(existingLogin, table[row]);
       reloadDisplay = true;
       signonsTree.invalidateRow(row);
     }
 
     if (col.id == "userCol") {
-      _editLogin("username");
+      await _editLogin("username");
     } else if (col.id == "passwordCol") {
       if (!value) {
         return;
       }
-      _editLogin("password");
+      await _editLogin("password");
     }
   },
   getParentIndex() {
@@ -505,7 +505,7 @@ async function AskUserShowPasswords() {
 async function FinalizeSignonDeletions(syncNeeded) {
   reloadDisplay = false;
   for (let s = 0; s < deletedSignons.length; s++) {
-    Services.logins.removeLogin(deletedSignons[s]);
+    await Services.logins.removeLoginAsync(deletedSignons[s]);
   }
   reloadDisplay = true;
   // If the deletion has been performed in a filtered view, reflect the deletion in the unfiltered table.
@@ -733,15 +733,14 @@ function UpdateContextMenu() {
 
 async function masterPasswordLogin(noPasswordCallback) {
   // This doesn't harm if passwords are not encrypted
-  const tokendb = Cc["@mozilla.org/security/pk11tokendb;1"].createInstance(
-    Ci.nsIPK11TokenDB
+  const token = Cc["@mozilla.org/security/internalkeytoken;1"].createInstance(
+    Ci.nsIPKCS11Token
   );
-  const token = tokendb.getInternalKeyToken();
 
   const isOSAuthEnabled = LoginHelper.getOSAuthEnabled();
 
   // If there is no primary password, still give the user a chance to opt-out of displaying passwords
-  if (token.checkPassword("")) {
+  if (!token.hasPassword) {
     // The OS re-authentication on Linux isn't working (Bug 1527745),
     // still add the confirm dialog for Linux.
     if (isOSAuthEnabled) {
@@ -775,17 +774,17 @@ async function masterPasswordLogin(noPasswordCallback) {
     return noPasswordCallback ? noPasswordCallback() : true;
   }
 
-  // So there's a primary password. But since checkPassword didn't succeed, we're logged out (per nsIPK11Token.idl).
+  // So there's a primary password. Make the user enter it to proceed.
   try {
     // Relogin and ask for the primary password.
-    token.login(true); // 'true' means always prompt for token password. User will be prompted until
-    // clicking 'Cancel' or entering the correct password.
+    token.logout();
+    token.login();
   } catch (e) {
     // An exception will be thrown if the user cancels the login prompt dialog.
     // User is also logged out of Software Security Device.
   }
 
-  return token.isLoggedIn();
+  return token.isLoggedIn;
 }
 
 function escapeKeyHandler() {

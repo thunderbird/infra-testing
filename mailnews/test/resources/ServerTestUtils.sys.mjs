@@ -8,6 +8,7 @@
  */
 
 import { EwsServer } from "resource://testing-common/mailnews/EwsServer.sys.mjs";
+import { GraphServer } from "resource://testing-common/mailnews/GraphServer.sys.mjs";
 import { IMAPServer } from "resource://testing-common/mailnews/IMAPServer.sys.mjs";
 import { NetworkTestUtils } from "resource://testing-common/mailnews/NetworkTestUtils.sys.mjs";
 import { NNTPServer } from "resource://testing-common/mailnews/NNTPServer.sys.mjs";
@@ -16,6 +17,7 @@ import { SMTPServer } from "resource://testing-common/mailnews/SMTPServer.sys.mj
 
 const serverConstructors = {
   ews: EwsServer,
+  graph: GraphServer,
   imap: IMAPServer,
   nntp: NNTPServer,
   pop3: POP3Server,
@@ -27,23 +29,23 @@ const serverDebugLevel = 0;
 
 /**
  * @typedef ServerDef
- * @property {"ews"|"imap"|"nntp"|"pop3"|"smtp"} type - What type of server do
- *   we want?
- * @property {object} [baseOptions] - In a predefined server, the standard
- *   set of options to pass to the server's constructor.
+ * @property {"ews"|"graph"|"imap"|"nntp"|"pop3"|"smtp"} type - What type of
+ *   server do we want?
+ * @property {object} [baseOptions] - In a predefined server, the standard set
+ *   of options to pass to the server's constructor.
  * @property {object} [options] - More options, which can override those of a
  *   predefined server.
  * @property {string} hostname - The main hostname for this server.
  * @property {integer} port - The main port for this server.
- * @property {[string[]|integer[]]} aliases - Extra hostnames and ports
- *   for this server. Each entry in this array is an array of [hostname, port].
+ * @property {[string[]|integer[]]} aliases - Extra hostnames and ports for this
+ *   server. Each entry in this array is an array of [hostname, port].
  */
 
 /**
  * Create and start a single server.
  *
  * @param {ServerDef} def - The server definition.
- * @returns {EwsServer|IMAPServer|NNTPServer|POP3Server|SMTPServer}
+ * @returns {IMAPServer|POP3Server|SMTPServer|EwsServer|NNTPServer|GraphServer}
  */
 async function createServer({
   type,
@@ -77,7 +79,7 @@ async function createServer({
  * Create and start multiple servers.
  *
  * @param {ServerDef[]} serverDefs - The server definitions.
- * @returns {IMAPServer[]|POP3Server[]|SMTPServer[]} - The created servers,
+ * @returns {(IMAPServer|POP3Server|SMTPServer|EwsServer|NNTPServer|GraphServer)[]} The created servers,
  *   in the same order as the definitions given.
  */
 async function createServers(serverDefs) {
@@ -328,10 +330,35 @@ const serverDefs = {
       hostname: "test.test",
       port: 119,
     },
+    tls: {
+      type: "nntp",
+      baseOptions: {
+        tlsCertFile: "valid",
+      },
+      hostname: "test.test",
+      port: 563,
+      aliases: [["mitm.test.test", 563]],
+    },
     expiredTLS: {
       type: "nntp",
       baseOptions: { tlsCertFile: "expired" },
       hostname: "expired.test.test",
+      port: 563,
+    },
+    notYetValidTLS: {
+      type: "nntp",
+      baseOptions: {
+        tlsCertFile: "notyetvalid",
+      },
+      hostname: "notyetvalid.test.test",
+      port: 563,
+    },
+    selfSignedTLS: {
+      type: "nntp",
+      baseOptions: {
+        tlsCertFile: "selfsigned",
+      },
+      hostname: "selfsigned.test.test",
       port: 563,
     },
   },
@@ -388,6 +415,15 @@ const serverDefs = {
       baseOptions: {},
       hostname: "test.test",
       port: 80,
+    },
+  },
+  graph: {
+    plain: {
+      type: "graph",
+      baseOptions: { username: "user", password: "password" },
+      hostname: "test.test",
+      // The EWS server is already on port 80, so we need to pick another one.
+      port: 8080,
     },
   },
 };

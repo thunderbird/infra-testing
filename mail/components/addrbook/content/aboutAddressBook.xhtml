@@ -46,7 +46,7 @@
     <div id="booksPaneHeaderBar" class="sidebar-panel-header">
       <button id="booksPaneCreateBook"
               class="button button-flat icon-button icon-only"
-              data-l10n-id="books-pane-create-book-button"
+              data-l10n-id="books-pane-add-book-button"
               type="button">
       </button>
       <button id="booksPaneCreateContact"
@@ -60,7 +60,11 @@
               type="button">
       </button>
     </div>
-    <ul is="ab-tree-listbox" id="books" role="tree" class="sidebar-panel-scroll">
+    <ul id="books"
+        is="ab-tree-listbox"
+        class="sidebar-panel-scroll"
+        role="tree"
+        data-l10n-id="address-book-list">
       <li id="allAddressBooks"
           class="bookRow noDelete readOnly"
           data-l10n-id="all-address-books-row">
@@ -280,7 +284,7 @@
           <button type="reset" id="cancelEditButton"
                   data-l10n-id="about-addressbook-cancel-edit-contact-button"></button>
           <button type="submit" id="saveEditButton"
-                  class="primary"
+                  class="button button-primary"
                   data-l10n-id="about-addressbook-save-edit-contact-button"></button>
         </div>
       </div>
@@ -381,7 +385,7 @@
     </div>
   </template>
 </body>
-<xul:menupopup id="bookContext" needsgutter="" native="false">
+<xul:menupopup id="bookContext" needsgutter="">
   <xul:menuitem id="bookContextProperties"/>
   <xul:menuitem id="bookContextSynchronize"
                 data-l10n-id="about-addressbook-books-context-synchronize"/>
@@ -398,8 +402,7 @@
                 data-l10n-id="about-addressbook-books-context-startup-default"/>
 </xul:menupopup>
 <xul:menupopup id="sortContext"
-               position="bottomleft topleft"
-               native="false">
+               position="bottomleft topleft">
   <xul:menuitem type="radio"
                 name="format"
                 value="0"
@@ -437,13 +440,12 @@
                 data-l10n-id="about-addressbook-table-layout"/>
 </xul:menupopup>
 <xul:menupopup id="cardContext"
-               class="no-icon-menupopup"
-               native="false">
+               class="no-icon-menupopup">
   <xul:menuitem id="cardContextWrite"
                 data-l10n-id="about-addressbook-cards-context-write"/>
   <xul:menu id="cardContextWriteMenu"
             data-l10n-id="about-addressbook-cards-context-write">
-    <xul:menupopup native="false">
+    <xul:menupopup>
       <!-- Filled dynamically. -->
     </xul:menupopup>
   </xul:menu>
@@ -460,8 +462,7 @@
                 data-l10n-id="about-addressbook-books-context-remove"/>
 </xul:menupopup>
 <xul:menupopup id="booksPaneCreateBookContext"
-               class="no-icon-menupopup"
-               native="false">
+               class="no-icon-menupopup">
   <xul:menuitem id="booksPaneContextCreateBook"
                 data-l10n-id="about-addressbook-toolbar-add-address-book"/>
   <xul:menuitem id="booksPaneContextCreateDav"

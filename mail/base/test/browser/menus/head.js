@@ -5,7 +5,7 @@
 var { MailServices } = ChromeUtils.importESModule(
   "resource:///modules/MailServices.sys.mjs"
 );
-var { clearStatusBar } = ChromeUtils.importESModule(
+var { clearStatusBar, removeServersAndAccounts } = ChromeUtils.importESModule(
   "resource://testing-common/mail/CleanupHelpers.sys.mjs"
 );
 
@@ -17,9 +17,6 @@ add_setup(async () => {
   );
   Services.xulStore.removeDocument(
     "chrome://messenger/content/messageWindow.xhtml"
-  );
-  Services.xulStore.removeDocument(
-    "chrome://messenger/content/newFolderDialog.xhtml"
   );
 });
 
@@ -149,7 +146,7 @@ class MenuTestHelper {
    * Clicks on the menu and waits for it to open.
    */
   async openMenu() {
-    EventUtils.synthesizeMouseAtCenter(this.menu, {}, this.menu.ownerGlobal);
+    EventUtils.synthesizeMouseAtCenter(this.menu, {}, this.menu.documentGlobal);
     await BrowserTestUtils.waitForPopupEvent(this.menu.menupopup, "shown");
   }
 
@@ -228,6 +225,7 @@ class MenuTestHelper {
     }
 
     popup.hidePopup();
+    await BrowserTestUtils.waitForPopupEvent(popup, "hidden");
     await new Promise(resolve => setTimeout(resolve));
   }
 
@@ -368,25 +366,7 @@ registerCleanupFunction(function () {
       tabmail.closeOtherTabs(0);
     }
 
-    for (const server of MailServices.accounts.allServers) {
-      Assert.report(
-        true,
-        undefined,
-        undefined,
-        `Found server ${server.key} at the end of the test run`
-      );
-      MailServices.accounts.removeIncomingServer(server, false);
-    }
-    for (const account of MailServices.accounts.accounts) {
-      Assert.report(
-        true,
-        undefined,
-        undefined,
-        `Found account ${account.key} at the end of the test run`
-      );
-      MailServices.accounts.removeAccount(account, false);
-    }
-
+    removeServersAndAccounts();
     resetSmartMailboxes();
     await clearStatusBar(window);
 

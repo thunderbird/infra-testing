@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -11,7 +10,6 @@
 #include "nsIMsgSendListener.h"
 #include "nsIMsgSendLaterListener.h"
 #include "nsIMsgSendLater.h"
-#include "nsIMsgStatusFeedback.h"
 #include "nsTObserverArray.h"
 #include "nsIObserver.h"
 #include "nsITimer.h"
@@ -95,7 +93,6 @@ class nsMsgSendLater : public nsIMsgSendLater,
   uint32_t mTotalSendCount;
   nsCOMArray<nsIMsgDBHdr> mMessagesToSend;
   nsWeakPtr mMessageFolder;
-  nsCOMPtr<nsIMsgStatusFeedback> mFeedback;
 
   virtual ~nsMsgSendLater();
   nsresult GetIdentityFromKey(const char* aKey, nsIMsgIdentity** aIdentity);

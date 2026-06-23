@@ -34,6 +34,7 @@ export class FolderSelectionDataAdapter extends TreeDataAdapter {
         if (folder.server.isSecure) {
           properties.add("server-secure");
         }
+        properties.add("uncheckable");
       } else if (folderType != "none") {
         properties.add(`folder-type-${folderType.toLowerCase()}`);
       } else if (folder.server.type == "nntp") {
@@ -90,7 +91,7 @@ export class FolderSelectionDataAdapter extends TreeDataAdapter {
       if (!serverOrServers) {
         // All the servers.
         serverOrServers = Array.from(
-          FolderUtils.allAccountsSorted(),
+          FolderUtils.allAccountsSorted(true),
           a => a.incomingServer
         );
       }
@@ -109,7 +110,7 @@ export class FolderSelectionDataAdapter extends TreeDataAdapter {
     const selected = new Set();
 
     const recurse = row => {
-      if (row.hasProperty("folderSelected")) {
+      if (row.hasProperty("checked")) {
         selected.add(row._folder);
       }
       for (const childRow of row.children) {
@@ -138,7 +139,7 @@ export class FolderSelectionDataAdapter extends TreeDataAdapter {
     const recurse = row => {
       let selectionWithin = selected.has(row._folder);
       if (selectionWithin) {
-        row.addProperty("folderSelected");
+        row.addProperty("checked");
       }
       for (const childRow of row.children) {
         if (recurse(childRow)) {

@@ -1,4 +1,3 @@
-/* -*- Mode: JavaScript; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -812,6 +811,72 @@ add_task(function test_ews_exchange_config() {
     "https://outlook.office365.com/owa/",
     "OWA URL should be correct."
   );
+});
+
+add_task(function test_graph_exchange_config() {
+  Services.prefs.setBoolPref("mail.graph.enabled", true);
+  const graphJXON = parseToJXON(`
+<clientConfig version="1.1">
+  <emailProvider id="office365.com">
+    <!-- Office365 customer domains -->
+    <domain>office365.com</domain>
+    <domain>onmicrosoft.com</domain>
+    <!-- MX e.g. example.mail.protection.outlook.com -->
+    <domain>mail.protection.outlook.com</domain>
+    <displayName>Microsoft 365</displayName>
+    <displayShortName>Microsoft 365</displayShortName>
+    <incomingServer type="graph">
+      <username>%EMAILADDRESS%</username>
+      <authentication>OAuth2</authentication>
+      <url>https://graph.microsoft.com</url>
+    </incomingServer>
+    <outgoingServer type="smtp">
+      <hostname>smtp.office365.com</hostname>
+      <port>587</port>
+      <socketType>STARTTLS</socketType>
+      <authentication>OAuth2</authentication>
+      <username>%EMAILADDRESS%</username>
+    </outgoingServer>
+  </emailProvider>
+
+  <oAuth2>
+    <issuer>login.microsoftonline.com</issuer>
+    <scope>https://outlook.office365.com/IMAP.AccessAsUser.All https://outlook.office365.com/POP.AccessAsUser.All https://outlook.office365.com/SMTP.Send offline_access</scope>
+    <!-- https://docs.microsoft.com/en-us/azure/active-directory/develop/active-directory-v2-protocols#endpoints -->
+    <authURL>https://login.microsoftonline.com/common/oauth2/v2.0/authorize</authURL>
+    <tokenURL>https://login.microsoftonline.com/common/oauth2/v2.0/token</tokenURL>
+  </oAuth2>
+
+</clientConfig>`);
+
+  const result = readFromXML(graphJXON);
+
+  Assert.equal(
+    result.incoming.url,
+    "https://graph.microsoft.com/",
+    "Should have the correct URL"
+  );
+  Assert.equal(
+    result.incoming.hostname,
+    "graph.microsoft.com",
+    "Should have the correct hostname."
+  );
+  Assert.equal(
+    result.incoming.socketType,
+    Ci.nsMsgSocketType.SSL,
+    "Should have the correct socket type."
+  );
+  Assert.equal(
+    result.incoming.username,
+    "%EMAILADDRESS%",
+    "Username should be correct."
+  );
+  Assert.equal(
+    result.incoming.auth,
+    Ci.nsMsgAuthMethod.OAuth2,
+    "Authentication method should be correct."
+  );
+  Services.prefs.setBoolPref("mail.graph.enabled", false);
 });
 
 add_task(function test_missing_auth_method_for_incoming_server() {

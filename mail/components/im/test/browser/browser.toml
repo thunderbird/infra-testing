@@ -13,8 +13,11 @@ head = "head.js"
 ["browser_browserRequest.js"]
 
 ["browser_chatNotifications.js"]
+tags = ["notifications"]
 
 ["browser_contextMenu.js"]
+
+["browser_createRemoveAccount.js"]
 
 ["browser_logs.js"]
 

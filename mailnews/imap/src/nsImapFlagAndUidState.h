@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -24,13 +23,13 @@ class nsImapFlagAndUidState : public nsIImapFlagAndUidState {
 
   int32_t NumberOfDeletedMessages();
 
-  imapMessageFlagsType GetMessageFlagsFromUID(uint32_t uid, bool* foundIt,
+  imapMessageFlagsType GetMessageFlagsFromUID(ImapUid uid, bool* foundIt,
                                               int32_t* ndx);
 
   bool IsLastMessageUnseen(void);
   bool GetPartialUIDFetch() { return fPartialUIDFetch; }
   void SetPartialUIDFetch(bool isPartial) { fPartialUIDFetch = isPartial; }
-  uint32_t GetHighestNonDeletedUID();
+  ImapUid GetHighestNonDeletedUID();
   uint16_t GetSupportedUserFlags() { return fSupportedUserFlags; }
   void StartCapture() { fStartCapture = true; }
   uint32_t GetNumAdded() { return fNumAdded; }
@@ -38,7 +37,7 @@ class nsImapFlagAndUidState : public nsIImapFlagAndUidState {
  private:
   virtual ~nsImapFlagAndUidState();
 
-  nsTArray<nsMsgKey> fUids;
+  nsTArray<ImapUid> fUids;
   nsTArray<imapMessageFlagsType> fFlags;
   // Hash table, mapping uids to extra flags
   nsTHashMap<nsUint32HashKey, nsCString> m_customFlagsHash;

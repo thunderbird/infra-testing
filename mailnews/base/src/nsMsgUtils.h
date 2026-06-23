@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -248,11 +247,25 @@ nsresult MsgUnescapeString(const nsACString& aStr, uint32_t aFlags,
 nsresult MsgEscapeURL(const nsACString& aStr, uint32_t aFlags,
                       nsACString& aResult);
 
-// Given a message db and a set of keys, fetch the corresponding message
-// headers.
+/**
+ * Given a message db and a set of keys, fetch the corresponding message
+ * headers.
+ * If a key cannot be found in the database, it will be ignored. So the
+ * returned array may not correspond directly to the one passed in.
+ */
 nsresult MsgGetHeadersFromKeys(nsIMsgDatabase* aDB,
                                const nsTArray<nsMsgKey>& aMsgKeys,
                                nsTArray<RefPtr<nsIMsgDBHdr>>& aHeaders);
+
+/**
+ * Given a set of nsIMsgDBHdrs, return the corresponding array of nsMsgKeys.
+ * The returned array will:
+ *   1. Map directly to the header array passed in.
+ *   2. NOT include nsMsgKey_None.
+ * If these conditions cannot be met, the function will return an error.
+ */
+mozilla::Result<nsTArray<nsMsgKey>, nsresult> MsgGetKeysFromHdrs(
+    nsTArray<RefPtr<nsIMsgDBHdr>> const& hdrs);
 
 nsresult MsgExamineForProxyAsync(nsIChannel* channel,
                                  nsIProtocolProxyCallback* listener,
@@ -481,23 +494,25 @@ nsString EncodeFilename(nsACString const& str);
  */
 nsCString DecodeFilename(nsAString const& filename);
 
-// Parse Message-Ids from a space-separated list (or single Message-Id).
-// As per section 3.6.4 of RFC 5322.
-// i.e. Parse "Message-Id", "In-Reply-To:" and "References:" headers.
-//
-// Examples:
-// "" -> []
-// "<test@example.com>" -> ["test@example.com"]
-// "<foo23@example.com> <bar99@blah.org>"
-//   -> ["foo23@example.com", bar99@blah.org"]
-// "\t\t\t   <foo23@example.com>    <bar99@blah.org> \t\t "
-//    -> ["foo23@example.com", bar99@blah.org"]
-// "foo bar" -> ["foo","bar"]
-//
-// Some currently-undefined corner-cases...
-// "<<<foo bar" -> ["<<foo","bar"]?
-// "<foo bar>" -> ???
-// etc...
+/**
+ * Parse Message-Ids from a space-separated list (or single Message-Id).
+ * As per section 3.6.4 of RFC 5322.
+ * i.e. Parse "Message-Id", "In-Reply-To:" and "References:" headers.
+ *
+ * Examples:
+ * "" => {}
+ * "<test@example.com>" => {"test@example.com"}
+ * "<foo23@example.com> <bar99@blah.org>"
+ *   => ["foo23@example.com", bar99@blah.org"}
+ * "\t\t\t   <foo23@example.com>    <bar99@blah.org> \t\t "
+ *    => {"foo23@example.com", bar99@blah.org"}
+ * "foo bar" => {"foo","bar"}
+ *
+ * Some currently-undefined corner-cases...
+ * "<<<foo bar" => {"<<foo","bar"}?
+ * "<foo bar>" => ???
+ * etc...
+ */
 nsTArray<nsCString> ParseIdentificationFields(nsACString const& m);
 
 /**
@@ -512,5 +527,28 @@ nsresult LocalizeMessage(mozilla::intl::Localization* l10n,
                          nsACString const& id,
                          nsTArray<std::pair<nsCString, nsCString>> const& args,
                          nsACString& message);
+
+/**
+ * StringFields() splits a string into fields separated by runs of consecutive
+ * ASCII white space characters. It returns a list of substrings, none of
+ * which will be empty.
+ * Leading and trailing whitespace will be discarded. If the string is empty
+ * or contains only whitespace, an empty array will be returned.
+ *
+ * Examples:
+ * "" => {}
+ * " foo bar " => {"foo", "bar"}
+ * "  foo\r\n  bar" => {"foo", "bar"}
+ */
+nsTArray<nsCString> StringFields(nsACString const& s);
+
+/**
+ * Returns true if the given string is a news-related URI scheme.
+ */
+inline bool IsNewsScheme(const nsACString& scheme) {
+  return scheme.EqualsLiteral("news") || scheme.EqualsLiteral("snews") ||
+         scheme.EqualsLiteral("nntp") || scheme.EqualsLiteral("nntps") ||
+         scheme.EqualsLiteral("news-message");
+}
 
 #endif  // COMM_MAILNEWS_BASE_SRC_NSMSGUTILS_H_

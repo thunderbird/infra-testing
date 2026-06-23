@@ -1488,34 +1488,6 @@ CalDavCalendar.prototype = {
   // Helper functions
   //
 
-  oauthConnect(authSuccessCb, authFailureCb, aRefresh = false) {
-    // Use the async prompter to avoid multiple primary password prompts
-    const self = this;
-    const promptlistener = {
-      onPromptStartAsync(callback) {
-        this.onPromptAuthAvailable(callback);
-      },
-      onPromptAuthAvailable(callback) {
-        self.oauth.connect(true, aRefresh).then(
-          () => {
-            authSuccessCb();
-            callback?.onAuthResult(true);
-          },
-          () => {
-            authFailureCb();
-            callback?.onAuthResult(false);
-          }
-        );
-      },
-      onPromptCanceled: authFailureCb,
-      onPromptStart() {},
-    };
-    const asyncprompter = Cc["@mozilla.org/messenger/msgAsyncPrompter;1"].getService(
-      Ci.nsIMsgAsyncPrompter
-    );
-    asyncprompter.queueAsyncAuthPrompt(self.uri.spec, false, promptlistener);
-  },
-
   /**
    * Called when a response has had its URL redirected. Shows a dialog
    * to allow the user to accept or reject the redirect. If they accept,
@@ -1722,7 +1694,11 @@ CalDavCalendar.prototype = {
       },
       e => {
         lazy.log.warn(`CalDAV: Error during initial PROPFIND for calendar ${this.name}`);
-        this.completeCheckServerInfo(aChangeLogListener, Ci.calIErrors.DAV_NOT_DAV, e.streamStatus);
+        this.completeCheckServerInfo(
+          aChangeLogListener,
+          Ci.calIErrors.DAV_NOT_DAV,
+          e.streamError?.result
+        );
       }
     );
   },
@@ -1798,7 +1774,11 @@ CalDavCalendar.prototype = {
         lazy.log.debug(
           `CalDAV: Error checking server capabilities for calendar ${this.name}: ${e}`
         );
-        this.completeCheckServerInfo(aChangeLogListener, Cr.NS_ERROR_FAILURE, e.streamStatus);
+        this.completeCheckServerInfo(
+          aChangeLogListener,
+          Cr.NS_ERROR_FAILURE,
+          e.streamError?.result
+        );
       }
     );
   },
@@ -1848,7 +1828,11 @@ CalDavCalendar.prototype = {
         lazy.log.debug(
           `CalDAV: Failed to propstat principal namespace for calendar ${this.name}: ${e}`
         );
-        this.completeCheckServerInfo(aChangeLogListener, Cr.NS_ERROR_FAILURE, e.streamStatus);
+        this.completeCheckServerInfo(
+          aChangeLogListener,
+          Cr.NS_ERROR_FAILURE,
+          e.streamError?.result
+        );
       }
     );
   },

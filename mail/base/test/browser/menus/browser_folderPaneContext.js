@@ -290,7 +290,7 @@ add_task(async function testNewRenameDelete() {
 
         Assert.greaterOrEqual(
           win.innerWidth,
-          300,
+          235,
           "new folder dialog should have reasonable width"
         );
         Assert.greaterOrEqual(
@@ -433,7 +433,7 @@ add_task(async function testNewRenameDelete() {
         Assert.ok(!acceptButton.disabled);
 
         EventUtils.synthesizeKey("a", { accelKey: true }, win);
-        EventUtils.synthesizeKey("VK_BACK_SPACE", {}, win);
+        EventUtils.synthesizeKey("KEY_Backspace", {}, win);
         Assert.equal(nameInput.value, "");
         Assert.ok(acceptButton.disabled);
 
@@ -548,7 +548,12 @@ add_task(async function testPropertiesSettingsFilters() {
     "about:accountsettings",
     "should show accountsettings"
   );
-  await new Promise(resolve => setTimeout(resolve));
+  await TestUtils.waitForCondition(
+    () =>
+      browser.contentDocument.querySelector("#accounttree li.selected").id ==
+      account.key,
+    `account with key=${account.key} should get selected`
+  );
   Assert.equal(
     browser.contentDocument.querySelector("#accounttree li.selected").id,
     account.key,
@@ -750,7 +755,7 @@ add_task(async function testEmpty() {
   await promptPromise;
 
   // The empty operation is async; wait until it’s really done.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => trashFolder.getTotalMessages(false) === 0,
     "waiting for trash empty to complete"
   );
@@ -773,7 +778,7 @@ add_task(async function testEmpty() {
   await promptPromise;
 
   // The empty operation is async; wait until it’s really done.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => junkFolder.getTotalMessages(false) === 0,
     "waiting for junk empty to complete"
   );
@@ -821,7 +826,7 @@ add_task(async function testEmpty() {
   );
 
   // The empty operation is async; wait until it’s really done.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => trashFolder.getTotalMessages(false) === 0,
     "waiting for trash empty to complete via smart trash empty"
   );
@@ -833,7 +838,7 @@ add_task(async function testEmpty() {
   );
 
   // The empty operation is async; wait until it’s really done.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => rssTrashFolder.getTotalMessages(false) === 0,
     "waiting for trash empty to complete via smart trash empty"
   );
@@ -856,7 +861,7 @@ add_task(async function testEmpty() {
   await promptPromise;
 
   // The empty operation is async; wait until it’s really done.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => smartJunkFolder.getTotalMessages(false) === 0,
     "waiting for junk empty to complete via smart junk empty"
   );

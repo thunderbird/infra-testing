@@ -512,6 +512,7 @@ var mailContextMenu = {
     const subject = {
       menu: event.target,
       tab: tabmail ? tabmail.currentTabInfo : top,
+      timeStamp: this.context?.timeStamp,
       isContentSelected,
       isTextSelected,
       onTextInput: this.context?.onTextInput,
@@ -752,12 +753,6 @@ var mailContextMenu = {
       parent.lastElementChild.remove();
     }
 
-    // Create label and accesskey for the static "remove all tags" item.
-    const removeItem = document.getElementById("mailContext-tagRemoveAll");
-    removeItem.label = messengerBundle.GetStringFromName(
-      "mailnews.tags.remove"
-    );
-
     // Rebuild the list.
     const message = gDBView.hdrForFirstSelectedMessage;
     const currentTags = message
@@ -773,14 +768,19 @@ var mailContextMenu = {
       }
 
       const item = document.createXULElement("menuitem");
-      const accessKey = index < 10 ? index : "";
-      if (accessKey !== "") {
-        item.accessKey = accessKey;
+      const accessKey = index < 10 ? String(index) : "";
+
+      if (accessKey) {
+        document.l10n.setAttributes(item, "tags-format-with-accesskey", {
+          accesskey: accessKey,
+          name: tagInfo.tag,
+        });
+      } else {
+        document.l10n.setAttributes(item, "tags-format-without-accesskey", {
+          name: tagInfo.tag,
+        });
       }
-      item.label = messengerBundle.formatStringFromName(
-        "mailnews.tags.format",
-        [accessKey, tagInfo.tag]
-      );
+
       item.setAttribute("type", "checkbox");
       if (msgHasTag) {
         item.toggleAttribute("checked", true);

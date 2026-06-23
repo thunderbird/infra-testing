@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -292,9 +291,12 @@ char* nsImapGenericParser::CreateQuoted(bool /*skipToEnd*/) {
 //                       ; any OCTET except NUL, %x00
 char* nsImapGenericParser::CreateLiteral() {
   int32_t numberOfCharsInMessage = atoi(fNextToken + 1);
+  if (numberOfCharsInMessage < 0) {
+    SetSyntaxError(true, "negative literal size");
+    return nullptr;
+  }
+
   uint32_t numBytes = numberOfCharsInMessage + 1;
-  NS_ASSERTION(numBytes, "overflow!");
-  if (!numBytes) return nullptr;
   char* returnString = (char*)PR_Malloc(numBytes);
   if (!returnString) {
     HandleMemoryFailure();

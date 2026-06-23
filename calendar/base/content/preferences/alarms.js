@@ -22,6 +22,11 @@ Preferences.addAll([
   { id: "calendar.alarms.defaultsnoozelength", type: "int" },
 ]);
 
+ChromeUtils.defineESModuleGetters(this, {
+  makeMozIconImageSet: "resource:///modules/MozIconUtils.mjs",
+  NotificationSounds: "resource:///modules/NotificationSounds.sys.mjs",
+});
+
 /**
  * Global Object to hold methods for the alarms pref pane
  */
@@ -71,7 +76,7 @@ var gAlarmsPane = {
     } else {
       soundUrl.label = soundUrl.value;
     }
-    soundUrl.style.backgroundImage = `image-set("moz-icon://${soundUrl.label}?size=16&scale=1" 1x, "moz-icon://${soundUrl.label}?size=16&scale=2" 2x, "moz-icon://${soundUrl.label}?size=16&scale=3" 3x)`;
+    soundUrl.style.backgroundImage = makeMozIconImageSet(soundUrl.label, 16);
     return undefined;
   },
 
@@ -125,19 +130,7 @@ var gAlarmsPane = {
     } else {
       soundUrl = Preferences.get("calendar.alarms.soundURL").value;
     }
-    const soundIfc = Cc["@mozilla.org/sound;1"].createInstance(Ci.nsISound);
-    let url;
-    try {
-      soundIfc.init();
-      if (soundUrl && soundUrl.length && soundUrl.length > 0) {
-        url = Services.io.newURI(soundUrl);
-        soundIfc.play(url);
-      } else {
-        soundIfc.beep();
-      }
-    } catch (ex) {
-      dump("alarms.js previewAlarm Exception caught! " + ex + "\n");
-    }
+    NotificationSounds.playCustomSound(soundUrl);
   },
 
   /**

@@ -106,9 +106,15 @@ run-if = [
 
 ["test_localToImapFilterQuarantine.js"]
 
+["test_lockedFlagsImap.js"]
+
 ["test_lsub.js"]
 
 ["test_mailboxes.js"]
+
+["test_missingDateUsesReceived.js"]
+
+["test_multiFolderMove.js"]
 
 ["test_multipleCopyNonlocal.js"]
 

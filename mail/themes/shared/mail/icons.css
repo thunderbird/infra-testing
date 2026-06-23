@@ -10,11 +10,11 @@
   --icon-close-xs: url("chrome://messenger/skin/icons/xs/close.svg");
   --icon-descending-xs: url("chrome://messenger/skin/icons/xs/descending.svg");
   --icon-dot-xs: url("chrome://messenger/skin/icons/xs/dot.svg");
-  --icon-sparkle-star-xs: url("chrome://messenger/skin/icons/xs/sparkle-star.svg");
-  --icon-replies-xs: url("chrome://messenger/skin/icons/xs/replies.svg");
   --icon-nav-down-xs: url("chrome://messenger/skin/icons/new/nav-down-xs.svg");
   --icon-nav-up-xs: url("chrome://messenger/skin/icons/new/nav-up-xs.svg");
   --icon-moon-xs: url("chrome://messenger/skin/icons/new/moon-xs.svg");
+  --icon-replies-xs: url("chrome://messenger/skin/icons/xs/replies.svg");
+  --icon-sparkle-star-xs: url("chrome://messenger/skin/icons/xs/sparkle-star.svg");
   --icon-sun-xs: url("chrome://messenger/skin/icons/new/sun-xs.svg");
 
   /* SM - 16x16px icons */
@@ -82,6 +82,9 @@
   --icon-get-mail: url("chrome://messenger/skin/icons/new/compact/get-mail.svg");
   --icon-globe-secure: url("chrome://messenger/skin/icons/new/compact/globe-secure.svg");
   --icon-globe: url("chrome://messenger/skin/icons/new/compact/globe.svg");
+  --icon-guest-attending: url("chrome://messenger/skin/icons/new/guest-attending.svg");
+  --icon-guest-declined: url("chrome://messenger/skin/icons/new/guest-declined.svg");
+  --icon-guest-maybe: url("chrome://messenger/skin/icons/new/guest-maybe.svg");
   --icon-handshake: url("chrome://messenger/skin/icons/new/compact/handshake.svg");
   --icon-heart: url("chrome://messenger/skin/icons/new/compact/heart.svg");
   --icon-hidden: url("chrome://messenger/skin/icons/new/compact/hidden.svg");
@@ -150,6 +153,7 @@
   --icon-spam: url("chrome://messenger/skin/icons/new/compact/spam.svg");
   --icon-spelling: url("chrome://messenger/skin/icons/new/compact/spelling.svg");
   --icon-star: url("chrome://messenger/skin/icons/new/compact/star.svg");
+  --icon-circle-add-sm: url("chrome://messenger/skin/icons/new/circle-add-sm.svg");
   --icon-subtract-circle-sm: url("chrome://messenger/skin/icons/new/subtract-circle-sm.svg");
   --icon-success: url("chrome://messenger/skin/icons/new/compact/success.svg");
   --icon-sync: url("chrome://messenger/skin/icons/new/compact/sync.svg");
@@ -223,6 +227,7 @@
   --icon-reply-redirect-col: url("chrome://messenger/skin/icons/new/compact/reply-redirect-col.svg");
   --icon-date-time-sm: url("chrome://messenger/skin/icons/sm/date-time.svg");
   --icon-recurrence-sm: url("chrome://messenger/skin/icons/sm/recurrence.svg");
+  --icon-thundermail-lg: url("chrome://messenger/skin/icons/lg/thundermail.svg");
 
   --icon-status-away: url("chrome://messenger/skin/icons/new/status-away.svg");
   --icon-status-away-sm: url("chrome://messenger/skin/icons/new/status-away-sm.svg");

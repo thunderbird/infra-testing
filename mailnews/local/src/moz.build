@@ -1,4 +1,3 @@
-# vim: set filetype=python:
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -7,7 +6,7 @@ EXPORTS += [
     "nsMsgLocalStoreUtils.h",
 ]
 
-SOURCES += [
+UNIFIED_SOURCES += [
     "MboxCompactor.cpp",
     "MboxScanner.cpp",
     "nsLocalMailFolder.cpp",
@@ -20,7 +19,6 @@ SOURCES += [
     "nsMsgBrkMBoxStore.cpp",
     "nsMsgFileHdr.cpp",
     "nsMsgLocalStoreUtils.cpp",
-    "nsMsgMaildirStore.cpp",
     "nsNoIncomingServer.cpp",
     "nsNoneService.cpp",
     "nsParseMailbox.cpp",
@@ -29,6 +27,11 @@ SOURCES += [
     "nsRssIncomingServer.cpp",
     "nsRssService.cpp",
     "StoreIndexer.cpp",
+]
+
+# If this was in UNIFIED_SOURCES, we'd get compile errors on Mac.
+SOURCES += [
+    "nsMsgMaildirStore.cpp",
 ]
 
 FINAL_LIBRARY = "mail"

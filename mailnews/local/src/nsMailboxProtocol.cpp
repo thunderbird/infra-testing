@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -12,6 +11,7 @@
 #include "nsIMsgHdr.h"
 #include "nsMsgLineBuffer.h"
 #include "nsIMsgMailNewsUrl.h"
+#include "nsIFeedbackService.h"
 #include "nsIMsgFolder.h"
 #include "nsICopyMessageListener.h"
 #include "prtime.h"
@@ -136,12 +136,6 @@ nsresult nsMailboxProtocol::Initialize(nsIURI* aURL) {
       }
     }
     if (NS_SUCCEEDED(rv) && m_runningUrl) {
-      if (RunningMultipleMsgUrl()) {
-        // if we're running multiple msg url, we clear the event sink because
-        // the multiple msg urls will handle setting the progress.
-        mProgressEventSink = nullptr;
-      }
-
       nsMsgKey msgKey;
       m_runningUrl->GetMessageKey(&msgKey);
       if (msgKey == 0) {
@@ -509,11 +503,21 @@ int32_t nsMailboxProtocol::ReadMessageResponse(nsIInputStream* inputStream,
   }
 
   SetFlag(MAILBOX_PAUSE_FOR_READ);  // wait for more data to become available...
-  if (mProgressEventSink && m_runningUrl) {
+  if (m_runningUrl) {
     int64_t maxProgress;
     nsCOMPtr<nsIMsgMailNewsUrl> mailnewsUrl(do_QueryInterface(m_runningUrl));
     mailnewsUrl->GetMaxProgress(&maxProgress);
-    mProgressEventSink->OnProgress(this, mCurrentProgress, maxProgress);
+
+    if (mCurrentProgress > 0 && maxProgress > 0) {
+      int32_t percent = (mCurrentProgress * 100) / maxProgress;
+      if (percent) {
+        nsCOMPtr<nsIFeedbackService> feedback =
+            mozilla::components::Feedback::Service();
+        if (feedback) {
+          feedback->ReportProgress(percent);
+        }
+      }
+    }
   }
 
   if (NS_FAILED(rv)) return -1;
@@ -580,5 +584,3 @@ nsresult nsMailboxProtocol::CloseSocket() {
   m_runningUrl = nullptr;
   return NS_OK;
 }
-
-// vim: ts=2 sw=2

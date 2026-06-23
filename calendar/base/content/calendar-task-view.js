@@ -219,14 +219,9 @@ var taskDetailsView = {
     const categoryPopup = document.getElementById("task-actions-category-popup");
     const item = document.getElementById("calendar-task-tree").currentTask;
 
-    const itemCategories = item.getCategories();
-    const categoryList = cal.category.fromPrefs();
-    for (const cat of itemCategories) {
-      if (!categoryList.includes(cat)) {
-        categoryList.push(cat);
-      }
-    }
-    cal.l10n.sortArrayByLocaleCollator(categoryList);
+    const categoryList = [...new Set([...cal.category.fromPrefs(), ...item.getCategories()])].sort(
+      new Intl.Collator().compare
+    );
 
     const maxCount = item.calendar.getProperty("capabilities.categories.maxCount");
 
@@ -238,7 +233,7 @@ var taskDetailsView = {
       menuitem.setAttribute("class", "menuitem-iconic");
       document.l10n.setAttributes(menuitem, "no-categories");
       menuitem.setAttribute("type", "radio");
-      if (itemCategories.length === 0) {
+      if (item.getCategories().length === 0) {
         menuitem.toggleAttribute("checked", true);
       }
       categoryPopup.appendChild(menuitem);
@@ -249,7 +244,7 @@ var taskDetailsView = {
       menuitem.setAttribute("label", cat);
       menuitem.setAttribute("value", cat);
       menuitem.setAttribute("type", maxCount === null || maxCount > 1 ? "checkbox" : "radio");
-      if (itemCategories.includes(cat)) {
+      if (item.getCategories().includes(cat)) {
         menuitem.toggleAttribute("checked", true);
       }
       const cssSafeId = cal.view.formatStringForCSSRule(cat);
@@ -338,9 +333,7 @@ var taskDetailsView = {
         modified = true;
       }
     } else {
-      const localeCollator = new Intl.Collator();
-      const compare = localeCollator.compare;
-      newIndex = cal.data.binaryInsert(categories, category, compare, true);
+      newIndex = cal.data.binaryInsert(categories, category, new Intl.Collator().compare, true);
 
       const item = document.getElementById("calendar-task-tree").currentTask;
       const maxCount = item.calendar.getProperty("capabilities.categories.maxCount");
@@ -387,10 +380,7 @@ function taskViewUpdate(filter) {
   if (filter != oldFilter) {
     tree.setAttribute("filterValue", filter);
     document
-      .querySelectorAll(
-        `menuitem[command="calendar_task_filter_command"][type="radio"],
-         toolbarbutton[command="calendar_task_filter_command"][type="radio"]`
-      )
+      .querySelectorAll(`#calTasksMenuPopup > menuitem[type="radio"][name="filtergroup"]`)
       .forEach(item => {
         if (item.getAttribute("value") == filter) {
           item.toggleAttribute("checked", true);
@@ -398,14 +388,49 @@ function taskViewUpdate(filter) {
           item.removeAttribute("checked");
         }
       });
-    const radio = document.querySelector(
-      `radio[command="calendar_task_filter_command"][value="${filter}"]`
-    );
+    const radio = document.querySelector(`#task-tree-filtergroup > radio[value="${filter}"]`);
     if (radio) {
       radio.radioGroup.selectedItem = radio;
     }
   }
   tree.updateFilter(filter);
+}
+
+/**
+ * Syncs the menu bar View > Tasks menu state with the current task pane state.
+ */
+function initTasksViewMenu() {
+  const filterPane = document.getElementById("task-filter-pane");
+  document
+    .getElementById("calTasksViewFilterTasks")
+    .toggleAttribute("checked", filterPane.isVisible());
+
+  const tree = document.getElementById("calendar-task-tree");
+  const taskFilterGroup = document.getElementById("task-tree-filtergroup");
+  const filter = tree.getAttribute("filterValue") || taskFilterGroup.value || "all";
+  for (const item of document.querySelectorAll(
+    `#calTasksMenuPopup > menuitem[type="radio"][name="filtergroup"]`
+  )) {
+    item.toggleAttribute("checked", item.getAttribute("value") == filter);
+  }
+}
+
+function taskViewMenuOnCommand(event) {
+  if (event.target.id == "calTasksViewFilterTasks") {
+    const filterPane = document.getElementById("task-filter-pane");
+    filterPane.setVisible(!filterPane.isVisible(), true, true);
+    return;
+  }
+
+  if (event.target.matches(`menuitem[type="radio"][name="filtergroup"]`)) {
+    taskViewUpdate(event.target.getAttribute("value"));
+  }
+}
+
+function taskViewFilterGroupOnCommand(event) {
+  if (event.target.matches("radio")) {
+    taskViewUpdate(event.target.getAttribute("value"));
+  }
 }
 
 /**
@@ -434,6 +459,11 @@ function taskViewOnLoad() {
   if (calendarDisplayBox && tree) {
     tree.textFilterField = "task-text-filter-field";
   }
+  document.getElementById("calTasksMenuPopup").addEventListener("popupshowing", initTasksViewMenu);
+  document.getElementById("calTasksMenuPopup").addEventListener("command", taskViewMenuOnCommand);
+  document
+    .getElementById("task-tree-filtergroup")
+    .addEventListener("command", taskViewFilterGroupOnCommand);
 
   document.l10n.ready.then(() => {
     const textFilter = document.getElementById("task-text-filter-field");

@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -480,23 +479,6 @@ NS_IMETHODIMP nsMsgHdr::GetMime2DecodedRecipients(nsAString& resultRecipients) {
       GetMDBRow(), m_mdb->m_recipientsColumnToken, resultRecipients);
 }
 
-NS_IMETHODIMP nsMsgHdr::GetAuthorCollationKey(nsTArray<uint8_t>& resultAuthor) {
-  return m_mdb->RowCellColumnToAddressCollationKey(
-      GetMDBRow(), m_mdb->m_senderColumnToken, resultAuthor);
-}
-
-NS_IMETHODIMP nsMsgHdr::GetSubjectCollationKey(
-    nsTArray<uint8_t>& resultSubject) {
-  return m_mdb->RowCellColumnToCollationKey(
-      GetMDBRow(), m_mdb->m_subjectColumnToken, resultSubject);
-}
-
-NS_IMETHODIMP nsMsgHdr::GetRecipientsCollationKey(
-    nsTArray<uint8_t>& resultRecipients) {
-  return m_mdb->RowCellColumnToCollationKey(
-      GetMDBRow(), m_mdb->m_recipientsColumnToken, resultRecipients);
-}
-
 NS_IMETHODIMP nsMsgHdr::GetCharset(nsACString& aCharset) {
   return m_mdb->RowCellColumnToCharPtr(
       GetMDBRow(), m_mdb->m_messageCharSetColumnToken, getter_Copies(aCharset));
@@ -827,6 +809,11 @@ NS_IMETHODIMP nsMsgHdr::GetIsKilled(bool* isKilled) {
 }
 
 NS_IMETHODIMP nsMsgHdr::GetProperties(nsTArray<nsCString>& headers) {
+  headers.Clear();
+  if (!m_mdb || !m_mdbRow) {
+    return NS_OK;
+  }
+
   nsCOMPtr<nsIMdbRowCellCursor> rowCellCursor;
   m_mdbRow->GetRowCellCursor(m_mdb->m_mdbEnv, -1,
                              getter_AddRefs(rowCellCursor));
@@ -852,6 +839,7 @@ NS_IMETHODIMP nsMsgHdr::GetProperties(nsTArray<nsCString>& headers) {
 
 NS_IMETHODIMP nsMsgHdr::GetUidOnServer(uint32_t* result) {
   uint32_t uid;
+  // Returns 0 if not found.
   nsresult rv = GetUInt32Column(m_mdb->m_uidOnServerColumnToken, &uid);
   *result = uid;
   return rv;

@@ -14,7 +14,7 @@ import { MailServices } from "resource:///modules/MailServices.sys.mjs";
  * @param {string} newHostname - The hostname after the change.
  * @param {string} newUsername - The username after the change.
  */
-function migratePassword(
+async function migratePassword(
   localStoreType,
   oldHostname,
   oldUsername,
@@ -27,7 +27,10 @@ function migratePassword(
   newHostname = newHostname.includes(":") ? `[${newHostname}]` : newHostname;
   const newServerUri = `${localStoreType}://${encodeURIComponent(newHostname)}`;
 
-  const logins = Services.logins.findLogins(oldServerUri, "", oldServerUri);
+  const logins = await Services.logins.searchLoginsAsync({
+    origin: oldServerUri,
+    httpRealm: oldServerUri,
+  });
   for (const login of logins) {
     if (login.username == oldUsername) {
       // If a nsILoginInfo exists for the old hostname/username, update it to
@@ -44,7 +47,7 @@ function migratePassword(
         "",
         ""
       );
-      Services.logins.modifyLogin(login, newLogin);
+      await Services.logins.modifyLoginAsync(login, newLogin);
     }
   }
 }
@@ -161,17 +164,20 @@ export function migrateServerUris(
   newHostname,
   newUsername
 ) {
-  try {
-    migratePassword(
-      localStoreType,
-      oldHostname,
-      oldUsername,
-      newHostname,
-      newUsername
-    );
-  } catch (e) {
-    console.error(e);
-  }
+  let finished = false;
+  migratePassword(
+    localStoreType,
+    oldHostname,
+    oldUsername,
+    newHostname,
+    newUsername
+  )
+    .catch(console.error)
+    .finally(() => (finished = true));
+  Services.tm.spinEventLoopUntilOrQuit(
+    "MsgIncomingServer.sys.mjs:migrateServerUris",
+    () => finished
+  );
 
   const oldAuth = oldUsername ? `${encodeURIComponent(oldUsername)}@` : "";
   const newAuth = newUsername ? `${encodeURIComponent(newUsername)}@` : "";
@@ -292,7 +298,7 @@ export class MsgIncomingServer {
       }
       if (otherFullName) {
         if (
-          otherFullName != "mailbox://" + this.hostName ||
+          otherFullName != "mailbox://" + this.hostname ||
           otherUsername != this.username
         ) {
           // Not for this server; keep this server's cached password.
@@ -357,18 +363,18 @@ export class MsgIncomingServer {
     this._prefs.setStringPref("uid", uid);
   }
 
-  get hostName() {
+  get hostname() {
     const hostname = this.getStringValue("hostname");
     if (hostname.includes(":")) {
       // Reformat the hostname if it contains a port number.
-      this.hostName = hostname;
-      return this.hostName;
+      this.hostname = hostname;
+      return this.hostname;
     }
     return hostname;
   }
 
-  set hostName(value) {
-    const oldName = this.hostName;
+  set hostname(value) {
+    const oldName = this.hostname;
     this._setHostName("hostname", value);
 
     if (oldName && oldName != value) {
@@ -470,9 +476,9 @@ export class MsgIncomingServer {
         ? `${encodeURIComponent(this.username)}@`
         : "";
     // When constructing nsIURI, need to wrap IPv6 address in [].
-    const hostname = this.hostName.includes(":")
-      ? `[${this.hostName}]`
-      : this.hostName;
+    const hostname = this.hostname.includes(":")
+      ? `[${this.hostname}]`
+      : this.hostname;
     return `${this.localStoreType}://${auth}${encodeURIComponent(hostname)}`;
   }
 
@@ -498,7 +504,7 @@ export class MsgIncomingServer {
   }
 
   get constructedPrettyName() {
-    return this._constructPrettyName(this.username, this.hostName);
+    return this._constructPrettyName(this.username, this.hostname);
   }
 
   get localPath() {
@@ -514,7 +520,7 @@ export class MsgIncomingServer {
       localPath.create(Ci.nsIFile.DIRECTORY_TYPE, 0o755);
     }
 
-    localPath.append(this.hostName);
+    localPath.append(this.hostname);
     localPath.createUnique(Ci.nsIFile.DIRECTORY_TYPE, 0o755);
 
     this.localPath = localPath;
@@ -531,10 +537,10 @@ export class MsgIncomingServer {
         const core = Cc["@mozilla.org/mailnews/database-core;1"].getService(
           Ci.nsIDatabaseCore
         );
-        const folders = core.folders;
+        const folders = core.folderDB;
 
         const root =
-          folders.getFolderChildNamed(0, this._key) ??
+          folders.getFolderChildNamed(0, this._key) ||
           folders.insertRoot(this._key);
         this._rootFolder = Cc[
           "@mozilla.org/mail/folder;1?name=mailbox"
@@ -810,9 +816,9 @@ export class MsgIncomingServer {
   onUserOrHostNameChanged(oldValue, newValue, hostnameChanged) {
     migrateServerUris(
       this.localStoreType,
-      hostnameChanged ? oldValue : this.hostName,
+      hostnameChanged ? oldValue : this.hostname,
       hostnameChanged ? this.username : oldValue,
-      this.hostName,
+      this.hostname,
       this.username
     );
     this._spamSettings = null;
@@ -856,7 +862,19 @@ export class MsgIncomingServer {
    */
   _getPasswordWithoutUI() {
     const serverURI = this._getServerURI();
-    const logins = Services.logins.findLogins(serverURI, "", serverURI);
+    let finished = false;
+    let logins;
+    Services.logins
+      .searchLoginsAsync({
+        origin: serverURI,
+        httpRealm: serverURI,
+      })
+      .then(result => (logins = result))
+      .finally(() => (finished = true));
+    Services.tm.spinEventLoopUntilOrQuit(
+      "MsgIncomingServer._getPasswordWithoutUI",
+      () => finished
+    );
     for (const login of logins) {
       if (login.username == this.username) {
         return login.password;
@@ -908,11 +926,30 @@ export class MsgIncomingServer {
   }
 
   forgetPassword() {
+    let finished = false;
+    this.#forgetPasswordInternal().finally(() => (finished = true));
+    Services.tm.spinEventLoopUntilOrQuit(
+      "MsgIncomingServer.forgetPassword",
+      () => finished
+    );
+  }
+
+  async #forgetPasswordInternal() {
     const serverURI = this._getServerURI();
-    const logins = Services.logins.findLogins(serverURI, "", serverURI);
+    const logins = await Services.logins.searchLoginsAsync({
+      origin: serverURI,
+      httpRealm: serverURI,
+    });
     for (const login of logins) {
       if (login.username == this.username) {
-        Services.logins.removeLogin(login);
+        let finished = false;
+        Services.logins
+          .removeLoginAsync(login)
+          .finally(() => (finished = true));
+        Services.tm.spinEventLoopUntilOrQuit(
+          "MsgIncomingServer.forgetPassword",
+          () => finished
+        );
       }
     }
     this.password = "";

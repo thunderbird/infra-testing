@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -14,6 +13,7 @@
 #include "nsIImapService.h"
 #include "nsIDBFolderInfo.h"
 #include "nsIMsgDatabase.h"
+#include "nsImapUtils.h"
 #include "nsMsgUtils.h"
 #include "nsServiceManagerUtils.h"
 
@@ -389,9 +389,10 @@ NS_IMETHODIMP nsImapMoveCopyMsgTxn::OnStopRunningUrl(nsIURI* aUrl,
           dstKeys.AppendElement(dstKey);
         }
       }
-      if (dstKeys.Length()) {
-        nsAutoCString uids;
-        nsImapMailFolder::AllocateUidStringFromKeys(dstKeys, uids);
+      if (!dstKeys.IsEmpty()) {
+        // TODO: msgKey->UID mapping.
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=1806770
+        nsAutoCString uids(UidSetFromUids(dstKeys));
         rv = imapService->OnlineMessageCopy(dstFolder, uids, srcFolder, true,
                                             true, nullptr, nullptr, nullptr,
                                             nullptr);

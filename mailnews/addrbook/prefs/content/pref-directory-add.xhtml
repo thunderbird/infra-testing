@@ -15,6 +15,7 @@
     content="default-src chrome:; script-src chrome: 'unsafe-inline' moz-src:; style-src chrome: 'unsafe-inline'"
   />
   <link rel="stylesheet" href="chrome://messenger/skin/messenger.css" />
+  <link rel="stylesheet" href="chrome://messenger/skin/icons.css" />
   <link
     rel="stylesheet"
     href="chrome://messenger/skin/shared/grid-layout.css"
@@ -170,7 +171,7 @@
               </div>
               <div>
                 <xul:menulist id="saslMechanism">
-                  <xul:menupopup native="false">
+                  <xul:menupopup>
                     <xul:menuitem id="Simple" value="" label="&saslOff.label;"
                                   accesskey="&saslOff.accesskey;"/>
                     <xul:menuitem id="GSSAPI" value="GSSAPI" label="&saslGSSAPI.label;"

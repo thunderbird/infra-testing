@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -6,7 +5,11 @@
 #ifndef COMM_MAILNEWS_IMAP_SRC_NSIMAPPROTOCOL_H_
 #define COMM_MAILNEWS_IMAP_SRC_NSIMAPPROTOCOL_H_
 
+#include "mozilla/dom/ParentProcessChannelHandle.h"
 #include "nsIImapProtocol.h"
+
+#include "ImapTypes.h"
+
 #include "nsIImapUrl.h"
 
 #include "nsMsgProtocol.h"
@@ -56,7 +59,7 @@ class nsIPrefBranch;
 
 using msg_line_info = struct _msg_line_info {
   const char* adoptedMessageLine;
-  uint32_t uidOfMessage;
+  ImapUid uidOfMessage;
 };
 
 class nsMsgImapLineDownloadCache : public nsIImapHeaderInfo,
@@ -65,7 +68,7 @@ class nsMsgImapLineDownloadCache : public nsIImapHeaderInfo,
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIIMAPHEADERINFO
   nsMsgImapLineDownloadCache();
-  uint32_t CurrentUID();
+  ImapUid CurrentUID();
   uint32_t SpaceAvailable();
   bool CacheEmpty();
 
@@ -237,7 +240,7 @@ class nsImapProtocol : public nsIImapProtocol,
                                          char* lineCopy = nullptr);
   virtual void NormalMessageEndDownload();
   virtual void AbortMessageDownLoad();
-  virtual void PostLineDownLoadEvent(const char* line, uint32_t uid);
+  virtual void PostLineDownLoadEvent(const char* line, ImapUid uid);
   void FlushDownloadCache();
 
   virtual void SetMailboxDiscoveryStatus(EMailboxDiscoverStatus status);
@@ -283,7 +286,7 @@ class nsImapProtocol : public nsIImapProtocol,
 
   // state set by the imap parser...
   void NotifyMessageFlags(imapMessageFlagsType flags,
-                          const nsACString& keywords, nsMsgKey key,
+                          const nsACString& keywords, ImapUid uid,
                           uint64_t highestModSeq);
   void NotifySearchHit(const char* hitLine);
 
@@ -385,7 +388,7 @@ class nsImapProtocol : public nsIImapProtocol,
   /** Current imap action associated with this connection. */
   nsImapAction m_imapAction;
 
-  nsCString m_hostName;
+  nsCString m_hostname;
   nsCString m_userName;
   nsCString m_serverKey;
   char* m_dataOutputBuf;
@@ -466,12 +469,12 @@ class nsImapProtocol : public nsIImapProtocol,
   void SendSetBiffIndicatorEvent(nsMsgBiffState newState);
 
   // folder opening and listing header functions
-  void FolderHeaderDump(uint32_t* msgUids, uint32_t msgCount);
-  void FolderMsgDump(uint32_t* msgUids, uint32_t msgCount,
+  void FolderHeaderDump(mozilla::Span<const ImapUid> msgUids);
+  void FolderMsgDump(mozilla::Span<const ImapUid> msgUids,
                      nsIMAPeFetchFields fields);
-  void FolderMsgDumpLoop(uint32_t* msgUids, uint32_t msgCount,
+  void FolderMsgDumpLoop(mozilla::Span<const ImapUid> msgUids,
                          nsIMAPeFetchFields fields);
-  void WaitForPotentialListOfBodysToFetch(nsTArray<nsMsgKey>& msgIdList);
+  void WaitForPotentialListOfBodysToFetch(nsTArray<ImapUid>& msgIdList);
   void HeaderFetchCompleted();
   void UploadMessageFromFile(nsIFile* file, const char* mailboxName,
                              PRTime date, imapMessageFlagsType flags,
@@ -484,7 +487,7 @@ class nsImapProtocol : public nsIImapProtocol,
 
   // body fetching listing data
   bool m_fetchBodyListIsNew;
-  nsTArray<nsMsgKey> m_fetchBodyIdList;
+  nsTArray<ImapUid> m_fetchBodyIdList;
 
   // initialization function given a new url and transport layer
   nsresult SetupWithUrl(nsIURI* aURL, nsISupports* aConsumer);
@@ -663,7 +666,7 @@ class nsImapProtocol : public nsIImapProtocol,
   // are initialized in nsImapProtocol::SetupWithUrl.
   uint64_t mFolderLastModSeq;
   int32_t mFolderTotalMsgCount;
-  uint32_t mFolderHighestUID;
+  ImapUid mFolderHighestUID;
   bool m_allowUTF8Accept;
 
   bool m_isGmailServer;
@@ -726,7 +729,7 @@ class nsImapProtocol : public nsIImapProtocol,
   bool m_preferPlainText;
   bool m_forceSelect;
 
-  int32_t m_uidValidity;  // stored uid validity for the selected folder.
+  ImapUid m_uidValidity;  // stored uid validity for the selected folder.
 
   enum EMailboxHierarchyNameState {
     kNoOperationInProgress,
@@ -803,6 +806,9 @@ class nsImapMockChannel : public nsIImapMockChannel,
   nsCOMPtr<nsIInterfaceRequestor> mCallbacks;
   nsCOMPtr<nsISupports> mOwner;
   nsCOMPtr<nsITransportSecurityInfo> mSecurityInfo;
+
+  RefPtr<mozilla::dom::ParentProcessChannelHandle> mParentProcessChannelHandle;
+
   nsCString mContentType;
   nsCString mCharset;
   nsWeakPtr mProtocol;

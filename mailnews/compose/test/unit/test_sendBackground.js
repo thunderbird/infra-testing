@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /**
  * Tests sending a message in the background (checks auto-send works).
  */
@@ -168,7 +167,6 @@ add_task(async function run_the_test() {
       Ci.nsIMsgSend.nsMsgQueueForLater,
       null,
       null,
-      null,
       null
     );
 
@@ -183,7 +181,6 @@ add_task(async function run_the_test() {
       false,
       false,
       Ci.nsIMsgSend.nsMsgDeliverBackground,
-      null,
       null,
       null,
       null

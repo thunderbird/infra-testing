@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -77,6 +76,11 @@ interface nsIMsgPluggableStore : nsISupports {
    * @exception NS_MSG_CANT_CREATE_FOLDER for other errors.
    */
   nsIMsgFolder createFolder(in nsIMsgFolder aParent, in AUTF8String aFolderName);
+
+  /**
+   * Ensure the local store for a folder exists.
+   */
+  void ensureLocalStore(in nsIMsgFolder folder);
 
   /**
    * Delete storage for a folder and its subfolders, if any.
@@ -164,21 +168,6 @@ interface nsIMsgPluggableStore : nsISupports {
    * @param stream - The stream obtained by getNewMsgOutputStream().
    */
   void discardNewMessage(in nsIMsgFolder folder, in nsIOutputStream stream);
-
-  /**
-   * Called by pop3 message filters when a newly downloaded message is being
-   * moved by an incoming filter. This is called before finishNewMessage, and
-   * it allows the store to optimize that case.
-   *
-   * @param aNewHdr msg hdr of message being moved.
-   * @param aDestFolder folder to move message to, in the same store.
-   *
-   * @return true if successful, false if the store doesn't want to optimize
-   *         this.
-   * @exception If the moved failed. values TBD
-   */
-  boolean moveNewlyDownloadedMessage(in nsIMsgDBHdr aNewHdr,
-                                     in nsIMsgFolder aDestFolder);
 
   /**
    * Get an input stream that we can read the contents of a message from.

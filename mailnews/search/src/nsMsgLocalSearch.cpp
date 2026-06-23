@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -634,8 +633,8 @@ nsresult nsMsgSearchOfflineMail::Search(bool* aDone) {
       GetSearchCharset(folderCharset);
       NS_ConvertUTF16toUTF8 charset(folderCharset);
       nsMsgSearchBoolExpression* expressionTree = nullptr;
-      while (!*aDone)  // we'll break out of the loop after kTimeSliceInMS
-                       // milliseconds
+      while (!*aDone && m_listContext)  // we'll break out of the loop after
+                                        // kTimeSliceInMS milliseconds
       {
         nsCOMPtr<nsIMsgDBHdr> msgDBHdr;
         dbErr = m_listContext->GetNext(getter_AddRefs(msgDBHdr));

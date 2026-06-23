@@ -11,6 +11,8 @@
 pref("mail.identity.default.encryptionpolicy", 0);
 pref("mail.identity.default.sign_mail", false);
 
+pref("mail.search_encrypted_bodies", true);
+
 //
 // S/MIME prefs
 //
@@ -47,6 +49,11 @@ pref("mail.openpgp.fetch_pubkeys_from_gnupg", false);
 // When sending an OpenPGP message that is both signed and encrypted,
 // it's possible to use one combined MIME layer, or separate layers.
 pref("mail.openpgp.separate_mime_layers", false);
+
+// When sending an OpenPGP message that is signed but NOT encrypted,
+// use the following format for transporting the signature.
+// Allowed values: "multipart" (classic) or "unobtrusive
+pref("mail.openpgp.clear_signature_format", "multipart");
 
 // Load a JSON file that contains recipient key alias rules. See bug 1644085.
 // Suggested filename: openpgp-alias-rules.json
@@ -152,7 +159,7 @@ pref("temp.openpgp.inlineSigAttachExt", ".sig");
 
 // List of key servers to use (comma separated list), ordered by priority.
 // Only the first supported keyserver will be used for uploading keys.
-pref("mail.openpgp.keyserver_list", "vks://keys.openpgp.org, hkps://keys.mailvelope.com");
+pref("mail.openpgp.keyserver_list", "vks://keys.openpgp.org, hkps://keys.mailvelope.com, hkps://mail-api.proton.me");
 
 // keep passphrase for ... minutes
 pref("temp.openpgp.maxIdleMinutes", 5);
@@ -257,7 +264,7 @@ pref("temp.openpgp.enableExperiments", false);
 // settings
 
 pref("mail.identity.default.sendAutocryptHeaders", true);
-pref("mail.identity.default.attachPgpKey", true);
+pref("mail.identity.default.attachPgpKey", false);
 pref("mail.identity.default.autoEncryptDrafts", true);
 pref("mail.identity.default.protectSubject", true);
 

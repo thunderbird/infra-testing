@@ -7,6 +7,9 @@ version = "0.1.0"
 edition = "2024"
 rust-version.workspace = true
 
+[lints]
+workspace = true
+
 [lib]
 path = "src/lib.rs"
 crate-type = ["staticlib"]
@@ -22,14 +25,16 @@ mozilla-central-workspace-hack = { version = "0.1", features = ['gkrust'], optio
 gkrust-shared = { version = "0.1.0", path = "../../../toolkit/library/rust/shared" }
 ews_xpcom = { version = "0.1.0", path = "../ews_xpcom" }
 graph_xpcom = { version = "0.1.0", path = "../graph_xpcom" }
+mailnews_string_glue = { version = "0.1.0", path = "../mailnews_string_glue" }
 mailnews_ui_glue = { version = "0.1.0", path = "../mailnews_ui_glue" }
 sys_tray = { version = "0.1.0", path = "../sys_tray" }
 aa-stroke = { git = "https://github.com/FirefoxGraphics/aa-stroke", rev = "5776bdfc8ad664a1503db668fab397d818a5f98a" }
 abridged_certs = { path = "../../../security/manager/ssl/abridged_certs" }
 adblock = { version = "0.12.1", features = ['full-regex-handling', 'single-thread'], default-features = false }
-audio_thread_priority = { version = "0.34" }
-audioipc2-client = { git = "https://github.com/mozilla/audioipc", rev = "c8d3f03cb5f889e4cab18cc1360ad0daa074f17a", optional = true }
-audioipc2-server = { git = "https://github.com/mozilla/audioipc", rev = "c8d3f03cb5f889e4cab18cc1360ad0daa074f17a", optional = true }
+app_collator_glue = { path = "../../../intl/app_collator_glue" }
+audio_thread_priority = { version = "0.35" }
+audioipc2-client = { git = "https://github.com/mozilla/audioipc", rev = "c9dcbaee1624daad2fa6b1445fd047efde4f1ec0", optional = true }
+audioipc2-server = { git = "https://github.com/mozilla/audioipc", rev = "c9dcbaee1624daad2fa6b1445fd047efde4f1ec0", optional = true }
 authrs_bridge = { path = "../../../dom/webauthn/authrs_bridge" }
 binary_http = { path = "../../../netwerk/protocol/http/binary_http" }
 bitsdownload = { path = "../../../toolkit/components/bitsdownload", optional = true }
@@ -37,19 +42,20 @@ bookmark_sync = { path = "../../../toolkit/components/places/bookmark_sync", opt
 buildid_reader_ffi = { path = "../../../toolkit/library/buildid_reader/ffi" }
 cascade_bloom_filter = { path = "../../../toolkit/components/cascade_bloom_filter" }
 cert_storage = { path = "../../../security/manager/ssl/cert_storage" }
-chardetng_c = { version = "0.1.1" }
+chardetng_c = { version = "1.0.0" }
 content_classifier_engine = { path = "../../../toolkit/components/content-classifier/content_classifier_engine" }
 cose-c = { version = "0.1.5" }
 crash_helper_client = { path = "../../../toolkit/crashreporter/crash_helper_client", optional = true }
 crypto_hash = { path = "../../../security/manager/ssl/crypto_hash" }
-cubeb-coreaudio = { git = "https://github.com/mozilla/cubeb-coreaudio-rs", rev = "5b689a7f90086e07c271ad1cf79325ee06112ab6", optional = true, features = ['vpio-forcelist'] }
-cubeb-pulse = { git = "https://github.com/mozilla/cubeb-pulse-rs", rev = "9cebfcceb073e9dd10cfb275a7590bca58d4c251", optional = true, features = ['pulse-dlopen'] }
+cubeb-coreaudio = { git = "https://github.com/mozilla/cubeb-coreaudio-rs", rev = "0bb8a45a040e85d313eb18deb36570e87df3a6af", optional = true, features = ['vpio-forcelist'] }
+cubeb-pulse = { git = "https://github.com/mozilla/cubeb-pulse-rs", rev = "3cf4a1af09a1748d0e184297a17132bdcc608874", optional = true, features = ['pulse-dlopen'] }
 cubeb-sys = { version = "0.32.0", optional = true, features = ['gecko-in-tree'] }
 dap_ffi = { path = "../../../toolkit/components/dap/ffi" }
 data-encoding-ffi = { path = "../../../dom/fs/parent/rust/data-encoding-ffi" }
 data_storage = { path = "../../../security/manager/ssl/data_storage" }
 dom = { path = "../../../dom/base/rust" }
 dom_fragmentdirectives = { path = "../../../dom/base/fragmentdirectives" }
+dom_speculationrules = { path = "../../../dom/base/speculationrules" }
 encoding_glue = { path = "../../../intl/encoding_glue" }
 etagere = { version = "0.2.13", features = ['ffi'] }
 fluent = { version = "0.17.0", features = ['fluent-pseudo'] }
@@ -64,6 +70,8 @@ gecko_logger = { path = "../../../xpcom/rust/gecko_logger" }
 gecko_tracing = { path = "../../../xpcom/rust/gecko_tracing" }
 geckoservo = { path = "../../../servo/ports/geckolib" }
 gkrust_utils = { path = "../../../xpcom/rust/gkrust_utils" }
+happy_eyeballs_glue = { path = "../../../netwerk/protocol/http/happy_eyeballs_glue" }
+harfbuzz_glue = { path = "../../../gfx/harfbuzz_glue" }
 http_sfv = { path = "../../../netwerk/base/http-sfv" }
 idna_glue = { path = "../../../netwerk/base/idna_glue", features = ['mailnews'] }
 ipcclientcerts = { path = "../../../security/manager/ssl/ipcclientcerts" }
@@ -74,9 +82,10 @@ jxl_decoder = { path = "../../../image/rust/jxl", optional = true }
 kvstore = { path = "../../../toolkit/components/kvstore" }
 l10nregistry = { path = "../../../intl/l10n/rust/l10nregistry-rs" }
 l10nregistry-ffi = { path = "../../../intl/l10n/rust/l10nregistry-ffi" }
-libz-rs-sys = { version = "0.4.1", features = ['custom-prefix'], optional = true }
+libz-rs-sys = { version = "0.6", features = ['custom-prefix'], optional = true }
 locale_service_glue = { path = "../../../intl/locale/rust/locale_service_glue" }
 localization-ffi = { path = "../../../intl/l10n/rust/localization-ffi" }
+lockstore_ffi = { path = "../../../security/lockstore/lockstore_ffi" }
 log = { version = "0.4", features = ['release_max_level_info'] }
 mapped_hyph = { git = "https://github.com/jfkthame/mapped_hyph.git", rev = "eff105f6ad7ec9b79816cfc1985a28e5340ad14b" }
 mdns_service = { path = "../../../dom/media/webrtc/transport/mdns_service", optional = true }
@@ -88,7 +97,7 @@ mozannotation_client = { path = "../../../toolkit/crashreporter/mozannotation_cl
 mozannotation_server = { path = "../../../toolkit/crashreporter/mozannotation_server", optional = true }
 mozglue-static = { path = "../../../mozglue/static/rust" }
 mozurl = { path = "../../../netwerk/base/mozurl" }
-mp4parse_capi = { git = "https://github.com/mozilla/mp4parse-rust", rev = "f2d96807b8becf7485f035b393575fcfc76cec4c", features = ['missing-pixi-permitted'] }
+mp4parse_capi = { git = "https://github.com/mozilla/mp4parse-rust", rev = "b693c7e4a91d1d5a391c0404d18b6fc94714894e", features = ['missing-pixi-permitted'] }
 neqo_glue = { path = "../../../netwerk/socket/neqo_glue" }
 netwerk_helper = { path = "../../../netwerk/base/rust-helper" }
 nserror = { path = "../../../xpcom/rust/nserror" }
@@ -100,14 +109,15 @@ oxilangtag-ffi = { path = "../../../intl/locale/rust/oxilangtag-ffi" }
 pdf-trust-anchors = { path = "../../../security/manager/ssl/pdf_trust_anchors" }
 prefs_parser = { path = "../../../modules/libpref/parser" }
 processtools = { path = "../../../toolkit/components/processtools" }
-profiler_helper = { path = "../../../tools/profiler/rust-helper", optional = true }
-qcms = { path = "../../../gfx/qcms", features = ['c_bindings', 'neon'] }
+profiler_helper = { path = "../../../tools/profiler/rust-helper" }
+qcms = { path = "../../../gfx/qcms", features = ['c_bindings', 'neon', 'cmyk'] }
 qwac-trust-anchors = { path = "../../../security/manager/ssl/qwac_trust_anchors" }
 rsdparsa_capi = { path = "../../../dom/media/webrtc/sdp/rsdparsa_capi" }
 rure = { version = "0.2.2" }
 rusqlite = { workspace = true, features = ['modern_sqlite'] }
 rust_minidump_writer_linux = { path = "../../../toolkit/crashreporter/rust_minidump_writer_linux", optional = true }
 signature_cache = { path = "../../../security/certverifier/signature_cache" }
+ssl_tokens_cache = { path = "../../../netwerk/base/ssl_tokens_cache" }
 static_prefs = { path = "../../../modules/libpref/init/static_prefs" }
 storage = { path = "../../../storage/rust" }
 trust-anchors = { path = "../../../security/manager/ssl/trust_anchors" }
@@ -123,6 +133,7 @@ webrender_bindings = { path = "../../../gfx/webrender_bindings" }
 wgpu_bindings = { path = "../../../gfx/wgpu_bindings" }
 wpf-gpu-raster = { git = "https://github.com/FirefoxGraphics/wpf-gpu-raster", rev = "99979da091fd58fba8477e7fcdf5ec0727102916" }
 xpcom = { path = "../../../xpcom/rust/xpcom" }
+zlib-rs = { version = "0.6", features = ['avx512'], optional = true }
 
 [package.metadata.cargo-udeps.ignore]
 normal = ["mozilla-central-workspace-hack"]

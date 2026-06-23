@@ -40,7 +40,7 @@ add_task(async function () {
   );
   const pop3Server = MailServices.accounts.getIncomingServer("server1");
   Assert.equal(pop3Server.key, "server1");
-  Assert.equal(pop3Server.hostName, "test.invalid");
+  Assert.equal(pop3Server.hostname, "test.invalid");
   Assert.equal(pop3Server.type, "pop3");
   Assert.equal(pop3Server.username, "test");
 
@@ -71,14 +71,14 @@ add_task(async function () {
     const database = Cc["@mozilla.org/mailnews/database-core;1"].getService(
       Ci.nsIDatabaseCore
     );
-    Assert.ok(database.folders.getFolderById(1));
-    Assert.ok(database.folders.getFolderByPath("server1"));
-    Assert.deepEqual(
-      database.folders.getFolderByPath("server1").children.map(c => c.name),
-      ["Inbox", "Trash"]
-    );
+    Assert.ok(database.folderDB.getMsgFolderForFolder(1));
+    Assert.equal(database.folderDB.getFolderByPath("server1"), 1);
+    Assert.deepEqual(database.folderDB.getFolderChildren(1), [
+      pop3Folders[0].id,
+      pop3Folders[1].id,
+    ]);
 
-    const stmt = database.connection.createStatement(
+    const stmt = database.connectionForTests.createStatement(
       "SELECT name, flags FROM folders ORDER BY name"
     );
     const dbFolders = {};

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { setTimeout } from "resource://gre/modules/Timer.sys.mjs";
+import { setTimeout, clearTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { CommonUtils } from "resource://services-common/utils.sys.mjs";
@@ -65,14 +65,13 @@ export class Pop3Client {
     this._server = server.QueryInterface(Ci.nsIMsgIncomingServer);
     this._server.wrappedJSObject.runningClient = this;
     this._authenticator = new Pop3Authenticator(server);
-    this._lineReader = new LineReader();
     this._noopRespPending = false;
 
     // Somehow, Services.io.newURI("pop3://localhost") doesn't work, what we
     // need is just a valid nsIMsgMailNewsUrl to propagate OnStopRunningUrl and
     // secInfo.
     this.runningUri = Services.io
-      .newURI(`smtp://${this._server.hostName}:${this._server.port}`)
+      .newURI(`smtp://${this._server.hostname}:${this._server.port}`)
       .mutate()
       .setScheme("pop3")
       .finalize()
@@ -137,12 +136,18 @@ export class Pop3Client {
    * Initiate a connection to the server
    */
   connect() {
-    const hostname = this._server.hostName.toLowerCase();
+    const hostname = this._server.hostname.toLowerCase();
     this._logger.debug(`Connecting to pop://${hostname}:${this._server.port}`);
     this.runningUri
       .QueryInterface(Ci.nsIMsgMailNewsUrl)
       .SetUrlState(true, Cr.NS_OK);
     this._server.serverBusy = true;
+
+    // Instantiate a fresh LineReader and reset NOOP state to guarantee no
+    // pollution from previous dropped connections.
+    this._lineReader = new LineReader();
+    this._noopRespPending = false;
+
     this._secureTransport = this._server.socketType == Ci.nsMsgSocketType.SSL;
     this._socket = new TCPSocket(hostname, this._server.port, {
       binaryType: "arraybuffer",
@@ -338,6 +343,9 @@ export class Pop3Client {
     // same handling in SmtpClient.sys.mjs.
     await new Promise(resolve => setTimeout(resolve));
 
+    // Cancel the watchdog timer.
+    this._clearCommandTimeout();
+
     let stringPayload = CommonUtils.arrayBufferToByteString(
       new Uint8Array(event.data)
     );
@@ -398,7 +406,7 @@ export class Pop3Client {
     if (errorName) {
       const errorMessage = lazy.messengerStrings.formatStringFromName(
         errorName,
-        [this._server.hostName]
+        [this._server.hostname]
       );
 
       // If there's a message window on the URI, then we should alert the user.
@@ -461,7 +469,13 @@ export class Pop3Client {
     if (this._authenticating) {
       // In some cases, socket is closed for invalid username/password.
       this._actionAuthResponse({ success: false });
+    } else if (!this._done) {
+      this._logger.warn(
+        "The connection closed unexpectedly while a command was active."
+      );
+      this._actionDone(Cr.NS_ERROR_NET_INTERRUPT);
     } else {
+      // Connection closed cleanly after QUIT.
       this._actionDone();
     }
   };
@@ -522,7 +536,7 @@ export class Pop3Client {
       "# POP3 State File",
       "# This is a generated file!  Do not edit.",
       "",
-      `*${this._server.hostName} ${this._server.username}`,
+      `*${this._server.hostname} ${this._server.username}`,
     ];
     for (const msg of this._messagesToHandle) {
       // _messagesToHandle is not empty means an error happened, put them back
@@ -586,6 +600,9 @@ export class Pop3Client {
 
     this._socket.send(CommonUtils.byteStringToArrayBuffer(str + "\r\n").buffer);
     this._timeOfSend = Date.now();
+
+    // Start the watchdog to protect against a silent server
+    this._startCommandTimeout();
   }
 
   /**
@@ -900,7 +917,7 @@ export class Pop3Client {
       );
       const errorMessage = lazy.messengerStrings.formatStringFromName(
         "oAuth2Error",
-        [this._server.hostName]
+        [this._server.hostname]
       );
 
       // If there's a message window on the URI, then we should alert the user.
@@ -927,6 +944,8 @@ export class Pop3Client {
 
   /**
    * The second step of USER/PASS auth, send the password to the server.
+   *
+   * @param {Pop3Response} res - Response received from the server.
    */
   _actionAuthUserPass = async res => {
     if (!res.success) {
@@ -943,6 +962,8 @@ export class Pop3Client {
   /**
    * This is the second step of PLAIN auth. Handle response to AUTH PLAIN
    * command.
+   *
+   * @param {Pop3Response} res - Response received from the server.
    */
   _actionAuthPlain = async res => {
     if (!res.success) {
@@ -972,6 +993,8 @@ export class Pop3Client {
   /**
    * This is the second step of LOGIN auth. Handle response to AUTH LOGIN
    * command.
+   *
+   * @param {Pop3Response} res - Response received from the server.
    */
   _actionAuthLoginUser = async res => {
     if (!res.success) {
@@ -1003,6 +1026,8 @@ export class Pop3Client {
   /**
    * This is the third step of LOGIN auth. Handle the response to send of
    * username for LOGIN.
+   *
+   * @param {Pop3Response} res - Response received from the server.
    */
   _actionAuthLoginPass = async res => {
     if (!res.success) {
@@ -1193,6 +1218,7 @@ export class Pop3Client {
         if (e.result == NS_MSG_FOLDER_BUSY) {
           this._actionError("pop3ServerBusy", [this._server.prettyName]);
         } else {
+          this._logger.error(`Download mail FAILED! ${e.message}`, e);
           this._actionError("pop3MessageWriteError");
         }
         return;
@@ -1351,7 +1377,11 @@ export class Pop3Client {
               this._totalDownloadSize
             )
           ) {
-            throw new Error("Not enough disk space");
+            throw new Error(
+              `Too big! ${localFolder.filePath.diskSpaceAvailable / 2 ** 20} MiB of disk space available; ` +
+                `${this._totalDownloadSize / 2 ** 20} MiB requested; ` +
+                `folder size is ${localFolder.filePath.fileSize / 2 ** 20} MiB`
+            );
           }
         } catch (e) {
           this._logger.error(e);
@@ -1382,7 +1412,7 @@ export class Pop3Client {
     // some reason. Treat this as a temporary error and no messages will be
     // fetched this time.
     if (this._capabilities.includes("UIDL")) {
-      this._actionError("pop3TempServerError", [this._server.hostName]);
+      this._actionError("pop3TempServerError", [this._server.hostname]);
       return;
     }
     // UIDL has failed because the capability is lacking. Inform the user to
@@ -1396,7 +1426,7 @@ export class Pop3Client {
       this._singleUidlToDownload
     ) {
       this._actionError("pop3ServerDoesNotSupportUidlEtc", [
-        this._server.hostName,
+        this._server.hostname,
       ]);
       return;
     }
@@ -1417,7 +1447,7 @@ export class Pop3Client {
   _actionHandleMessage = async () => {
     this._currentMessage = this._messagesToHandle.shift();
     if (
-      this._messagesToHandle.length > 0 &&
+      !!this._messagesToHandle.length &&
       this._messagesToHandle.length % 20 == 0 &&
       !this._writeUidlPromise
     ) {
@@ -1499,6 +1529,7 @@ export class Pop3Client {
             Ci.nsMsgMessageFlags.Partial
           );
         } catch (e) {
+          this._logger.error(`Incorporate begin FAILED! ${e.message}`, e);
           this._actionError("pop3MessageWriteError");
           this._sink.incorporateAbort();
           return;
@@ -1518,6 +1549,7 @@ export class Pop3Client {
         try {
           this._sink.incorporateWrite(line, line.length);
         } catch (e) {
+          this._logger.error(`Incorporate write FAILED! ${e.message}`, e);
           this._actionError("pop3MessageWriteError");
           this._sink.incorporateAbort();
           throw e; // Stop reading.
@@ -1532,6 +1564,7 @@ export class Pop3Client {
             this._messageSizeMap.get(this._currentMessage.messageNumber)
           );
         } catch (e) {
+          this._logger.error(`Incorporate complete FAILED! ${e.message}`, e);
           this._actionError("pop3MessageWriteError");
           this._sink.incorporateAbort();
           return;
@@ -1584,6 +1617,7 @@ export class Pop3Client {
         // Call incorporateBegin only once for each message.
         this._sink.incorporateBegin(this._currentMessage.uidl, 0);
       } catch (e) {
+        this._logger.error(`Incorporate begin FAILED! ${e.message}`, e);
         this._actionError("pop3MessageWriteError");
         this._sink.incorporateAbort();
         return;
@@ -1596,6 +1630,7 @@ export class Pop3Client {
         try {
           this._sink.incorporateWrite(line, line.length);
         } catch (e) {
+          this._logger.error(`Incorporate write FAILED! ${e.message}`, e);
           this._actionError("pop3MessageWriteError");
           this._sink.incorporateAbort();
           throw e; // Stop reading.
@@ -1611,6 +1646,7 @@ export class Pop3Client {
             0 // Set size only when it's a partial message.
           );
         } catch (e) {
+          this._logger.error(`Incorporate complete FAILED! ${e.message}`, e);
           this._actionError("pop3MessageWriteError");
           this._sink.incorporateAbort();
           return;
@@ -1664,13 +1700,17 @@ export class Pop3Client {
    *
    * @param {string} errorName - An error name corresponds to an entry of
    *   localMsgs.properties.
-   * @param {string[]} errorParams - Params to construct the error message.
-   * @param {string} serverErrorMsg - Error message returned by the server.
+   * @param {?string[]} errorParams - Params to construct the error message.
+   * @param {?string} serverErrorMsg - Error message returned by the server.
    */
   _actionError(errorName, errorParams, serverErrorMsg) {
-    this._logger.error(
-      `Got an error name=${errorName}, the server said: ${serverErrorMsg}`
-    );
+    if (!serverErrorMsg) {
+      this._logger.error(`Got an error; name=${errorName}`);
+    } else {
+      this._logger.error(
+        `Got an error; name=${errorName}. The server said: ${serverErrorMsg}`
+      );
+    }
     if (errorName == "pop3PasswordFailed") {
       return;
     }
@@ -1698,7 +1738,7 @@ export class Pop3Client {
     if (serverErrorMsg) {
       const serverSaidPrefix = lazy.localStrings.formatStringFromName(
         "pop3ServerSaid",
-        [this._server.hostName]
+        [this._server.hostname]
       );
       errorMsg += ` ${serverSaidPrefix} ${serverErrorMsg}`;
     }
@@ -1757,6 +1797,9 @@ export class Pop3Client {
    * @param {nsresult} status - Indicate if the last action succeeded.
    */
   _cleanUp = status => {
+    // Ensure no phantom timeouts fire after cleanup.
+    this._clearCommandTimeout();
+
     this._cleanedUp = true;
     this.close();
     const runningUrl = {};
@@ -1776,20 +1819,48 @@ export class Pop3Client {
   };
 
   /**
+   * Starts or resets the application-layer watchdog timer.
+   */
+  _startCommandTimeout() {
+    this._clearCommandTimeout();
+
+    // Use the TCP timeout value shifted by 10 seconds in order to prevent any
+    // race conditions between the socket timeout and this watchdog.
+    const timeoutMs =
+      (Services.prefs.getIntPref("mailnews.tcptimeout", 100) + 10) * 1000;
+
+    this._commandTimeout = setTimeout(() => {
+      this._logger.error(
+        `Command watchdog timed out after ${timeoutMs}ms waiting for server.`
+      );
+
+      // We are in a deadlock situation. This will cancel this session and
+      // unlock the POP3 server queue.
+      this._actionDone(Cr.NS_ERROR_NET_TIMEOUT);
+    }, timeoutMs);
+  }
+
+  /**
+   * Clears the application-layer watchdog timer.
+   */
+  _clearCommandTimeout() {
+    if (this._commandTimeout) {
+      clearTimeout(this._commandTimeout);
+      this._commandTimeout = null;
+    }
+  }
+
+  /**
    * Show a status message in the status bar.
    *
    * @param {string} statusName - A string name in localMsgs.properties.
    * @param {string[]} [params] - Params to format the string.
    */
   _updateStatus(statusName, params) {
-    if (!this._msgWindow?.statusFeedback) {
-      return;
-    }
-
     const status = params
       ? lazy.localStrings.formatStringFromName(statusName, params)
       : lazy.localStrings.GetStringFromName(statusName);
-    this._msgWindow.statusFeedback.showStatusString(
+    MailServices.feedback.reportStatus(
       lazy.messengerStrings.formatStringFromName("statusMessage", [
         this._server.prettyName,
         status,
@@ -1801,12 +1872,15 @@ export class Pop3Client {
    * Show a progress bar in the status bar.
    */
   _updateProgress() {
-    this._msgWindow?.statusFeedback?.showProgress(
+    MailServices.feedback.reportProgress(
       Math.floor((this._totalReceivedSize * 100) / this._totalDownloadSize)
     );
   }
 
-  /** @see nsIPop3Protocol */
+  /**
+   * @param {string} uidl
+   * @see {nsIPop3Protocol}
+   */
   checkMessage(uidl) {
     return this._uidlMap.has(uidl);
   }

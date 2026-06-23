@@ -1,4 +1,3 @@
-/* -*- Mode: JavaScript; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -61,7 +60,7 @@ export class LDAPListenerBase {
    *
    * @param {nsILDAPMessage} msg - The received LDAP message.
    */
-  _onLDAPBind(msg) {
+  async _onLDAPBind(msg) {
     const errCode = msg.errorCode;
     if (
       errCode == Ci.nsILDAPErrors.INAPPROPRIATE_AUTH ||
@@ -69,13 +68,13 @@ export class LDAPListenerBase {
     ) {
       // Login failed, remove any existing login(s).
       const ldapUrl = this._directory.lDAPURL;
-      const logins = Services.logins.findLogins(
-        ldapUrl.prePath,
-        "",
-        ldapUrl.spec
-      );
+      const logins = await Services.logins.searchLoginsAsync({
+        origin: ldapUrl.prePath,
+        httpRealm: ldapUrl.spec,
+      });
+
       for (const login of logins) {
-        Services.logins.removeLogin(login);
+        await Services.logins.removeLoginAsync(login);
       }
       // Trigger the auth prompt.
       this.onLDAPInit();

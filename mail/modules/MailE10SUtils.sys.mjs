@@ -30,23 +30,16 @@ export var MailE10SUtils = {
    * @see `nsIWebNavigation.loadURI`
    *
    * @param {nsIBrowser} browser
-   * @param {string} uri
+   * @param {string} url
    * @param {object} params
    */
-  loadURI(browser, uri, params = {}) {
-    const multiProcess = browser.ownerGlobal.docShell.QueryInterface(
-      Ci.nsILoadContext
-    ).useRemoteTabs;
-    const remoteSubframes = browser.ownerGlobal.docShell.QueryInterface(
-      Ci.nsILoadContext
-    ).useRemoteSubframes;
+  loadURI(browser, url, params = {}) {
+    const uri = Services.io.newURI(url);
+    const remoteType = ChromeUtils.predictRemoteTypeForURI(uri, {
+      window: browser.documentGlobal,
+    });
 
-    const isRemote = browser.getAttribute("remote") == "true";
-    const remoteType = E10SUtils.getRemoteTypeForURI(
-      uri,
-      multiProcess,
-      remoteSubframes
-    );
+    const isRemote = browser.hasAttribute("remote");
     const shouldBeRemote = remoteType !== E10SUtils.NOT_REMOTE;
 
     if (shouldBeRemote != isRemote) {
@@ -56,7 +49,7 @@ export var MailE10SUtils = {
     params.triggeringPrincipal =
       params.triggeringPrincipal ||
       Services.scriptSecurityManager.getSystemPrincipal();
-    browser.fixupAndLoadURIString(uri, params);
+    browser.fixupAndLoadURIString(url, params);
   },
 
   /**
@@ -76,11 +69,10 @@ export var MailE10SUtils = {
 
     browser.destroy();
 
+    browser.toggleAttribute("remote", !!remoteType);
     if (remoteType) {
-      browser.setAttribute("remote", "true");
       browser.setAttribute("remoteType", remoteType);
     } else {
-      browser.setAttribute("remote", "false");
       browser.removeAttribute("remoteType");
     }
 

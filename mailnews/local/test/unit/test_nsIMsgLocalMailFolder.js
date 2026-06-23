@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /*
  * Test suite for local folder functions.
  */
@@ -65,19 +64,6 @@ function subtest_folder_deletion(root) {
   Assert.ok(!root.containsChildNamed("folder(3)"));
   folder = root.createLocalSubfolder("folder(3)");
   Assert.ok(root.containsChildNamed("folder(3)"));
-  // Now try to move "folder(3)" from Trash back to root.
-  // That should fail, because the user gets a prompt about it and that does
-  // not work in xpcshell.
-  try {
-    root.copyFolderLocal(folderDeleted3, true, null, null);
-    do_throw("copyFolderLocal() should have failed here due to user prompt!");
-  } catch (e) {
-    // Catch only the expected error NS_MSG_ERROR_COPY_FOLDER_ABORTED,
-    // otherwise fail the test.
-    if (e.result != 0x8055001a) {
-      throw e;
-    }
-  }
 }
 
 /**

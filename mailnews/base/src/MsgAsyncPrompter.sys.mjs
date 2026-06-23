@@ -11,6 +11,7 @@ const LoginInfo = Components.Constructor(
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PromptUtils: "resource://gre/modules/PromptUtils.sys.mjs",
+  enforcePrimaryPassword: "resource:///modules/PrimaryPassword.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "dialogsBundle", function () {
   return Services.strings.createBundle(
@@ -232,6 +233,33 @@ export class MsgAuthPrompt {
     aUsername,
     aPassword
   ) {
+    let finished = false;
+    let result = false;
+    this.#promptUsernameAndPasswordInternal(
+      aDialogTitle,
+      aText,
+      aPasswordRealm,
+      aSavePassword,
+      aUsername,
+      aPassword
+    )
+      .then(ok => (result = ok))
+      .finally(() => (finished = true));
+    Services.tm.spinEventLoopUntilOrQuit(
+      "MsgAuthPrompt:promptUsernameAndPassword",
+      () => finished
+    );
+    return result;
+  }
+
+  async #promptUsernameAndPasswordInternal(
+    aDialogTitle,
+    aText,
+    aPasswordRealm,
+    aSavePassword,
+    aUsername,
+    aPassword
+  ) {
     if (aSavePassword == Ci.nsIAuthPrompt.SAVE_PASSWORD_FOR_SESSION) {
       throw new Components.Exception(
         "promptUsernameAndPassword doesn't support SAVE_PASSWORD_FOR_SESSION",
@@ -256,7 +284,10 @@ export class MsgAuthPrompt {
         );
       }
 
-      for (const login of Services.logins.findLogins(origin, null, realm)) {
+      for (const login of await Services.logins.searchLoginsAsync({
+        origin,
+        httpRealm: realm,
+      })) {
         if (login.username == aUsername.value) {
           checkBox.value = true;
           aUsername.value = login.username;
@@ -281,6 +312,10 @@ export class MsgAuthPrompt {
       return ok;
     }
 
+    if (!lazy.enforcePrimaryPassword()) {
+      return ok;
+    }
+
     const newLogin = new LoginInfo(
       origin,
       null,
@@ -288,8 +323,7 @@ export class MsgAuthPrompt {
       aUsername.value,
       aPassword.value
     );
-    Services.logins.addLoginAsync(newLogin);
-    Services.tm.spinEventLoopUntilEmpty();
+    await Services.logins.addLoginAsync(newLogin);
 
     return ok;
   }
@@ -303,6 +337,31 @@ export class MsgAuthPrompt {
    * allows it, then the password will be saved in the database.
    */
   promptPassword(
+    aDialogTitle,
+    aText,
+    aPasswordRealm,
+    aSavePassword,
+    aPassword
+  ) {
+    let finished = false;
+    let result = false;
+    this.#promptPasswordInternal(
+      aDialogTitle,
+      aText,
+      aPasswordRealm,
+      aSavePassword,
+      aPassword
+    )
+      .then(ok => (result = ok))
+      .finally(() => (finished = true));
+    Services.tm.spinEventLoopUntilOrQuit(
+      "MsgAuthPrompt:promptPassword",
+      () => finished
+    );
+    return result;
+  }
+
+  async #promptPasswordInternal(
     aDialogTitle,
     aText,
     aPasswordRealm,
@@ -337,7 +396,10 @@ export class MsgAuthPrompt {
 
       if (!aPassword.value) {
         // Look for existing logins.
-        for (const login of Services.logins.findLogins(origin, null, realm)) {
+        for (const login of await Services.logins.searchLoginsAsync({
+          origin,
+          httpRealm: realm,
+        })) {
           if (login.username == username) {
             aPassword.value = login.password;
             return true;
@@ -355,6 +417,9 @@ export class MsgAuthPrompt {
     );
 
     if (ok && checkBox.value && origin && aPassword.value) {
+      if (!lazy.enforcePrimaryPassword()) {
+        return ok;
+      }
       const newLogin = new LoginInfo(
         origin,
         null,
@@ -362,9 +427,7 @@ export class MsgAuthPrompt {
         username,
         aPassword.value
       );
-
-      Services.logins.addLoginAsync(newLogin);
-      Services.tm.spinEventLoopUntilEmpty();
+      await Services.logins.addLoginAsync(newLogin);
     }
 
     return ok;

@@ -33,7 +33,7 @@ const EWS_SERVER_VERSIONS_PREF: &CStr = c"mail.ews.server_versions";
 /// Retrieve the "root" pref branch, i.e. the one from which all prefs are
 /// defined (as opposed to one retrieved from `nsIPrefService::GetBranch()` with
 /// a prefix).
-fn get_root_pref_branch() -> Result<RefPtr<nsIPrefBranch>, nsresult> {
+pub(crate) fn get_root_pref_branch() -> Result<RefPtr<nsIPrefBranch>, nsresult> {
     let pref_svc = get_service::<nsIPrefService>(c"@mozilla.org/preferences-service;1")
         .ok_or(nserror::NS_ERROR_FAILURE)?;
 
@@ -60,8 +60,10 @@ fn parse_server_version_pref() -> Result<Option<HashMap<String, String>>, XpComE
     let pref_branch = get_root_pref_branch()?;
 
     let mut pref_value = nsCString::new();
-    match unsafe { pref_branch.GetCharPref(EWS_SERVER_VERSIONS_PREF.as_ptr(), &mut *pref_value) }
-        .to_result()
+    match unsafe {
+        pref_branch.GetCharPref(EWS_SERVER_VERSIONS_PREF.as_ptr(), &raw mut *pref_value)
+    }
+    .to_result()
     {
         Ok(_) => {}
         Err(err) => {
@@ -72,7 +74,7 @@ fn parse_server_version_pref() -> Result<Option<HashMap<String, String>>, XpComE
                 _ => Err(err.into()),
             };
         }
-    };
+    }
 
     let pref_value = pref_value.to_utf8();
     let de = &mut serde_json::Deserializer::from_str(&pref_value);
@@ -143,7 +145,7 @@ pub(crate) struct ServerVersionHandler {
 }
 
 impl ServerVersionHandler {
-    pub fn new(endpoint: Url) -> Result<ServerVersionHandler, XpComEwsError> {
+    pub(crate) fn new(endpoint: Url) -> Result<ServerVersionHandler, XpComEwsError> {
         let version = read_server_version(&endpoint)?.unwrap_or(DEFAULT_EWS_SERVER_VERSION);
         Ok(ServerVersionHandler {
             version: Cell::new(version),
@@ -151,13 +153,16 @@ impl ServerVersionHandler {
         })
     }
 
-    pub fn get_version(&self) -> ExchangeServerVersion {
+    pub(crate) fn get_version(&self) -> ExchangeServerVersion {
         self.version.get()
     }
 
     /// Updates the server version associated with the client's current endpoint
     /// in the relevant pref.
-    pub fn update_server_version(&self, header: ServerVersionInfo) -> Result<(), XpComEwsError> {
+    pub(crate) fn update_server_version(
+        &self,
+        header: ServerVersionInfo,
+    ) -> Result<(), XpComEwsError> {
         let version = match header.version {
             Some(version) if !version.is_empty() => version,
             // If the server did not include a version identifier in the
@@ -199,8 +204,13 @@ impl ServerVersionHandler {
         let known_versions = nsCString::from(known_versions);
 
         let pref_branch = get_root_pref_branch()?;
-        unsafe { pref_branch.SetCharPref(EWS_SERVER_VERSIONS_PREF.as_ptr(), &*known_versions) }
-            .to_result()?;
+        unsafe {
+            pref_branch.SetCharPref(
+                EWS_SERVER_VERSIONS_PREF.as_ptr(),
+                &raw const *known_versions,
+            )
+        }
+        .to_result()?;
 
         Ok(())
     }

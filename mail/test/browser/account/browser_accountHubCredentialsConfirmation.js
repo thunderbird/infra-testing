@@ -25,7 +25,7 @@ const emailUser = {
   email: USER,
   password: PASSWORD,
 };
-const AUTODISCOVER_RESPONSE = `<?xml version="1.0" encoding="utf-8"?>
+let AUTODISCOVER_RESPONSE = `<?xml version="1.0" encoding="utf-8"?>
 <Autodiscover xmlns="http://schemas.microsoft.com/exchange/autodiscover/responseschema/2006">
   <Response xmlns="http://schemas.microsoft.com/exchange/autodiscover/outlook/responseschema/2006a">
     <Account>
@@ -136,7 +136,7 @@ add_setup(async () => {
     autodiscoveryServer.identity.remove("https", "dav.test", 443);
     autodiscoveryServer.registerFile("/autodiscover/autodiscover.xml", null);
     autodiscoveryServer.stop();
-    Services.logins.removeAllLogins();
+    await Services.logins.removeAllLoginsAsync();
     await SpecialPowers.popPrefEnv();
   });
 });
@@ -184,7 +184,7 @@ add_task(async function test_credentials_confirmation_manual_configuration() {
     "The username input should have the email that was submitted"
   );
 
-  Services.logins.removeAllLogins();
+  await Services.logins.removeAllLoginsAsync();
   await subtest_close_account_hub_dialog(dialog, incomingConfigStep);
 });
 
@@ -216,7 +216,7 @@ add_task(async function test_cancel_credentials_confirmation() {
   Assert.equal(
     username.textContent,
     emailUser.email,
-    "The username should be email inputted"
+    "The username should be the username returned from autodiscovery"
   );
   Assert.equal(
     socketType.textContent,
@@ -229,7 +229,7 @@ add_task(async function test_cancel_credentials_confirmation() {
   const manualIncomingForm = dialog.querySelector("email-manual-incoming-form");
   await BrowserTestUtils.waitForAttributeRemoval("hidden", manualIncomingForm);
 
-  Services.logins.removeAllLogins();
+  await Services.logins.removeAllLoginsAsync();
   await subtest_close_account_hub_dialog(dialog, manualIncomingForm);
 });
 
@@ -260,7 +260,7 @@ add_task(async function test_credentials_confirmation() {
   Assert.equal(
     username.textContent,
     emailUser.email,
-    "The username should be email inputted"
+    "The username should be the username returned from autodiscovery"
   );
   Assert.equal(
     socketType.textContent,
@@ -283,9 +283,19 @@ add_task(async function test_credentials_confirmation() {
   EventUtils.synthesizeMouseAtCenter(ewsOption, {});
 
   Assert.equal(
-    configFoundTemplate.querySelector("#incomingType").textContent,
-    "ews",
-    "Incoming type should be expected type"
+    configFoundTemplate.l10n.getAttributes(
+      configFoundTemplate.querySelector("#incomingType")
+    ).id,
+    "account-hub-result-ews-expanded-text",
+    "Incoming server type should be expected type"
+  );
+
+  Assert.equal(
+    configFoundTemplate.l10n.getAttributes(
+      configFoundTemplate.querySelector("#incomingTypeText")
+    ).id,
+    "account-hub-result-ews-text",
+    "Incoming heading should be expected for EWS config"
   );
 
   Assert.equal(
@@ -298,8 +308,16 @@ add_task(async function test_credentials_confirmation() {
     configFoundTemplate.l10n.getAttributes(
       configFoundTemplate.querySelector("#incomingSocketType")
     ).id,
-    "account-setup-result-ssl",
-    "Incoming auth should be expected auth"
+    "account-hub-result-security-ssl",
+    "Incoming socket type should be expected type"
+  );
+
+  Assert.equal(
+    configFoundTemplate.l10n.getAttributes(
+      configFoundTemplate.querySelector("#incomingAuthenticationType")
+    ).id,
+    "account-hub-result-authentication-password",
+    "Incoming Authentication type should be expected type"
   );
 
   Assert.equal(
@@ -308,9 +326,106 @@ add_task(async function test_credentials_confirmation() {
     "Incoming username should be expected username"
   );
 
+  Assert.ok(
+    BrowserTestUtils.isHidden(
+      configFoundTemplate.querySelector("#incomingPortConfig")
+    ),
+    "Incoming port should be hidden for EWS"
+  );
+
+  Assert.ok(
+    BrowserTestUtils.isHidden(
+      configFoundTemplate.querySelector("#outgoingConfig")
+    ),
+    "Outgoing config should be hidden for EWS"
+  );
+
+  Assert.ok(
+    BrowserTestUtils.isHidden(
+      configFoundTemplate.querySelector("#allServersHeading")
+    ),
+    "All servers heading should be hidden for EWS"
+  );
+
   redirectAccepted = false;
-  Services.logins.removeAllLogins();
+  await Services.logins.removeAllLoginsAsync();
+  dialog.querySelector("account-hub-email").resetRedirectAccepted();
   await subtest_close_account_hub_dialog(dialog, configFoundTemplate);
+});
+
+add_task(async function test_credentials_confirmation_to_manual_config() {
+  const dialog = await subtest_open_account_hub_dialog();
+  const emailTemplate = dialog.querySelector("email-auto-form");
+  const footerForward = dialog.querySelector("#emailFooter #forward");
+  const footerBack = dialog.querySelector("#emailFooter #back");
+  const autodiscoverResonse = AUTODISCOVER_RESPONSE;
+  AUTODISCOVER_RESPONSE = "";
+
+  await fillUserInformation(emailTemplate);
+  Assert.ok(!footerForward.disabled, "Continue button should be enabled");
+
+  // Click continue and wait for credentials confirmation step to be in view.
+  EventUtils.synthesizeMouseAtCenter(footerForward, {});
+  info("Expecting credentials confirmation prompt");
+  const confirmationStep = dialog.querySelector(
+    "email-credentials-confirmation"
+  );
+
+  await BrowserTestUtils.waitForAttributeRemoval("hidden", confirmationStep);
+  const hostname = confirmationStep.querySelector("#hostname");
+  const username = confirmationStep.querySelector("#username");
+  const socketType = confirmationStep.querySelector("#socketType");
+  Assert.equal(
+    hostname.textContent,
+    "dav.test",
+    "The hostname should be the redirect hostname"
+  );
+  Assert.equal(
+    username.textContent,
+    emailUser.email,
+    "The username should be the username returned from autodiscovery"
+  );
+  Assert.equal(
+    socketType.textContent,
+    "SSL/TLS",
+    "The socket type should be set to secure"
+  );
+
+  // Clicking continue should lead to the manual config step.
+  redirectAccepted = true;
+  EventUtils.synthesizeMouseAtCenter(footerForward, {});
+
+  const incomingConfigStep = dialog.querySelector(
+    "#emailIncomingConfigSubview"
+  );
+  await BrowserTestUtils.waitForAttributeRemoval("hidden", incomingConfigStep);
+  Assert.equal(
+    incomingConfigStep.querySelector("#incomingHostname").value,
+    ".exchange.test",
+    "The incoming hostname should be the domain with a period at the beginning"
+  );
+  Assert.equal(
+    incomingConfigStep.querySelector("#incomingAuthMethod").value,
+    "0",
+    "The auth method should be Autodetect"
+  );
+  Assert.equal(
+    incomingConfigStep.querySelector("#incomingUsername").value,
+    "testExchange@exchange.test",
+    "The username input should have the email that was submitted"
+  );
+
+  // Going back to the first step and repeating should lead directly to the
+  // manual config step.
+  EventUtils.synthesizeMouseAtCenter(footerBack, {});
+  await BrowserTestUtils.waitForAttributeRemoval("hidden", emailTemplate);
+  EventUtils.synthesizeMouseAtCenter(footerForward, {});
+  info("Going to the incoming manual config step");
+  await BrowserTestUtils.waitForAttributeRemoval("hidden", incomingConfigStep);
+
+  redirectAccepted = false;
+  await subtest_close_account_hub_dialog(dialog, incomingConfigStep);
+  AUTODISCOVER_RESPONSE = autodiscoverResonse;
 });
 
 /**

@@ -1,10 +1,10 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsMsgProtocol.h"
 
+#include "mozilla/dom/ParentProcessChannelHandle.h"
 #include "msgCore.h"
 #include "nsString.h"
 #include "nsMemory.h"
@@ -21,7 +21,6 @@
 #include "nsNetUtil.h"
 #include "nsIFileURL.h"
 #include "nsIMsgWindow.h"
-#include "nsIMsgStatusFeedback.h"
 #include "nsIWebProgressListener.h"
 #include "nsIPipe.h"
 #include "nsIPrompt.h"
@@ -68,14 +67,6 @@ nsMsgProtocol::nsMsgProtocol(nsIURI* aURL) {
 
 nsresult nsMsgProtocol::InitFromURI(nsIURI* aUrl) {
   m_url = aUrl;
-
-  nsCOMPtr<nsIMsgMailNewsUrl> mailUrl = do_QueryInterface(aUrl);
-  if (mailUrl) {
-    mailUrl->GetLoadGroup(getter_AddRefs(m_loadGroup));
-    nsCOMPtr<nsIMsgStatusFeedback> statusFeedback;
-    mailUrl->GetStatusFeedback(getter_AddRefs(statusFeedback));
-    mProgressEventSink = do_QueryInterface(statusFeedback);
-  }
 
   // Reset channel data in case the object is reused and initialised again.
   mCharset.Truncate();
@@ -316,7 +307,6 @@ NS_IMETHODIMP nsMsgProtocol::OnStopRequest(nsIRequest* request,
 
   // Drop notification callbacks to prevent cycles.
   mCallbacks = nullptr;
-  mProgressEventSink = nullptr;
   m_channelListener = nullptr;
   // Call CloseSocket(), in case we got here because the server dropped the
   // connection while reading, and we never get a chance to get back into
@@ -664,6 +654,24 @@ NS_IMETHODIMP nsMsgProtocol::Resume() {
   return NS_ERROR_NOT_AVAILABLE;
 }
 
+NS_IMETHODIMP nsMsgProtocol::GetParentProcessChannelHandle(
+    mozilla::dom::ParentProcessChannelHandle** aValue) {
+  *aValue = do_AddRef(mParentProcessChannelHandle).take();
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsMsgProtocol::SetParentProcessChannelHandle(
+    mozilla::dom::ParentProcessChannelHandle* aValue) {
+  if (XRE_IsParentProcess()) {
+    MOZ_ASSERT_UNREACHABLE(
+        "SetParentProcessChannelHandle in the parent process would leak");
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  mParentProcessChannelHandle = aValue;
+  return NS_OK;
+}
+
 nsresult nsMsgProtocol::DoGSSAPIStep1(const nsACString& service,
                                       const char* username,
                                       nsCString& response) {
@@ -819,12 +827,12 @@ char16_t* FormatStringWithHostNameByName(const char16_t* stringName,
   rv = msgUri->GetServer(getter_AddRefs(server));
   NS_ENSURE_SUCCESS(rv, nullptr);
 
-  nsCString hostName;
-  rv = server->GetHostName(hostName);
+  nsCString hostname;
+  rv = server->GetHostname(hostname);
   NS_ENSURE_SUCCESS(rv, nullptr);
 
   AutoTArray<nsString, 1> params;
-  CopyASCIItoUTF16(hostName, *params.AppendElement());
+  CopyASCIItoUTF16(hostname, *params.AppendElement());
   nsAutoString str;
   rv = sBundle->FormatStringFromName(NS_ConvertUTF16toUTF8(stringName).get(),
                                      params, str);
@@ -832,5 +840,3 @@ char16_t* FormatStringWithHostNameByName(const char16_t* stringName,
 
   return ToNewUnicode(str);
 }
-
-// vim: ts=2 sw=2

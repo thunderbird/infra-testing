@@ -4,7 +4,6 @@
 
 // Return the set of locales according to LocaleService
 
-use cstr::cstr;
 use fluent_ffi::FluentResource;
 use nserror::nsresult;
 use nsstring::nsCString;
@@ -23,7 +22,7 @@ static BRANDING_FILE: &str = include_str!(mozbuild::srcdir_path!(
 
 // Ask mozILocaleService for the known locale list
 fn supported_locales() -> Result<ThinVec<nsCString>, nsresult> {
-    let service = get_service::<mozILocaleService>(cstr!("@mozilla.org/intl/localeservice;1"))
+    let service = get_service::<mozILocaleService>(c"@mozilla.org/intl/localeservice;1")
         .ok_or(nserror::NS_ERROR_NO_INTERFACE)?;
     let mut locales = ThinVec::new();
     unsafe {
@@ -44,7 +43,7 @@ pub(crate) fn app_locales() -> Result<Vec<LanguageIdentifier>, nsresult> {
 /// Load our fluent resource
 pub(crate) fn fl_resource() -> Result<FluentResource, nsresult> {
     let ftl_template = MENUBAR_FILE.to_owned() + BRANDING_FILE;
-    let resource = FluentResource::try_new(ftl_template).map_err(|_| nserror::NS_ERROR_FAILURE)?;
+    let resource = FluentResource::try_new(ftl_template).or(Err(nserror::NS_ERROR_FAILURE))?;
 
     Ok(resource)
 }

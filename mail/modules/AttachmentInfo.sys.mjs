@@ -399,7 +399,7 @@ export class AttachmentInfo {
             background: false,
             linkHandler: "single-page",
           });
-          tabmail.ownerGlobal.focus();
+          tabmail.documentGlobal.focus();
           return;
         }
         // If no tabmail, open PDF same as other attachments.
@@ -1062,7 +1062,9 @@ export class AttachmentInfo {
     }
 
     // Don't allow http for other cases.
-    return /^(file|data|mailbox|imap|s?news|x-moz-ews):/i.test(this.url);
+    return /^(file|data|mailbox|imap|s?news|x-moz-ews|x-moz-graph):/i.test(
+      this.url
+    );
   }
 
   /**

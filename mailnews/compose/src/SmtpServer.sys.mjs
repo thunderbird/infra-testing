@@ -298,7 +298,7 @@ export class SmtpServer {
           );
           for (const server of MailServices.accounts.allServers) {
             if (server.username == this.username) {
-              const serverHostName = server.hostName;
+              const serverHostName = server.hostname;
               if (
                 serverHostName.includes(".") &&
                 serverHostName.slice(0, serverHostName.indexOf(".")) ==
@@ -324,7 +324,15 @@ export class SmtpServer {
     const authPrompt = Cc["@mozilla.org/messenger/msgAuthPrompt;1"].getService(
       Ci.nsIAuthPrompt
     );
-    const password = this._getPasswordWithoutUI();
+    let finished = false;
+    let password;
+    this._getPasswordWithoutUI()
+      .then(pw => (password = pw))
+      .finally(() => (finished = true));
+    Services.tm.spinEventLoopUntilOrQuit(
+      "SmtpServer.getPasswordWithUI",
+      () => finished
+    );
     if (password) {
       this.password = password;
       return this.password;
@@ -362,6 +370,15 @@ export class SmtpServer {
   }
 
   forgetPassword() {
+    let finished = false;
+    this.#forgetPasswordInternal().finally(() => (finished = true));
+    Services.tm.spinEventLoopUntilOrQuit(
+      "SmtpServer.forgetPassword",
+      () => finished
+    );
+  }
+
+  async #forgetPasswordInternal() {
     this.password = "";
     if (!this.hostname) {
       // Looks like we're not fully set up yet. There's no point in continuing.
@@ -369,16 +386,19 @@ export class SmtpServer {
     }
 
     const serverURI = this._getServerURISpec();
-    const logins = Services.logins.findLogins(serverURI, "", serverURI);
+    const logins = await Services.logins.searchLoginsAsync({
+      origin: serverURI,
+      httpRealm: serverURI,
+    });
     for (const login of logins) {
       if (login.username == this.username) {
-        Services.logins.removeLogin(login);
+        await Services.logins.removeLoginAsync(login);
       }
     }
     if (this.authMethod == Ci.nsMsgAuthMethod.OAuth2) {
       const oauth2Module = new OAuth2Module();
       if (oauth2Module.initFromOutgoing(this)) {
-        oauth2Module.clearTokens();
+        await oauth2Module.clearTokens();
       }
     }
   }
@@ -410,9 +430,12 @@ export class SmtpServer {
   /**
    * @returns {string}
    */
-  _getPasswordWithoutUI() {
+  async _getPasswordWithoutUI() {
     const serverURI = this._getServerURISpec();
-    const logins = Services.logins.findLogins(serverURI, "", serverURI);
+    const logins = await Services.logins.searchLoginsAsync({
+      origin: serverURI,
+      httpRealm: serverURI,
+    });
     for (const login of logins) {
       if (login.username == this.username) {
         return login.password;
@@ -549,7 +572,33 @@ export class SmtpServer {
   }
 
   /**
-   * @see nsIMsgOutgoingServer
+   * Sends a mail message via the given parameters.
+   *
+   * The file to send must be in the format specified by RFC 2822 for
+   * sending data. This includes having the correct CRLF line endings
+   * throughout the file, and the <CRLF>.<CRLF> at the end of the file.
+   * sendMailMessage does no processing/additions on the file.
+   *
+   * Some protocols require custom handling for Bcc recipients (since they
+   * are excluded from the MIME content), so they are passed separately
+   * from To and Cc recipients.
+   *
+   * @param {nsIFile} messageFile - The file to send.
+   * @param {msgIAddressObject[]} recipients - The visible recipients
+   *   (i.e. To and Cc) for this message.
+   * @param {msgIAddressObject[]} bccRecipients - The Bcc recipients for this message.
+   * @param {nsIMsgIdentity} userIdentity - The identity of the sender.
+   * @param {string} sender - The senders email address.
+   * @param {?string} password - Pass this in to prevent a dialog if the
+   *    password is needed for secure transmission.
+   * @param {?nsIMsgProgress} statusListener - Where to send progress info.
+   * @param {boolean} requestDSN - Whether to request Delivery Status Notification.
+   * @param {string} messageId - The message ID for this email message.
+   * @param {nsIMsgOutgoingListener} listener - A listener that can communicate
+   *   the startand end of the message send operation. It also provides the
+   *   consumer with a handle to cancel the operation if requested (see the
+   *   documentation for `nsIMsgOutgoingListener`).
+   * @see {nsIMsgOutgoingServer}
    */
   async sendMailMessage(
     messageFile,
@@ -564,6 +613,21 @@ export class SmtpServer {
     listener
   ) {
     const client = await this._getNextClient();
+    const { resolve, promise } = Promise.withResolvers();
+    let requestCancelled = false;
+    let stopNotified = false;
+    // Cancellation may close the client while SMTP callbacks are still pending.
+    // Report one terminal status and ignore later events from that client.
+    const notifyStop = async (status, secInfo = null, errorMessage = null) => {
+      if (stopNotified) {
+        return;
+      }
+      stopNotified = true;
+      // Await so the returned promise settles only after the listener has
+      // finished processing the terminal status.
+      await listener?.onSendStop(this.serverURI, status, secInfo, errorMessage);
+      resolve();
+    };
     client.onFree = () => {
       // Done for now using this SmtpClient instance. Remove client from the
       // "busy" list and add it back to the "free" list. If a send is awaiting
@@ -578,15 +642,30 @@ export class SmtpServer {
       this.password = password;
     }
 
+    let socketOnDrain;
     const request = {
-      cancel() {
+      async cancel(status = Cr.NS_ERROR_ABORT) {
+        if (requestCancelled) {
+          return;
+        }
+        requestCancelled = true;
         client.close(true);
+        // Unblock a message upload waiting for the socket buffer to drain.
+        socketOnDrain?.();
+        await notifyStop(status);
       },
     };
 
     listener?.onSendStart(request);
+    // The listener may synchronously cancel from onSendStart.
+    if (requestCancelled) {
+      return promise;
+    }
     let fresh = true;
     client.onidle = () => {
+      if (requestCancelled) {
+        return;
+      }
       // onidle can occur multiple times, but we should only init sending
       // when sending a new message (fresh is true) or when a new connection
       // replaces the original connection due to error 4xx response
@@ -612,8 +691,10 @@ export class SmtpServer {
         messageId,
       });
     };
-    let socketOnDrain;
     client.onready = async () => {
+      if (requestCancelled) {
+        return;
+      }
       const fstream = Cc[
         "@mozilla.org/network/file-input-stream;1"
       ].createInstance(Ci.nsIFileInputStream);
@@ -625,33 +706,44 @@ export class SmtpServer {
       );
       sstream.init(fstream);
 
-      let sentSize = 0;
-      const totalSize = messageFile.fileSize;
       const progressListener = statusListener?.QueryInterface(
         Ci.nsIWebProgressListener
       );
+      try {
+        let sentSize = 0;
+        const totalSize = messageFile.fileSize;
 
-      while (sstream.available()) {
-        const chunk = sstream.read(65536);
-        const canSendMore = client.send(chunk);
-        if (!canSendMore) {
-          // Socket buffer is full, wait for the ondrain event.
-          await new Promise(resolve => (socketOnDrain = resolve));
+        while (!requestCancelled && sstream.available()) {
+          const chunk = sstream.read(65536);
+          const canSendMore = client.send(chunk);
+          if (!canSendMore) {
+            // Socket buffer is full, wait for the ondrain event.
+            await new Promise(res => (socketOnDrain = res));
+            socketOnDrain = null;
+            if (requestCancelled) {
+              break;
+            }
+          }
+          // In practice, chunks are buffered by TCPSocket, progress reaches 100%
+          // almost immediately unless message is larger than chunk size.
+          sentSize += chunk.length;
+          progressListener?.onProgressChange(
+            null,
+            null,
+            sentSize,
+            totalSize,
+            sentSize,
+            totalSize
+          );
         }
-        // In practice, chunks are buffered by TCPSocket, progress reaches 100%
-        // almost immediately unless message is larger than chunk size.
-        sentSize += chunk.length;
-        progressListener?.onProgressChange(
-          null,
-          null,
-          sentSize,
-          totalSize,
-          sentSize,
-          totalSize
-        );
+      } finally {
+        sstream.close();
+        fstream.close();
       }
-      sstream.close();
-      fstream.close();
+
+      if (requestCancelled) {
+        return;
+      }
       client.end();
 
       // Set progress to indeterminate.
@@ -659,19 +751,28 @@ export class SmtpServer {
     };
     client.ondrain = () => {
       // Socket buffer is empty, safe to continue sending.
-      socketOnDrain();
+      socketOnDrain?.();
     };
-    client.ondone = () => {
+    client.ondone = async () => {
+      if (requestCancelled) {
+        return;
+      }
       if (!AppConstants.MOZ_SUITE) {
         Glean.compose.mailsSent.add(1);
       }
 
-      listener?.onSendStop(this.serverURI, Cr.NS_OK, null, null);
+      await notifyStop(Cr.NS_OK);
     };
-    client.onerror = (nsError, errorMessage, secInfo) => {
-      listener?.onSendStop(this.serverURI, nsError, secInfo, errorMessage);
+    client.onerror = async (nsError, errorMessage, secInfo) => {
+      if (requestCancelled) {
+        return;
+      }
+      // The failure is reported to the caller through the listener; the
+      // returned promise only signals completion, so it never rejects.
+      await notifyStop(nsError, secInfo, errorMessage);
     };
 
     client.connect();
+    return promise;
   }
 }

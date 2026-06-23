@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /**
  * Tests bug 474774 - assertions when saving send later and when sending with
  * FCC switched off.
@@ -38,9 +37,7 @@ msll.prototype = {
     Assert.equal(msgSendLater.sendingMessages, true);
   },
   onMessageStartSending() {},
-  onMessageSendProgress() {
-    // XXX Enable this function
-  },
+  onMessageSendProgress() {},
   onMessageSendError(aCurrentMessage, aMessageHeader, aStatus) {
     do_throw(
       "onMessageSendError should not have been called, status: " + aStatus
@@ -232,7 +229,6 @@ add_task(async function run_the_test() {
     Ci.nsIMsgSend.nsMsgQueueForLater,
     null,
     copyListener,
-    null,
     null
   );
 

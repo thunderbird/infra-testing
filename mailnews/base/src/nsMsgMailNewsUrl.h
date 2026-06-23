@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -6,24 +5,25 @@
 #ifndef COMM_MAILNEWS_BASE_SRC_NSMSGMAILNEWSURL_H_
 #define COMM_MAILNEWS_BASE_SRC_NSMSGMAILNEWSURL_H_
 
-#include "msgCore.h"
-#include "nscore.h"
-#include "nsISupports.h"
-#include "nsIUrlListener.h"
-#include "nsTObserverArray.h"
 #include "nsCOMPtr.h"
+#include "nscore.h"
+#include "nsICacheEntry.h"
+#include "nsIClassInfo.h"
+#include "nsIIPCSerializableURI.h"
 #include "nsIMimeHeaders.h"
 #include "nsIMsgMailNewsUrl.h"
-#include "nsIURL.h"
-#include "nsIURIWithSpecialOrigin.h"
 #include "nsIMsgSearchSession.h"
-#include "nsICacheEntry.h"
-#include "nsIWeakReferenceUtils.h"
-#include "nsString.h"
-#include "nsIURIMutator.h"
 #include "nsISerializable.h"
-#include "nsIClassInfo.h"
+#include "nsISupports.h"
 #include "nsITransportSecurityInfo.h"
+#include "nsIURIMutator.h"
+#include "nsIURIWithSizeOf.h"
+#include "nsIURIWithSpecialOrigin.h"
+#include "nsIURL.h"
+#include "nsIUrlListener.h"
+#include "nsIWeakReferenceUtils.h"
+#include "nsTObserverArray.h"
+#include "URIHasher.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
 // Okay, I found that all of the mail and news url interfaces needed to support
@@ -36,7 +36,10 @@
 class nsMsgMailNewsUrl : public nsIMsgMailNewsUrl,
                          public nsIURIWithSpecialOrigin,
                          public nsISerializable,
-                         public nsIClassInfo {
+                         public nsIIPCSerializableURI,
+                         public nsIURIWithSizeOf,
+                         public nsIClassInfo,
+                         public mozilla::net::URIHasher {
  public:
   nsMsgMailNewsUrl();
 
@@ -46,6 +49,8 @@ class nsMsgMailNewsUrl : public nsIMsgMailNewsUrl,
   NS_DECL_NSIURL
   NS_DECL_NSIURIWITHSPECIALORIGIN
   NS_DECL_NSISERIALIZABLE
+  NS_DECL_NSIIPCSERIALIZABLEURI
+  NS_DECL_NSIURIWITHSIZEOF
   NS_DECL_NSICLASSINFO
 
  protected:
@@ -101,7 +106,6 @@ class nsMsgMailNewsUrl : public nsIMsgMailNewsUrl,
 
   nsCOMPtr<nsIURL> m_baseURL;
   nsCOMPtr<nsIURI> m_normalizedOrigin;
-  nsWeakPtr m_statusFeedbackWeak;
   nsWeakPtr m_msgWindowWeak;
   nsWeakPtr m_loadGroupWeak;
   nsCOMPtr<nsIMimeHeaders> mMimeHeaders;

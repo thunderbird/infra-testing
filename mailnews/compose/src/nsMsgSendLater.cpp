@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -19,7 +18,6 @@
 #include "nsMsgUtils.h"
 #include "nsMailHeaders.h"
 #include "nsMsgPrompts.h"
-#include "nsISmtpUrl.h"
 #include "nsIChannel.h"
 #include "nsNetUtil.h"
 #include "nsString.h"
@@ -182,19 +180,6 @@ nsMsgSendLater::Observe(nsISupports* aSubject, const char* aTopic,
   return NS_OK;
 }
 
-NS_IMETHODIMP
-nsMsgSendLater::SetStatusFeedback(nsIMsgStatusFeedback* aFeedback) {
-  mFeedback = aFeedback;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsMsgSendLater::GetStatusFeedback(nsIMsgStatusFeedback** aFeedback) {
-  NS_ENSURE_ARG_POINTER(aFeedback);
-  NS_IF_ADDREF(*aFeedback = mFeedback);
-  return NS_OK;
-}
-
 // Stream is done...drive on!
 NS_IMETHODIMP
 nsMsgSendLater::OnStopRequest(nsIRequest* request, nsresult status) {
@@ -225,21 +210,7 @@ nsMsgSendLater::OnStopRequest(nsIRequest* request, nsresult status) {
         EndSendMessages(rv, nullptr, mTotalSendCount, mTotalSentSuccessfully);
     }
   } else {
-    nsCOMPtr<nsIChannel> channel = do_QueryInterface(request);
-    if (!channel) return NS_ERROR_FAILURE;
-
-    // extract the prompt object to use for the alert from the url....
-    nsCOMPtr<nsIURI> uri;
-    nsCOMPtr<mozIDOMWindowProxy> domWindow;
-    if (channel) {
-      channel->GetURI(getter_AddRefs(uri));
-      nsCOMPtr<nsIMsgMailNewsUrl> msgUrl(do_QueryInterface(uri));
-      nsCOMPtr<nsIMsgWindow> msgWindow;
-      if (msgUrl) msgUrl->GetMsgWindow(getter_AddRefs(msgWindow));
-      if (msgWindow) msgWindow->GetDomWindow(getter_AddRefs(domWindow));
-    }
-
-    nsMsgDisplayMessageByName(domWindow, "errorQueuedDeliveryFailed");
+    nsMsgDisplayMessageByName("errorQueuedDeliveryFailed");
 
     // Getting the data failed, but we will still keep trying to send the
     // rest...
@@ -560,7 +531,7 @@ nsresult nsMsgSendLater::CompleteMailFileSend() {
       false,                        // bool digest_p,
       nsIMsgSend::nsMsgSendUnsent,  // nsMsgDeliverMode mode,
       nullptr,                      // nsIMsgDBHdr *msgToReplace,
-      sendListener, mFeedback, nullptr, getter_AddRefs(promise));
+      sendListener, nullptr, getter_AddRefs(promise));
   return rv;
 }
 

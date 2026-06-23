@@ -18,6 +18,10 @@
   &:-moz-locale-dir(rtl) {
     direction: rtl;
   }
+
+  &[lwtheme] body {
+    color-scheme: light-dark;
+  }
 }
 
 :root,
@@ -40,6 +44,10 @@ body {
   min-inline-size: 95px;
 }
 
+#messengerBody {
+  flex: 1;
+}
+
 p {
   margin: 2px 4px;
 }
@@ -48,6 +56,10 @@ hr {
   inline-size: 100%;
   border-block-start: 1px solid var(--field-border-color);
   border-block-end: 0;
+}
+
+:root:not([customtitlebar]) .titlebar-buttonbox-container {
+  visibility: collapse;
 }
 
 :root:not([sizemode="maximized"]) .titlebar-restore,
@@ -79,8 +91,8 @@ hr {
 }
 
 :root[lwtheme]:not([customtitlebar]) #navigation-toolbox {
-  color: var(--toolbar-color, inherit);
-  background-color: var(--toolbar-bgcolor);
+  color: var(--toolbar-text-color, inherit);
+  background-color: var(--toolbar-background-color);
 }
 
 /* When a theme defines both theme_frame and additional_backgrounds, show
@@ -169,8 +181,8 @@ treechildren::-moz-tree-twisty(selected, focus) {
 :root[lwt-tree] {
   & tree,
   & #folderPaneHeader {
-    background-color: var(--sidebar-background-color);
-    color: var(--sidebar-text-color);
+    background-color: var(--sidebar-background);
+    color: var(--sidebar-color);
   }
 
   & treechildren::-moz-tree-row(current, focus) {
@@ -185,27 +197,27 @@ treechildren::-moz-tree-twisty(selected, focus) {
   & treechildren::-moz-tree-image,
   & #threadTree treechildren::-moz-tree-cell-text(untagged),
   & tree:not(#threadTree) treechildren::-moz-tree-cell-text {
-    color: var(--sidebar-text-color);
+    color: var(--sidebar-color);
   }
 
   & treechildren::-moz-tree-image(selected),
   & #threadTree treechildren::-moz-tree-cell-text(untagged, selected),
   & tree:not(#threadTree) treechildren::-moz-tree-cell-text(selected) {
-    color: var(--sidebar-highlight-text-color, var(--sidebar-text-color));
+    color: var(--sidebar-highlight-text-color, var(--sidebar-color));
   }
 
   & tree:not(:focus) treechildren::-moz-tree-image(selected),
   & #threadTree:not(:focus) treechildren::-moz-tree-cell-text(untagged, selected),
   & tree:not(#threadTree, :focus) treechildren::-moz-tree-cell-text(selected) {
-    color: var(--sidebar-text-color);
+    color: var(--sidebar-color);
   }
 
   & treechildren::-moz-tree-line {
-    border-color: var(--sidebar-text-color);
+    border-color: var(--sidebar-color);
   }
 
   & treechildren::-moz-tree-line(selected, focus) {
-    border-color: var(--sidebar-highlight-text-color, var(--sidebar-text-color));
+    border-color: var(--sidebar-highlight-text-color, var(--sidebar-color));
   }
 
   & .statuspanel-label {
@@ -247,12 +259,12 @@ tree > treechildren::-moz-tree-image(primary, dropOn) {
     appearance: none;
     color: inherit;
     background-color: transparent;
-    border-inline-start-color: var(--splitter-color);
-    box-shadow: inset 0 -1px var(--splitter-color);
+    border-inline-start-color: var(--sidebar-border);
+    box-shadow: inset 0 -1px var(--sidebar-border);
   }
 
   & treecolpicker {
-    border-inline-start-color: var(--splitter-color);
+    border-inline-start-color: var(--sidebar-border);
   }
 
   & treecol:hover,
@@ -304,7 +316,7 @@ toolbar[customizing="true"][collapsed] {
   &:not([disabled]):is(:hover, [open="true"]) > .toolbarbutton-menubutton-button,
   &:not([disabled]):hover > .toolbarbutton-menubutton-dropmarker,
   &:not([is="toolbarbutton-menu-button"], [disabled], [checked], [open="true"], :active):hover {
-    background-color: var(--toolbarbutton-hover-background);
+    background-color: var(--toolbarbutton-background-color-hover);
     border-color: var(--toolbarbutton-hover-bordercolor);
     box-shadow: var(--toolbarbutton-hover-boxshadow);
   }
@@ -322,7 +334,7 @@ toolbar[customizing="true"][collapsed] {
   &:not([is="toolbarbutton-menu-button"], [disabled])[open="true"],
   & > .toolbarbutton-menubutton-button:not([disabled]):hover:active,
   &[open="true"] > .toolbarbutton-menubutton-dropmarker:not([disabled]) {
-    background-color: var(--toolbarbutton-active-background) !important;
+    background-color: var(--toolbarbutton-background-color-active) !important;
   }
 
   &[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-button {
@@ -504,8 +516,8 @@ menubar {
 }
 
 #mail-menubar > menu[_moz-menuactive="true"]:not([disabled]) {
-  background-color: light-dark(hsla(0, 0%, 0%, 0.12), hsla(0, 0%, 100%, 0.22));
   color: inherit;
+  background-color: var(--panel-background-color-dimmed);
 }
 
 menulist {
@@ -514,7 +526,7 @@ menulist {
   color: var(--button-text-color);
   border: 1px solid var(--toolbarbutton-hover-bordercolor);
   border-radius: var(--button-border-radius);
-  background-color: var(--toolbarbutton-hover-background);
+  background-color: var(--toolbarbutton-background-color-hover);
   box-shadow: var(--toolbarbutton-hover-boxshadow);
   transition-property: background-color, border-color, box-shadow;
   transition-duration: 150ms;
@@ -526,16 +538,16 @@ menulist {
   /* Override the not existing rule in menu.css */
   &[disabled]:hover,
   &[open="true"]:hover {
-    background-color: var(--toolbarbutton-hover-background);
+    background-color: var(--toolbarbutton-background-color-hover);
   }
 
   &:not([disabled], [open="true"]):hover {
-    background-color: var(--toolbarbutton-active-background);
+    background-color: var(--toolbarbutton-background-color-active);
     border-color: var(--toolbarbutton-active-bordercolor);
   }
 
   &[open="true"] {
-    background-color: var(--toolbarbutton-active-background);
+    background-color: var(--toolbarbutton-background-color-active);
     border-color: var(--toolbarbutton-active-bordercolor);
     box-shadow: var(--toolbarbutton-active-boxshadow);
   }
@@ -636,6 +648,18 @@ img.invisible-on-broken:-moz-broken {
   block-size: auto;
   border-style: none;
   border-radius: 0;
+}
+
+/* Global notification popup */
+
+#notification-popup {
+  --panel-padding: 8px;
+  margin-block: 0;
+
+  &::part(content) {
+    padding: 0;
+    overflow: hidden; /* Don't let panel content overflow the border */
+  }
 }
 
 #notification-popup-box {
@@ -772,7 +796,7 @@ html|ul.addon-installed-list {
     margin-inline: 1px;
     padding: 0;
 
-    &:before {
+    &::before {
       display: none;
     }
   }
@@ -896,7 +920,7 @@ statuspanel {
 
 .statusbar {
   background-color: var(--layout-background-1);
-  border-block-start: 1px solid var(--splitter-color);
+  border-block-start: 1px solid var(--sidebar-border);
   min-block-size: 22px;
 }
 
@@ -940,7 +964,7 @@ label.statusbarpanel {
 
   &::-moz-progress-bar {
     appearance: none;
-    background-color: var(--primary);
+    background-color: var(--selected-item-color);
     border-radius: 2px;
   }
 
@@ -1062,13 +1086,13 @@ label.statusbarpanel {
 }
 
 findbar {
-  background-color: var(--toolbar-bgcolor);
-  color: var(--toolbar-color);
+  background-color: var(--toolbar-background-color);
+  color: var(--toolbar-text-color);
   border-block-start-color: var(--chrome-content-separator-color, ThreeDShadow);
 
   :root[lwtheme] & {
     background-color: var(--lwt-accent-color);
-    background-image: linear-gradient(var(--toolbar-bgcolor), var(--toolbar-bgcolor)), var(--lwt-additional-images);
+    background-image: linear-gradient(var(--toolbar-background-color), var(--toolbar-background-color)), var(--lwt-additional-images);
     background-repeat: no-repeat, var(--lwt-background-tiling);
     background-position:
       right bottom,
@@ -1077,7 +1101,7 @@ findbar {
   }
 
   :root[lwtheme-image] & {
-    background-image: linear-gradient(var(--toolbar-bgcolor), var(--toolbar-bgcolor)), var(--lwt-header-image), var(--lwt-additional-images);
+    background-image: linear-gradient(var(--toolbar-background-color), var(--toolbar-background-color)), var(--lwt-header-image), var(--lwt-additional-images);
     background-repeat: no-repeat, no-repeat, var(--lwt-background-tiling);
     background-position:
       center,
@@ -1090,7 +1114,7 @@ findbar {
 #messagepanebox > findbar {
   color: var(--layout-color-1);
   background-color: var(--layout-background-1);
-  border-block-start-color: var(--splitter-color);
+  border-block-start-color: var(--sidebar-border);
 
   & > .findbar-container {
     min-inline-size: 100px;
@@ -1119,11 +1143,11 @@ findbar {
   }
 
   &:not([disabled], [open], :active):is(:hover, :focus-visible) {
-    background-color: var(--arrowpanel-dimmed);
+    background-color: var(--panel-background-color-dimmed);
   }
 
   &:not([disabled]):is([open], :hover:active) {
-    background-color: var(--arrowpanel-dimmed-further);
+    background-color: var(--panel-background-color-dimmed-further);
     box-shadow: 0 1px 0 hsla(210, 4%, 10%, 0.03) inset;
   }
 
@@ -1382,12 +1406,12 @@ panel[type="arrow"].panel-block-padding::part(content) {
 
   &:not([disabled]):hover {
     color: var(--button-text-color-hover);
-    background-color: var(--button-background-color-hover);
+    background-color: var(--button-hover-background-color);
 
     &:active {
       border-color: var(--button-border-color-active);
       color: var(--button-text-color-active);
-      background-color: var(--button-background-color-active);
+      background-color: var(--button-active-background-color);
     }
   }
 
@@ -1444,11 +1468,11 @@ panel[type="arrow"].panel-block-padding::part(content) {
 
     &:hover,
     & > toolbarbutton:hover {
-      background-color: var(--button-background-color-hover);
+      background-color: var(--button-hover-background-color);
       color: var(--button-text-color-hover);
 
       &:active {
-        background-color: var(--button-background-color-active);
+        background-color: var(--button-active-background-color);
         color: var(--button-text-color-active);
         border-color: var(--button-border-color-active);
       }

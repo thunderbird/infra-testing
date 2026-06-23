@@ -1,5 +1,4 @@
-/* -*- Mode: Javascript; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
@@ -24,6 +23,10 @@ var gSystemIntegrationDialog = {
 
   _rssCheckbox: null,
 
+  _calendarCheckbox: null,
+
+  _netThunderbirdCheckbox: null,
+
   _startupCheckbox: null,
 
   _searchCheckbox: null,
@@ -34,6 +37,9 @@ var gSystemIntegrationDialog = {
     this._newsCheckbox = document.getElementById("checkNews");
     this._rssCheckbox = document.getElementById("checkRSS");
     this._calendarCheckbox = document.getElementById("checkCalendar");
+    this._netThunderbirdCheckbox = document.getElementById(
+      "checkNetThunderbird"
+    );
     this._startupCheckbox = document.getElementById("checkOnStartup");
     this._searchCheckbox = document.getElementById("searchIntegration");
 
@@ -80,6 +86,19 @@ var gSystemIntegrationDialog = {
 
     this._calendarCheckbox.checked = this._calendarCheckbox.disabled =
       this._shellSvc.isDefaultClient(false, this._shellSvc.CALENDAR);
+    if (!this._calendarCheckbox.disabled) {
+      this._calendarCheckbox.removeAttribute("tooltiptext");
+    }
+
+    this._netThunderbirdCheckbox.disabled = this._shellSvc.isDefaultClient(
+      false,
+      this._shellSvc.NET_THUNDERBIRD
+    );
+    this._netThunderbirdCheckbox.checked =
+      !calledFromPrefs || this._netThunderbirdCheckbox.disabled;
+    if (!this._netThunderbirdCheckbox.disabled) {
+      this._netThunderbirdCheckbox.removeAttribute("tooltiptext");
+    }
 
     // read the raw pref value and not shellSvc.shouldCheckDefaultMail
     this._startupCheckbox.checked = Services.prefs.getBoolPref(
@@ -168,6 +187,13 @@ var gSystemIntegrationDialog = {
       !this._shellSvc.isDefaultClient(false, this._shellSvc.CALENDAR)
     ) {
       appTypes |= this._shellSvc.CALENDAR;
+    }
+
+    if (
+      this._netThunderbirdCheckbox.checked &&
+      !this._shellSvc.isDefaultClient(false, this._shellSvc.NET_THUNDERBIRD)
+    ) {
+      appTypes |= this._shellSvc.NET_THUNDERBIRD;
     }
 
     if (appTypes) {

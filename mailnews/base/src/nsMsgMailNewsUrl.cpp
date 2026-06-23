@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -6,22 +5,17 @@
 #include "msgCore.h"
 #include "nsMsgMailNewsUrl.h"
 #include "nsIMsgAccountManager.h"
-#include "nsIMsgStatusFeedback.h"
+#include "nsIFeedbackService.h"
 #include "nsIMsgWindow.h"
 #include "nsString.h"
 #include "nsILoadGroup.h"
 #include "nsIDocShell.h"
-#include "nsIWebProgress.h"
 #include "nsIWebProgressListener.h"
-#include "nsIInterfaceRequestorUtils.h"
 #include "nsIIOService.h"
 #include "nsNetCID.h"
 #include "nsIStreamListener.h"
-#include "nsIOutputStream.h"
-#include "nsIInputStream.h"
 #include "nsNetUtil.h"
 #include "nsIFile.h"
-#include "prmem.h"
 #include <time.h>
 #include "nsMsgUtils.h"
 #include "mozilla/Components.h"
@@ -87,6 +81,8 @@ NS_INTERFACE_MAP_BEGIN(nsMsgMailNewsUrl)
   NS_INTERFACE_MAP_ENTRY(nsIURL)
   NS_INTERFACE_MAP_ENTRY(nsIURI)
   NS_INTERFACE_MAP_ENTRY(nsISerializable)
+  NS_INTERFACE_MAP_ENTRY(nsIIPCSerializableURI)
+  NS_INTERFACE_MAP_ENTRY(nsIURIWithSizeOf)
   NS_INTERFACE_MAP_ENTRY(nsIClassInfo)
   NS_INTERFACE_MAP_ENTRY_CONDITIONAL(nsIURIWithSpecialOrigin,
                                      m_hasNormalizedOrigin)
@@ -100,9 +96,9 @@ NS_INTERFACE_MAP_END
 // cause problems in the future. See bug 1512356 and bug 1515337 for details,
 // follow-up in bug 1512698.
 
-NS_IMETHODIMP_(void)
-nsMsgMailNewsUrl::Serialize(mozilla::ipc::URIParams& aParams) {
-  m_baseURL->Serialize(aParams);
+void nsMsgMailNewsUrl::Serialize(mozilla::ipc::URIParams& aParams) {
+  nsCOMPtr<nsIIPCSerializableURI> serializable = do_QueryInterface(m_baseURL);
+  serializable->Serialize(aParams);
 }
 
 //----------------------------
@@ -214,16 +210,16 @@ nsresult nsMsgMailNewsUrl::SetUrlState(bool aRunningUrl, nsresult aExitCode) {
     return NS_OK;
   }
   m_runningUrl = aRunningUrl;
-  nsCOMPtr<nsIMsgStatusFeedback> statusFeedback;
 
-  // put this back - we need it for urls that don't run through the doc loader
-  if (NS_SUCCEEDED(GetStatusFeedback(getter_AddRefs(statusFeedback))) &&
-      statusFeedback) {
-    if (m_runningUrl)
-      statusFeedback->StartMeteors();
-    else {
-      statusFeedback->ShowProgress(0);
-      statusFeedback->StopMeteors();
+  // We need it for urls that don't run through the doc loader.
+  nsCOMPtr<nsIFeedbackService> feedback =
+      mozilla::components::Feedback::Service();
+  if (feedback) {
+    if (m_runningUrl) {
+      feedback->ReportStatus(""_ns, "start-meteors"_ns);
+    } else {
+      feedback->ReportProgress(0);
+      feedback->ReportStatus(""_ns, "stop-meteors"_ns);
     }
   }
 
@@ -277,9 +273,13 @@ NS_IMETHODIMP nsMsgMailNewsUrl::GetServer(
   nsAutoCString scheme;
   rv = GetScheme(scheme);
   if (NS_SUCCEEDED(rv)) {
-    if (scheme.EqualsLiteral("pop")) scheme.AssignLiteral("pop3");
-    // we use "nntp" in the server list so translate it here.
-    if (scheme.EqualsLiteral("news")) scheme.AssignLiteral("nntp");
+    if (scheme.EqualsLiteral("pop")) {
+      scheme.AssignLiteral("pop3");
+    }
+    // we use "nntp" in the server list so translate news/snews here.
+    if (scheme.EqualsLiteral("news") || scheme.EqualsLiteral("snews")) {
+      scheme.AssignLiteral("nntp");
+    }
     rv = NS_MutateURI(url).SetScheme(scheme).Finalize(url);
     NS_ENSURE_SUCCESS(rv, rv);
     nsCOMPtr<nsIMsgAccountManager> accountManager =
@@ -294,6 +294,12 @@ NS_IMETHODIMP nsMsgMailNewsUrl::GetServer(
       rv = NS_MutateURI(url).SetUserPass(EmptyCString()).Finalize(url);
       NS_ENSURE_SUCCESS(rv, rv);
       rv = accountManager->FindServerByURI(url, aIncomingServer);
+    }
+    // A null server is valid for news URLs — they can be opened without
+    // any configured news accounts.
+    if (!*aIncomingServer && scheme.EqualsLiteral("nntp")) {
+      *aIncomingServer = nullptr;
+      return NS_OK;
     }
   }
 
@@ -314,28 +320,6 @@ NS_IMETHODIMP nsMsgMailNewsUrl::SetMsgWindow(nsIMsgWindow* aMsgWindow) {
   return NS_OK;
 }
 
-NS_IMETHODIMP nsMsgMailNewsUrl::GetStatusFeedback(
-    nsIMsgStatusFeedback** aMsgFeedback) {
-  // note: it is okay to return a null status feedback and not return an error
-  // it's possible the url really doesn't have status feedback
-  *aMsgFeedback = nullptr;
-  if (!m_statusFeedbackWeak) {
-    nsCOMPtr<nsIMsgWindow> msgWindow(do_QueryReferent(m_msgWindowWeak));
-    if (msgWindow) msgWindow->GetStatusFeedback(aMsgFeedback);
-  } else {
-    nsCOMPtr<nsIMsgStatusFeedback> statusFeedback(
-        do_QueryReferent(m_statusFeedbackWeak));
-    statusFeedback.forget(aMsgFeedback);
-  }
-  return *aMsgFeedback ? NS_OK : NS_ERROR_NULL_POINTER;
-}
-
-NS_IMETHODIMP nsMsgMailNewsUrl::SetStatusFeedback(
-    nsIMsgStatusFeedback* aMsgFeedback) {
-  if (aMsgFeedback) m_statusFeedbackWeak = do_GetWeakReference(aMsgFeedback);
-  return NS_OK;
-}
-
 NS_IMETHODIMP nsMsgMailNewsUrl::GetMaxProgress(int64_t* aMaxProgress) {
   *aMaxProgress = mMaxProgress;
   return NS_OK;
@@ -348,22 +332,7 @@ NS_IMETHODIMP nsMsgMailNewsUrl::SetMaxProgress(int64_t aMaxProgress) {
 
 NS_IMETHODIMP nsMsgMailNewsUrl::GetLoadGroup(nsILoadGroup** aLoadGroup) {
   *aLoadGroup = nullptr;
-  // note: it is okay to return a null load group and not return an error
-  // it's possible the url really doesn't have load group
-  nsCOMPtr<nsILoadGroup> loadGroup(do_QueryReferent(m_loadGroupWeak));
-  if (!loadGroup) {
-    nsCOMPtr<nsIMsgWindow> msgWindow(do_QueryReferent(m_msgWindowWeak));
-    if (msgWindow) {
-      // XXXbz This is really weird... why are we getting some
-      // random loadgroup we're not really a part of?
-      nsCOMPtr<nsIDocShell> docShell;
-      msgWindow->GetRootDocShell(getter_AddRefs(docShell));
-      loadGroup = do_GetInterface(docShell);
-      m_loadGroupWeak = do_GetWeakReference(loadGroup);
-    }
-  }
-  loadGroup.forget(aLoadGroup);
-  return *aLoadGroup ? NS_OK : NS_ERROR_NULL_POINTER;
+  return NS_ERROR_NULL_POINTER;
 }
 
 NS_IMETHODIMP nsMsgMailNewsUrl::GetUpdatingFolder(bool* aResult) {
@@ -458,26 +427,27 @@ NS_IMETHODIMP nsMsgMailNewsUrl::GetSearchSession(
 // Begin nsIURI support
 ////////////////////////////////////////////////////////////////////////////////////
 
-// For '[s]news:' URIs independent of a specific server,
-// nsNntpUrl::SetSpecInternal had to add three slashes to have them parsed
-// correctly by nsStandardURL. This restores the correct format, see also
-// https://datatracker.ietf.org/doc/html/rfc5538#section-4.
-void unmungeNewsURL(nsACString& aSpec) {
-  if (aSpec.Length() < 8) {
-    return;
-  }
-  int32_t colon = aSpec.Find(":");
-  if (Substring(aSpec, colon - 4, 8).EqualsLiteral("news:///")) {
-    aSpec.Cut(colon + 1, 3);
+// Authority-less [s]news: URIs get extra slashes inserted in
+// SetSpecInternal() so nsStandardURL can parse them. Remove them here.
+static void unmungeNewsURL(nsACString& aSpec) {
+  if (StringBeginsWith(aSpec, "news:///"_ns)) {
+    aSpec.Cut(5, 3);
+  } else if (StringBeginsWith(aSpec, "snews:///"_ns)) {
+    aSpec.Cut(6, 3);
   }
 }
 
 NS_IMETHODIMP nsMsgMailNewsUrl::GetSpec(nsACString& aSpec) {
   nsresult rv = m_baseURL->GetSpec(aSpec);
   NS_ENSURE_SUCCESS(rv, rv);
-
   unmungeNewsURL(aSpec);
   return NS_OK;
+}
+
+uint32_t nsMsgMailNewsUrl::SpecHash() {
+  nsAutoCString spec;
+  (void)GetSpec(spec);
+  return CachedSpecHash(spec);
 }
 
 nsresult nsMsgMailNewsUrl::CreateURL(const nsACString& aSpec, nsIURL** aURL) {
@@ -490,26 +460,40 @@ nsresult nsMsgMailNewsUrl::CreateURL(const nsACString& aSpec, nsIURL** aURL) {
   return NS_OK;
 }
 
-#define FILENAME_PART_LEN 10
-
 nsresult nsMsgMailNewsUrl::SetSpecInternal(const nsACString& aSpec) {
-  nsAutoCString spec(aSpec);
+  nsAutoCString lowerSpec(aSpec);
+  ToLowerCase(lowerSpec);
+
   // Parse out "filename" attribute if present.
-  char *start, *end;
-  start = PL_strcasestr(spec.BeginWriting(), "?filename=");
-  if (!start) start = PL_strcasestr(spec.BeginWriting(), "&filename=");
-  if (start) {  // Make sure we only get our own value.
-    end = PL_strcasestr((char*)(start + FILENAME_PART_LEN), "&");
-    if (end) {
-      *end = 0;
-      mAttachmentFileName = start + FILENAME_PART_LEN;
-      *end = '&';
-    } else
-      mAttachmentFileName = start + FILENAME_PART_LEN;
+  int32_t filenamePos = lowerSpec.Find("?filename="_ns);
+  if (filenamePos == kNotFound) {
+    filenamePos = lowerSpec.Find("&filename="_ns);
+  }
+  if (filenamePos != kNotFound) {
+    int32_t valuePos = filenamePos + 10;
+    int32_t endPos = lowerSpec.FindChar('&', valuePos);
+    if (endPos != kNotFound) {
+      mAttachmentFileName = Substring(aSpec, valuePos, endPos - valuePos);
+    } else {
+      mAttachmentFileName = Substring(aSpec, valuePos);
+    }
   }
 
-  // Now, set the rest.
-  nsresult rv = CreateURL(aSpec, getter_AddRefs(m_baseURL));
+  // For authority-less [s]news: URIs, insert three slashes so that
+  // nsStandardURL can parse them with an empty authority component.
+  // The extra slashes are removed in GetSpec() / GetDisplaySpec().
+  // See RFC 5538 section 4.
+  nsAutoCString parseSpec(aSpec);
+  // Use the lowercased copy for case-insensitive scheme matching.
+  if (StringBeginsWith(lowerSpec, "news:"_ns) && lowerSpec.Length() > 5 &&
+      aSpec[5] != '/') {
+    parseSpec.Insert("///", 5);
+  } else if (StringBeginsWith(lowerSpec, "snews:"_ns) &&
+             lowerSpec.Length() > 6 && aSpec[6] != '/') {
+    parseSpec.Insert("///", 6);
+  }
+
+  nsresult rv = CreateURL(parseSpec, getter_AddRefs(m_baseURL));
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Check whether the URL is in normalized form.
@@ -518,11 +502,9 @@ nsresult nsMsgMailNewsUrl::SetSpecInternal(const nsACString& aSpec) {
 
   nsAutoCString normalizedSpec;
   if (!msgUrl || NS_FAILED(msgUrl->GetNormalizedSpec(normalizedSpec))) {
-    // If we can't get the normalized spec, never QI this to
-    // nsIURIWithSpecialOrigin.
     m_hasNormalizedOrigin = false;
   } else {
-    m_hasNormalizedOrigin = !spec.Equals(normalizedSpec);
+    m_hasNormalizedOrigin = !aSpec.Equals(normalizedSpec);
   }
   return NS_OK;
 }
@@ -648,7 +630,6 @@ NS_IMETHODIMP
 nsMsgMailNewsUrl::GetDisplaySpec(nsACString& aUnicodeSpec) {
   nsresult rv = m_baseURL->GetDisplaySpec(aUnicodeSpec);
   NS_ENSURE_SUCCESS(rv, rv);
-
   unmungeNewsURL(aUnicodeSpec);
   return NS_OK;
 }

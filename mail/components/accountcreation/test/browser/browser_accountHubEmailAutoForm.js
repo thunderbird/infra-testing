@@ -82,7 +82,7 @@ add_task(async function test_resetState() {
 
 add_task(async function test_checkValidEmailForm() {
   subview.setState();
-  EventUtils.synthesizeMouseAtCenter(email, {}, subview.ownerGlobal);
+  EventUtils.synthesizeMouseAtCenter(email, {}, subview.documentGlobal);
   // Windows 64 bit test builds need focus to be called on the input for
   // tests to pass.
   email.focus();
@@ -199,8 +199,33 @@ add_task(async function test_manualConfigEvent() {
   EventUtils.synthesizeMouseAtCenter(
     manualConfigButton,
     {},
-    subview.ownerGlobal
+    subview.documentGlobal
   );
 
   await editConfigurationEvent;
+});
+
+add_task(async function test_thundermailSignin() {
+  Assert.ok(
+    BrowserTestUtils.isHidden(
+      subview.querySelector(".account-hub-thundermail-header")
+    ),
+    "The Thundermail signin button should be hidden by default"
+  );
+
+  await SpecialPowers.pushPrefEnv({
+    set: [["mail.accounthub.thundermail.enabled", true]],
+  });
+
+  const newForm =
+    browser.contentWindow.document.createElement("email-auto-form");
+
+  browser.contentWindow.document.body.appendChild(newForm);
+
+  Assert.ok(
+    BrowserTestUtils.isVisible(newForm),
+    "The Thundermail signin button should be visible when mail.accounthub.thundermail.enabled is true"
+  );
+
+  newForm.remove();
 });

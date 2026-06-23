@@ -24,6 +24,7 @@
 
 var { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
 var { openLinkExternally } = ChromeUtils.importESModule("resource:///modules/LinkHelper.sys.mjs");
+var { makeMozIconSrcSet } = ChromeUtils.importESModule("resource:///modules/MozIconUtils.mjs");
 var {
   recurrenceRule2String,
   splitRecurrenceRules,
@@ -37,6 +38,7 @@ ChromeUtils.defineESModuleGetters(this, {
   CalAttachment: "resource:///modules/CalAttachment.sys.mjs",
   CalAttendee: "resource:///modules/CalAttendee.sys.mjs",
   CalRecurrenceInfo: "resource:///modules/CalRecurrenceInfo.sys.mjs",
+  CalRecurrenceRule: "resource:///modules/CalRecurrenceRule.sys.mjs",
 });
 
 window.addEventListener("load", onLoad);
@@ -622,9 +624,7 @@ function loadDialog(aItem) {
   }
 
   // URL link
-  const itemUrl = window.calendarItem.getProperty("URL")?.trim() || "";
-  const showLink = showOrHideItemURL(itemUrl);
-  updateItemURL(showLink, itemUrl);
+  updateItemURL(window.calendarItem.getProperty("URL")?.trim());
 
   // Description
   const editorElement = document.getElementById("item-description");
@@ -799,14 +799,9 @@ function changeUndiscloseCheckboxStatus() {
  * @param {calIItemBase} aItem - The item to load into the category panel.
  */
 function loadCategories(aItem) {
-  const itemCategories = aItem.getCategories();
-  const categoryList = cal.category.fromPrefs();
-  for (const cat of itemCategories) {
-    if (!categoryList.includes(cat)) {
-      categoryList.push(cat);
-    }
-  }
-  cal.l10n.sortArrayByLocaleCollator(categoryList);
+  const categoryList = [...new Set([...cal.category.fromPrefs(), ...aItem.getCategories()])].sort(
+    new Intl.Collator().compare
+  );
 
   // Make sure the maximum number of categories is applied to the listbox
   const calendar = getCurrentCalendar();
@@ -818,23 +813,23 @@ function loadCategories(aItem) {
     item.setAttribute("class", "menuitem-iconic");
     document.l10n.setAttributes(item, "calendar-none");
     item.setAttribute("type", "radio");
-    if (itemCategories.length === 0) {
+    if (aItem.getCategories().length === 0) {
       item.toggleAttribute("checked", true);
     }
     categoryPopup.appendChild(item);
   }
   for (const cat of categoryList) {
-    const item = document.createXULElement("menuitem");
-    item.setAttribute("class", "menuitem-iconic calendar-category");
-    item.setAttribute("label", cat);
-    item.setAttribute("value", cat);
-    item.setAttribute("type", maxCount === null || maxCount > 1 ? "checkbox" : "radio");
-    if (itemCategories.includes(cat)) {
-      item.toggleAttribute("checked", true);
+    const menuitem = document.createXULElement("menuitem");
+    menuitem.setAttribute("class", "menuitem-iconic calendar-category");
+    menuitem.setAttribute("label", cat);
+    menuitem.setAttribute("value", cat);
+    menuitem.setAttribute("type", maxCount === null || maxCount > 1 ? "checkbox" : "radio");
+    if (aItem.getCategories().includes(cat)) {
+      menuitem.toggleAttribute("checked", true);
     }
     const cssSafeId = cal.view.formatStringForCSSRule(cat);
-    item.style.setProperty("--item-color", `var(--category-${cssSafeId}-color)`);
-    categoryPopup.appendChild(item);
+    menuitem.style.setProperty("--item-color", `var(--category-${cssSafeId}-color)`);
+    categoryPopup.appendChild(menuitem);
   }
 
   updateCategoryMenulist();
@@ -1162,9 +1157,13 @@ function dateTimeControls2State(aStartDatepicker) {
   }
 
   if (allDay) {
-    gStartTime.isDate = true;
-    gEndTime.isDate = true;
-    gItemDuration = gEndTime.subtractDate(gStartTime);
+    if (gStartTime) {
+      gStartTime.isDate = true;
+    }
+    if (gEndTime) {
+      gEndTime.isDate = true;
+    }
+    gItemDuration = gStartTime && gEndTime ? gEndTime.subtractDate(gStartTime) : null;
   }
 
   // calculate the new duration of start/end-time.
@@ -1292,7 +1291,12 @@ function updateDateCheckboxes(aDatePickerId, aCheckboxId, aDateTime) {
 
   // first of all disable the datetime picker if we don't have a date
   const hasDate = document.getElementById(aCheckboxId).checked;
+  const allDay = document.getElementById("event-all-day").checked;
   datePicker.toggleAttribute("disabled", !hasDate);
+  if (allDay) {
+    // Reapply the all-day state after toggling the date picker disabled state.
+    datePicker.toggleAttribute("timepickerdisabled", true);
+  }
 
   // create a new datetime object if date is now checked for the first time
   if (hasDate && !aDateTime.isValid()) {
@@ -1300,6 +1304,7 @@ function updateDateCheckboxes(aDatePickerId, aCheckboxId, aDateTime) {
       document.getElementById(aDatePickerId).value,
       cal.dtz.defaultTimezone
     );
+    date.isDate = allDay;
     aDateTime.setDateTime(date);
   } else if (!hasDate && aDateTime.isValid()) {
     aDateTime.setDateTime(null);
@@ -1317,7 +1322,6 @@ function updateDateCheckboxes(aDatePickerId, aCheckboxId, aDateTime) {
   }
   document.getElementById("keepduration-button").disabled = !(hasEntryDate && hasDueDate);
   updateDateTime();
-  updateTimezone();
 }
 
 /**
@@ -1359,8 +1363,8 @@ function getRepeatTypeAndUntilDate() {
       }
     }
     if (rules.length == 1) {
-      const rule = rules[0]?.QueryInterface(Ci.calIRecurrenceRule);
-      if (rule) {
+      const rule = rules[0];
+      if (rule instanceof CalRecurrenceRule || rule instanceof Ci.calIRecurrenceRule) {
         switch (rule.type) {
           case "DAILY": {
             const byparts = [
@@ -1649,8 +1653,17 @@ function saveDateTime(item) {
     cal.item.setItemProperty(item, "endDate", endTime);
   }
   if (item.isTodo()) {
-    const startTime = gStartTime && gStartTime.getInTimezone(gStartTimezone);
-    const endTime = gEndTime && gEndTime.getInTimezone(gEndTimezone);
+    const isAllDay = document.getElementById("event-all-day").checked;
+    let startTime = gStartTime && gStartTime.getInTimezone(gStartTimezone);
+    let endTime = gEndTime && gEndTime.getInTimezone(gEndTimezone);
+    if (startTime) {
+      startTime = startTime.clone();
+      startTime.isDate = isAllDay;
+    }
+    if (endTime) {
+      endTime = endTime.clone();
+      endTime.isDate = isAllDay;
+    }
     cal.item.setItemProperty(item, "entryDate", startTime);
     cal.item.setItemProperty(item, "dueDate", endTime);
   }
@@ -1749,9 +1762,9 @@ function updateAccept() {
     startDate = startDate.getInTimezone(kDefaultTimezone);
     endDate = endDate.getInTimezone(kDefaultTimezone);
 
-    // For all-day events we are not interested in times and compare only
+    // For all-day items we are not interested in times and compare only
     // dates.
-    if (isEvent && document.getElementById("event-all-day").checked) {
+    if (document.getElementById("event-all-day").checked) {
       // jsDateToDateTime returns the values in UTC. Depending on the
       // local timezone and the values selected in datetimepicker the date
       // in UTC might be shifted to the previous or next day.
@@ -1798,58 +1811,100 @@ var gOldEndTimezone = null;
  * day" checkbox being clicked.
  */
 function onUpdateAllDay() {
-  if (!window.calendarItem.isEvent()) {
-    return;
-  }
+  const item = window.calendarItem;
   const allDay = document.getElementById("event-all-day").checked;
   const kDefaultTimezone = cal.dtz.defaultTimezone;
 
-  if (allDay) {
-    // Store date-times and related timezones so we can restore
-    // if the user unchecks the "all day" checkbox.
-    gOldStartTime = gStartTime.clone();
-    gOldEndTime = gEndTime.clone();
-    gOldStartTimezone = gStartTimezone;
-    gOldEndTimezone = gEndTimezone;
-    // When events that end at 0:00 become all-day events, we need to
-    // subtract a day from the end date because the real end is midnight.
-    if (gEndTime.hour == 0 && gEndTime.minute == 0) {
-      const tempStartTime = gStartTime.clone();
-      const tempEndTime = gEndTime.clone();
-      tempStartTime.isDate = true;
-      tempEndTime.isDate = true;
-      tempStartTime.day++;
-      if (tempEndTime.compare(tempStartTime) >= 0) {
-        gEndTime.day--;
+  if (item.isEvent()) {
+    if (allDay) {
+      // Store date-times and related timezones so we can restore
+      // if the user unchecks the "all day" checkbox.
+      gOldStartTime = gStartTime.clone();
+      gOldEndTime = gEndTime.clone();
+      gOldStartTimezone = gStartTimezone;
+      gOldEndTimezone = gEndTimezone;
+      // When events that end at 0:00 become all-day events, we need to
+      // subtract a day from the end date because the real end is midnight.
+      if (gEndTime.hour == 0 && gEndTime.minute == 0) {
+        const tempStartTime = gStartTime.clone();
+        const tempEndTime = gEndTime.clone();
+        tempStartTime.isDate = true;
+        tempEndTime.isDate = true;
+        tempStartTime.day++;
+        if (tempEndTime.compare(tempStartTime) >= 0) {
+          gEndTime.day--;
+        }
+      }
+    } else {
+      gStartTime.isDate = false;
+      gEndTime.isDate = false;
+      if (!gOldStartTime && !gOldEndTime) {
+        // The checkbox has been unchecked for the first time, the event
+        // was an "All day" type, so we have to set default values.
+        gStartTime.hour = cal.dtz.getDefaultStartDate(window.initialStartDateValue).hour;
+        gEndTime.hour = gStartTime.hour;
+        gEndTime.minute += Services.prefs.getIntPref("calendar.event.defaultlength", 60);
+        gOldStartTimezone = kDefaultTimezone;
+        gOldEndTimezone = kDefaultTimezone;
+      } else {
+        // Restore date-times previously stored.
+        gStartTime.hour = gOldStartTime.hour;
+        gStartTime.minute = gOldStartTime.minute;
+        gEndTime.hour = gOldEndTime.hour;
+        gEndTime.minute = gOldEndTime.minute;
+        // When we restore 0:00 as end time, we need to add one day to
+        // the end date in order to include the last day until midnight.
+        if (gEndTime.hour == 0 && gEndTime.minute == 0) {
+          gEndTime.day++;
+        }
       }
     }
+  } else if (allDay) {
+    gOldStartTime = gStartTime && gStartTime.clone();
+    gOldEndTime = gEndTime && gEndTime.clone();
+    gOldStartTimezone = gStartTimezone;
+    gOldEndTimezone = gEndTimezone;
   } else {
-    gStartTime.isDate = false;
-    gEndTime.isDate = false;
-    if (!gOldStartTime && !gOldEndTime) {
-      // The checkbox has been unchecked for the first time, the event
-      // was an "All day" type, so we have to set default values.
-      gStartTime.hour = cal.dtz.getDefaultStartDate(window.initialStartDateValue).hour;
-      gEndTime.hour = gStartTime.hour;
-      gEndTime.minute += Services.prefs.getIntPref("calendar.event.defaultlength", 60);
-      gOldStartTimezone = kDefaultTimezone;
-      gOldEndTimezone = kDefaultTimezone;
-    } else {
-      // Restore date-times previously stored.
-      gStartTime.hour = gOldStartTime.hour;
-      gStartTime.minute = gOldStartTime.minute;
-      gEndTime.hour = gOldEndTime.hour;
-      gEndTime.minute = gOldEndTime.minute;
-      // When we restore 0:00 as end time, we need to add one day to
-      // the end date in order to include the last day until midnight.
-      if (gEndTime.hour == 0 && gEndTime.minute == 0) {
-        gEndTime.day++;
+    // We can't share this with the event block: Tasks start/end dates are optional
+    // and per RFC 5545, DTEND is non-inclusive while DUE is understood to be
+    // inclusive, which requires different behaviour when converting from all-day.
+    const defaultStartDate = cal.dtz.getDefaultStartDate(window.initialStartDateValue);
+    if (gStartTime) {
+      gStartTime.isDate = false;
+      if (gOldStartTime) {
+        gStartTime.hour = gOldStartTime.hour;
+        gStartTime.minute = gOldStartTime.minute;
+        gStartTimezone = gOldStartTimezone;
+      } else {
+        gStartTime.hour = defaultStartDate.hour;
+        gStartTime.minute = defaultStartDate.minute;
+        gStartTimezone = kDefaultTimezone;
+      }
+    }
+    if (gEndTime) {
+      gEndTime.isDate = false;
+      if (gOldEndTime) {
+        gEndTime.hour = gOldEndTime.hour;
+        gEndTime.minute = gOldEndTime.minute;
+        gEndTimezone = gOldEndTimezone;
+      } else {
+        gEndTime.hour = defaultStartDate.hour;
+        gEndTime.minute =
+          defaultStartDate.minute + Services.prefs.getIntPref("calendar.event.defaultlength", 60);
+        gEndTimezone = kDefaultTimezone;
       }
     }
   }
-  gStartTimezone = allDay ? cal.dtz.floating : gOldStartTimezone;
-  gEndTimezone = allDay ? cal.dtz.floating : gOldEndTimezone;
-  setShowTimeAs(allDay);
+  if (allDay) {
+    gStartTimezone = cal.dtz.floating;
+    gEndTimezone = cal.dtz.floating;
+  } else if (item.isEvent()) {
+    gStartTimezone = gOldStartTimezone;
+    gEndTimezone = gOldEndTimezone;
+  }
+  if (item.isEvent()) {
+    setShowTimeAs(allDay);
+  }
 
   updateAllDay();
 }
@@ -1858,31 +1913,36 @@ function onUpdateAllDay() {
  * This function sets the enabled/disabled state of the following controls:
  * - 'event-starttime'
  * - 'event-endtime'
+ * - 'todo-entrydate'
+ * - 'todo-duedate'
  * - 'timezone-starttime'
  * - 'timezone-endtime'
- * the state depends on whether or not the event is configured as 'all-day' or not.
+ * the state depends on whether or not the item is configured as 'all-day' or not.
  */
 function updateAllDay() {
   if (gIgnoreUpdate) {
     return;
   }
 
-  if (!window.calendarItem.isEvent()) {
-    return;
-  }
-
+  const item = window.calendarItem;
   const allDay = document.getElementById("event-all-day").checked;
-  if (allDay) {
-    document.getElementById("event-starttime").setAttribute("timepickerdisabled", true);
-    document.getElementById("event-endtime").setAttribute("timepickerdisabled", true);
+  if (item.isEvent()) {
+    for (const id of ["event-starttime", "event-endtime"]) {
+      document.getElementById(id).toggleAttribute("timepickerdisabled", allDay);
+    }
   } else {
-    document.getElementById("event-starttime").removeAttribute("timepickerdisabled");
-    document.getElementById("event-endtime").removeAttribute("timepickerdisabled");
+    for (const id of ["todo-entrydate", "todo-duedate"]) {
+      document.getElementById(id).toggleAttribute("timepickerdisabled", allDay);
+    }
   }
 
-  gStartTime.isDate = allDay;
-  gEndTime.isDate = allDay;
-  gItemDuration = gEndTime.subtractDate(gStartTime);
+  if (gStartTime) {
+    gStartTime.isDate = allDay;
+  }
+  if (gEndTime) {
+    gEndTime.isDate = allDay;
+  }
+  gItemDuration = gStartTime && gEndTime ? gEndTime.subtractDate(gStartTime) : null;
 
   updateDateTime();
   updateUntildateRecRule();
@@ -2317,16 +2377,7 @@ function addAttachment(attachment, cloudFileAccount) {
         }
       }
     } else if (attachment.uri.schemeIs("file")) {
-      image.setAttribute(
-        "srcset",
-        "moz-icon://" +
-          attachment.uri.spec +
-          "?size=16&scale=1 1x, moz-icon://" +
-          attachment.uri.spec +
-          "?size=16&scale=2 2x, moz-icon://" +
-          attachment.uri.spec +
-          "?size=16&scale=3 3x"
-      );
+      image.setAttribute("srcset", makeMozIconSrcSet(attachment.uri.spec, 16));
     } else {
       const leafName = attachment.getParameter("FILENAME");
       const cloudFileIconURL = attachment.getParameter("X-SERVICE-ICONURL");
@@ -2349,16 +2400,7 @@ function addAttachment(attachment, cloudFileAccount) {
             iconSrc = parts[parts.length - 1];
           }
         }
-        image.setAttribute(
-          "srcset",
-          "moz-icon://" +
-            iconSrc +
-            "?size=32&scale=1 1x, moz-icon://" +
-            iconSrc +
-            "?size=32&scale=2 2x, moz-icon://" +
-            iconSrc +
-            "?size=32&scale=3 3x"
-        );
+        image.setAttribute("srcset", makeMozIconSrcSet(iconSrc, 32));
       }
     }
 
@@ -3421,6 +3463,18 @@ function editTimezone(aElementId, aDateTime, aCallback) {
 }
 
 /**
+ * @param {calIDateTime | null} startTime
+ * @param {calIDateTime | null} endTime
+ */
+function updateTodoAllDayCheckbox(startTime, endTime) {
+  if (startTime || endTime) {
+    document.getElementById("event-all-day").checked = startTime
+      ? startTime.isDate
+      : endTime.isDate;
+  }
+}
+
+/**
  * This function initializes the following controls:
  * - 'event-starttime'
  * - 'event-endtime'
@@ -3477,6 +3531,7 @@ function updateDateTime() {
       let endTime = gEndTime && gEndTime.getInTimezone(gEndTimezone);
       const hasEntryDate = startTime != null;
       const hasDueDate = endTime != null;
+      updateTodoAllDayCheckbox(startTime, endTime);
 
       if (hasEntryDate && hasDueDate) {
         document.getElementById("todo-has-entrydate").checked = hasEntryDate;
@@ -3531,6 +3586,7 @@ function updateDateTime() {
       let endTime = gEndTime && gEndTime.getInTimezone(kDefaultTimezone);
       const hasEntryDate = startTime != null;
       const hasDueDate = endTime != null;
+      updateTodoAllDayCheckbox(startTime, endTime);
 
       if (hasEntryDate && hasDueDate) {
         document.getElementById("todo-has-entrydate").checked = hasEntryDate;
@@ -3659,54 +3715,26 @@ function updateAttachment() {
 }
 
 /**
- * Returns whether to show or hide the related link on the dialog
- * (rfc2445 URL property).
- *
- * @param {string} url - The url in question.
- * @returns {boolean} true for show and false for hide
- */
-function showOrHideItemURL(url) {
-  if (!url) {
-    return false;
-  }
-  let handler;
-  let uri;
-  try {
-    uri = Services.io.newURI(url);
-    handler = Services.io.getProtocolHandler(uri.scheme);
-  } catch (e) {
-    // No protocol handler for the given protocol, or invalid uri
-    // hideOrShow(false);
-    return false;
-  }
-  // Only show if its either an internal protocol handler, or its external
-  // and there is an external app for the scheme
-  return (
-    !(handler instanceof Ci.nsIExternalProtocolHandler) ||
-    handler.externalAppExistsForScheme(uri.scheme)
-  );
-}
-
-/**
  * Updates the related link on the dialog (rfc2445 URL property).
  *
- * @param {boolean} aShow - Show the link (true) or not (false).
- * @param {string} aUrl - The url.
+ * @param {?string} url - The url.
  */
-function updateItemURL(aShow, aUrl) {
+function updateItemURL(url) {
   // Hide or show the link
-  document.getElementById("event-grid-link-separator").toggleAttribute("hidden", !aShow);
-  document.getElementById("event-grid-link-row").toggleAttribute("hidden", !aShow);
+  document.getElementById("event-grid-link-separator").toggleAttribute("hidden", !url);
+  document.getElementById("event-grid-link-row").toggleAttribute("hidden", !url);
+
+  if (!url) {
+    return;
+  }
 
   // Set the url for the link
-  if (aShow && aUrl.length) {
-    setTimeout(() => {
-      // HACK the url-link doesn't crop when setting the value in onLoad
-      const label = document.getElementById("url-link");
-      label.setAttribute("value", aUrl);
-      label.setAttribute("href", aUrl);
-    }, 0);
-  }
+  setTimeout(() => {
+    // HACK the url-link doesn't crop when setting the value in onLoad
+    const label = document.getElementById("url-link");
+    label.setAttribute("value", url);
+    label.setAttribute("href", url);
+  }, 0);
 }
 
 /**

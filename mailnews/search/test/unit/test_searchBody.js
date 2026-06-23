@@ -2,9 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/*
+/**
  * This tests various body search criteria.
  */
+
+const { OpenPGPTestUtils } = ChromeUtils.importESModule(
+  "resource://testing-common/mail/OpenPGPTestUtils.sys.mjs"
+);
+const { SmimeUtils } = ChromeUtils.importESModule(
+  "resource://testing-common/mailnews/SmimeUtils.sys.mjs"
+);
+
 /* import-globals-from ../../../test/resources/searchTestUtils.js */
 load("../../../resources/searchTestUtils.js");
 
@@ -50,6 +58,7 @@ var Files = [
 
   // Bodies with non-ASCII characters in UTF-8 and other charsets.
   "../../../data/11-plaintext.eml",
+  "../../../data/11-plaintext-greek.eml", // using ISO-8859-7 (Greek)
   "../../../data/12-plaintext+attachment.eml", // using ISO-8859-7 (Greek)
   "../../../data/13-HTML.eml",
   "../../../data/14-HTML+attachment.eml",
@@ -84,6 +93,22 @@ var Files = [
   // Message using ISO-2022-JP and 7bit, but containing something that looks like quoted-printable.
   // (bug 314637).
   "../../../data/iso-2022-jp-not-qp.eml", // plaintext, has 現況 which contains =67.
+
+  // HTML with CSS blocks and various HTML entities.
+  "../../../data/html-entities-and-styles.eml",
+
+  // OpenPGP encrypted message.
+  "../../../../mail/test/browser/openpgp/data/eml/encrypted-and-signed-alice-to-bob-nonascii.eml",
+
+  // S/MIME encrypted message.
+  "../../../../mail/test/browser/smime/data/alice.env.eml",
+
+  // Bare "Content-Type: text" and missing Content-Type.
+  "../../../data/bare-text-type.eml",
+  "../../../data/no-content-type.eml",
+
+  // TODO: apparently search opaque does not work
+  //"../../../../mail/test/browser/smime/data/alice.sig.SHA256.opaque.env.eml",
 ];
 var Tests = [
   // Message basic1 has body: "Hello, world!"
@@ -125,8 +150,8 @@ var Tests = [
 
   // Messages 11 and 13 to 20 contain "hühü" once.
   { value: "hühü", op: Contains, count: 9 },
-  // Message 12 contains Καλησπέρα (good evening in Greek).
-  { value: "Καλησπέρα", op: Contains, count: 1 },
+  // Messages 11-plaintext-greek.eml and 12 contain Καλησπέρα (good evening in Greek).
+  { value: "Καλησπέρα", op: Contains, count: 2 },
 
   // Messages 16, 17, 18, 20 contain "hïhï" in the plaintext part.
   { value: "hïhï", op: Contains, count: 4 },
@@ -162,6 +187,45 @@ var Tests = [
   { value: "日本", op: Contains, count: 1 },
   { value: "=1B$BF|K", op: Contains, count: 0 },
   { value: "現況", op: Contains, count: 1 },
+
+  // Test for OpenPGP encrypted message.
+  { value: "Detta är krypterat!", Contains, count: 1 },
+
+  // Test for S/MIME encrypted messsage.
+  { value: "This is a test message from Alice to Bob", Contains, count: 1 },
+
+  // Body search should find text in messages with bare "Content-Type: text"
+  // or no Content-Type header at all.
+  { value: "waldo", op: Contains, count: 2 },
+
+  // Tests for HTML entities and style stripping.
+
+  // 1. Test for Bug 999038: CSS style blocks should be skipped.
+  // The test file contains ".header { opacity: 0.8; }" inside a <style> block.
+  { value: "city", op: Contains, count: 0 },
+  { value: "opacity", op: Contains, count: 0 },
+
+  // 2. Test for Bug 521649: Latin-1 Supplement entities should be decoded (Tier 4).
+  // The test file contains "M&uuml;nster".
+  { value: "Münster", op: Contains, count: 1 },
+
+  // 3. Test for The Big Five structural entities (Tier 3).
+  // The test file contains "AT&amp;T" and "A &lt; B".
+  { value: "AT&T", op: Contains, count: 1 },
+  { value: "A < B", op: Contains, count: 1 },
+
+  // 4. Test for Word Splitters (Tier 2).
+  // The test file contains "beauti&shy;ful" and "co&zwnj;worker".
+  // The entities should be deleted entirely, allowing the full words to match.
+  { value: "beautiful", op: Contains, count: 1 },
+  { value: "coworker", op: Contains, count: 1 },
+
+  // 5. Test for Word Mergers (Tier 1).
+  // The test file contains "Sale&nbsp;Today".
+  // The entity should become a space. Searching for the exact phrase should work,
+  // but searching for the merged word should fail.
+  { value: "Sale Today", op: Contains, count: 1 },
+  { value: "SaleToday", op: Contains, count: 0 },
 ];
 
 function fixFile(file) {
@@ -229,7 +293,32 @@ var copyListener = {
   },
 };
 
-function run_test() {
+add_setup(async function () {
+  do_get_profile();
+
+  await OpenPGPTestUtils.initOpenPGP();
+  await OpenPGPTestUtils.importPrivateKey(
+    null,
+    do_get_file(
+      `../../../../mail/test/browser/openpgp/data/keys/alice@openpgp.example-0xf231550c4f47e38e-secret.asc`
+    )
+  );
+
+  SmimeUtils.ensureNSS();
+
+  SmimeUtils.loadPEMCertificate(
+    do_get_file("../../../../mailnews/test/data/smime/TestCA.pem"),
+    Ci.nsIX509Cert.CA_CERT
+  );
+  SmimeUtils.loadCertificateAndKey(
+    do_get_file("../../../../mailnews/test/data/smime/Bob.p12"),
+    "nss"
+  );
+
+  localAccountUtils.loadLocalMailAccount();
+});
+
+add_task(async function run_tests() {
   localAccountUtils.loadLocalMailAccount();
 
   // test that validity table terms are valid
@@ -281,7 +370,7 @@ function run_test() {
 
   do_test_pending();
   copyListener.onStopCopy(null);
-}
+});
 
 // process each test from queue, calls itself upon completion of each search
 function testBodySearch() {

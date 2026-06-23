@@ -5,8 +5,11 @@
 // EDITS TO THIS FILE WILL BE OVERWRITTEN
 
 #![doc = "Provides operations to manage the user singleton.\n\nAuto-generated from [Microsoft OpenAPI metadata](https://github.com/microsoftgraph/msgraph-metadata/blob/master/openapi/v1.0/openapi.yaml) via `ms_graph_tb_extract openapi.yaml ms_graph_tb/`."]
-use crate::types::user::*;
-use crate::*;
+pub mod mail_folders;
+pub mod messages;
+use crate::odata::{ExpansionList, Selection};
+use crate::types::user::{User, UserExpand, UserSelection};
+use crate::{Error, Expand, Operation, OperationBody, Select};
 use form_urlencoded::Serializer;
 use http::method::Method;
 #[derive(Debug)]
@@ -23,70 +26,117 @@ fn format_path(template_expressions: &TemplateExpressions) -> String {
 pub struct Get {
     template_expressions: TemplateExpressions,
     selection: Selection<UserSelection>,
+    expansion: ExpansionList<UserExpand>,
 }
 impl Get {
+    #[must_use]
     pub fn new(endpoint: String) -> Self {
         Self {
             template_expressions: TemplateExpressions { endpoint },
             selection: Selection::default(),
+            expansion: ExpansionList::default(),
         }
     }
 }
 impl Operation for Get {
     const METHOD: Method = Method::GET;
-    type Body = ();
     type Response<'response> = User<'response>;
-    fn build(&self) -> http::Request<Self::Body> {
+    fn build_request(self) -> Result<http::Request<Vec<u8>>, Error> {
         let mut params = Serializer::new(String::new());
-        let (select, selection) = self.selection.pair();
-        params.append_pair(select, &selection);
+        if let Some((select, selection)) = self.selection.pair() {
+            params.append_pair(select, &selection);
+        }
+        if let Some((expand, expansion)) = self.expansion.pair() {
+            params.append_pair(expand, &expansion);
+        }
         let params = params.finish();
         let path = format_path(&self.template_expressions);
-        let uri = format!("{path}?{params}")
-            .parse::<http::uri::Uri>()
-            .unwrap();
-        http::Request::builder()
+        let uri = if params.is_empty() {
+            path.parse::<http::uri::Uri>().unwrap()
+        } else {
+            format!("{path}?{params}")
+                .parse::<http::uri::Uri>()
+                .unwrap()
+        };
+        let request = http::Request::builder()
             .uri(uri)
             .method(Self::METHOD)
-            .body(())
-            .unwrap()
+            .body(vec![])?;
+        Ok(request)
     }
 }
 impl Select for Get {
     type Properties = UserSelection;
     fn select<P: IntoIterator<Item = Self::Properties>>(&mut self, properties: P) {
-        self.selection.select(properties)
+        self.selection.select(properties);
     }
-    fn extend<P: IntoIterator<Item = Self::Properties>>(&mut self, properties: P) {
-        self.selection.extend(properties)
+    fn extend_selection<P: IntoIterator<Item = Self::Properties>>(&mut self, properties: P) {
+        self.selection.extend(properties);
+    }
+}
+impl Expand for Get {
+    type Properties = UserExpand;
+    fn expand<P: IntoIterator<Item = Self::Properties>>(&mut self, properties: P) {
+        self.expansion.expand(properties);
+    }
+    fn extend_expand<P: IntoIterator<Item = Self::Properties>>(&mut self, properties: P) {
+        self.expansion.extend(properties);
     }
 }
 #[doc = "Update user\n\nUpdate the properties of a user object.\n\nMore information available via [Microsoft documentation](https://learn.microsoft.com/graph/api/user-update?view=graph-rest-1.0)."]
 #[derive(Debug)]
 pub struct Patch<'body> {
     template_expressions: TemplateExpressions,
-    body: User<'body>,
+    body: OperationBody<User<'body>>,
+    selection: Selection<UserSelection>,
 }
 impl<'body> Patch<'body> {
-    pub fn new(endpoint: String, body: User<'body>) -> Self {
+    #[must_use]
+    pub fn new(endpoint: String, body: OperationBody<User<'body>>) -> Self {
         Self {
             template_expressions: TemplateExpressions { endpoint },
             body,
+            selection: Selection::default(),
         }
     }
 }
-impl<'body> Operation for Patch<'body> {
+impl Operation for Patch<'_> {
     const METHOD: Method = Method::PATCH;
-    type Body = User<'body>;
     type Response<'response> = User<'response>;
-    fn build(&self) -> http::Request<Self::Body> {
-        let uri = format_path(&self.template_expressions)
-            .parse::<http::uri::Uri>()
-            .unwrap();
-        http::Request::builder()
+    fn build_request(self) -> Result<http::Request<Vec<u8>>, Error> {
+        let mut params = Serializer::new(String::new());
+        if let Some((select, selection)) = self.selection.pair() {
+            params.append_pair(select, &selection);
+        }
+        let params = params.finish();
+        let path = format_path(&self.template_expressions);
+        let uri = if params.is_empty() {
+            path.parse::<http::uri::Uri>().unwrap()
+        } else {
+            format!("{path}?{params}")
+                .parse::<http::uri::Uri>()
+                .unwrap()
+        };
+        let (body, content_type) = match self.body {
+            OperationBody::JSON(body) => {
+                (serde_json::to_vec(&body)?, String::from("application/json"))
+            }
+            OperationBody::Other { body, content_type } => (body, content_type),
+        };
+        let request = http::Request::builder()
             .uri(uri)
             .method(Self::METHOD)
-            .body(self.body.clone())
-            .unwrap()
+            .header("Content-Type", content_type)
+            .body(body)?;
+        Ok(request)
+    }
+}
+impl<'body> Select for Patch<'body> {
+    type Properties = UserSelection;
+    fn select<P: IntoIterator<Item = Self::Properties>>(&mut self, properties: P) {
+        self.selection.select(properties);
+    }
+    fn extend_selection<P: IntoIterator<Item = Self::Properties>>(&mut self, properties: P) {
+        self.selection.extend(properties);
     }
 }

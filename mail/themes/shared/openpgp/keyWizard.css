@@ -22,7 +22,7 @@ description {
   font-size: 1.46em;
   font-weight: 300;
   line-height: 1.3em;
-  color: var(--text-color);
+  color: var(--color-text-base);
 }
 
 .wizard-section {
@@ -51,7 +51,7 @@ description {
   position: fixed;
   flex-direction: column;
   justify-content: start;
-  background-color: var(--background-color-canvas, -moz-dialog);
+  background-color: var(--color-surface-base);
   inset: 0;
   z-index: 1;
 }

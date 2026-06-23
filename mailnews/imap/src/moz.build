@@ -1,4 +1,3 @@
-# vim: set filetype=python:
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -9,14 +8,13 @@ EXPORTS += [
     "nsImapCore.h",
 ]
 
-SOURCES += [
+UNIFIED_SOURCES += [
     "nsAutoSyncManager.cpp",
     "nsAutoSyncState.cpp",
     "nsImapFlagAndUidState.cpp",
     "nsImapGenericParser.cpp",
     "nsImapHostSessionList.cpp",
     "nsImapIncomingServer.cpp",
-    "nsImapMailFolder.cpp",
     "nsImapNamespace.cpp",
     "nsImapOfflineSync.cpp",
     "nsImapProtocol.cpp",
@@ -28,6 +26,11 @@ SOURCES += [
     "nsImapUrl.cpp",
     "nsImapUtils.cpp",
     "nsSyncRunnableHelpers.cpp",
+]
+
+# If this was in UNIFIED_SOURCES, we'd get compile errors on Mac.
+SOURCES += [
+    "nsImapMailFolder.cpp",
 ]
 
 FINAL_LIBRARY = "mail"

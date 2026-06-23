@@ -35,6 +35,13 @@ var { MailServices } = ChromeUtils.importESModule(
 var { AppConstants } = ChromeUtils.importESModule(
   "resource://gre/modules/AppConstants.sys.mjs"
 );
+var { isFirstRun } = ChromeUtils.importESModule(
+  "resource:///modules/accountcreation/FirstRun.sys.mjs"
+);
+var { setupShortcuts } = ChromeUtils.importESModule(
+  "moz-src:///comm/mail/base/content/modules/ShortcutsOverlay.mjs",
+  { global: "current" }
+);
 
 ChromeUtils.defineESModuleGetters(this, {
   BondOpenPGP: "chrome://openpgp/content/BondOpenPGP.sys.mjs",
@@ -89,26 +96,6 @@ var gNewAccountToLoad = null;
 
 // The object in charge of managing the mail summary pane
 var gSummaryFrameManager;
-
-/**
- * Called on startup if there are no accounts.
- */
-function verifyOpenAccountHubTab() {
-  const suppressDialogs = Services.prefs.getBoolPref(
-    "mail.provider.suppress_dialog_on_startup",
-    false
-  );
-
-  if (suppressDialogs) {
-    // Looks like we were in the middle of filling out an account form. We
-    // won't display the dialogs in that case.
-    Services.prefs.clearUserPref("mail.provider.suppress_dialog_on_startup");
-    loadPostAccountWizard();
-    return;
-  }
-
-  openAccountSetup(true);
-}
 
 let _resolveDelayedStartup;
 var delayedStartupPromise = new Promise(resolve => {
@@ -175,6 +162,7 @@ var gMailInit = {
       tabmail.registerTabType(glodaFacetTabType);
       tabmail.registerTabMonitor(GlodaSearchBoxTabMonitor);
       tabmail.openFirstTab();
+      setupShortcuts();
     }
 
     // This also registers the contentTabType ("contentTab")
@@ -302,12 +290,20 @@ var gMailInit = {
     // Don't trigger the existing account verification if the user wants to use
     // Thunderbird without an email account.
     if (!Services.prefs.getBoolPref("app.use_without_mail_account", false)) {
+      // This is as much restoring we'll do. Notify to hook up enterprice
+      // policies properly.
+      Services.obs.notifyObservers(window, "sessionstore-windows-restored");
+      // For the crash monitor.
+      Services.obs.notifyObservers(
+        window,
+        "sessionstore-final-state-write-complete"
+      );
+
       // Load the Mail UI only if we already have at least one account configured
       // otherwise the verifyExistingAccounts will trigger the account wizard.
-      if (verifyExistingAccounts()) {
-        switchToMailTab();
-        await loadPostAccountWizard();
-      }
+      verifyExistingAccounts();
+      switchToMailTab();
+      await loadPostAccountWizard();
     } else {
       // Run the tabs restore method here since we're skipping the loading of
       // the Mail UI which would have taken care of this to properly handle
@@ -331,6 +327,11 @@ var gMailInit = {
     Glean.inappnotifications.preferences["mail.inappnotifications.enabled"].set(
       Services.prefs.getBoolPref("mail.inappnotifications.enabled", false)
     );
+
+    // Run the system integration checks if this is not a first run scenario.
+    if (!isFirstRun()) {
+      window.requestIdleCallback(() => showSystemIntegrationDialog());
+    }
   },
 
   /**
@@ -361,35 +362,25 @@ var gMailInit = {
 /**
  * Called at startup to verify if we have ny existing account, even if invalid,
  * and if not, it will trigger the Account Hub in a tab.
- *
- * @returns {boolean} - True if we have at least one existing account.
  */
 function verifyExistingAccounts() {
   try {
-    let newProfile = true;
-    // If there are no accounts, or all accounts are "invalid" then kick off the
-    // account migration. Or if this is a new (to Mozilla) profile. MCD can set
-    // up accounts without the profile being used yet.
-
-    // Check if MCD is configured. If not, say this is not a new profile so
-    // that we don't accidentally remigrate non MCD profiles.
-    if (!Services.prefs.getCharPref("autoadmin.global_config_url", "")) {
-      newProfile = false;
-    }
-
-    const accounts = MailServices.accounts.accounts;
-    const invalidAccounts = getInvalidAccounts(accounts);
     // Trigger the new account configuration wizard only if we don't have any
     // existing account, not even if we have at least one invalid account.
+    if (isFirstRun()) {
+      openAccountSetup();
+      return;
+    }
+
+    // If we're in tests that want to bypass account startup logic, oblige their
+    // request.
     if (
-      (newProfile && !accounts.length) ||
-      accounts.length == invalidAccounts.length ||
-      (invalidAccounts.length > 0 &&
-        invalidAccounts.length == accounts.length &&
-        invalidAccounts[0])
+      Services.prefs.getBoolPref(
+        "mail.provider.suppress_dialog_on_startup",
+        false
+      )
     ) {
-      verifyOpenAccountHubTab();
-      return false;
+      return;
     }
 
     let localFoldersExists;
@@ -404,11 +395,8 @@ function verifyExistingAccounts() {
     if (!localFoldersExists && requireLocalFoldersAccount()) {
       MailServices.accounts.createLocalMailAccount();
     }
-
-    return true;
   } catch (ex) {
-    dump(`Error verifying accounts: ${ex}`);
-    return false;
+    console.error("Error verifying accounts", ex);
   }
 }
 
@@ -479,7 +467,10 @@ function showSystemIntegrationDialog() {
     (shellService &&
       defaultAccount &&
       shellService.shouldCheckDefaultClient &&
-      !shellService.isDefaultClient(true, Ci.nsIShellService.MAIL)) ||
+      !shellService.isDefaultClient(
+        true,
+        Ci.nsIShellService.MAIL | Ci.nsIShellService.NET_THUNDERBIRD
+      )) ||
     (SearchIntegration &&
       !SearchIntegration.osComponentsNotRunning &&
       !SearchIntegration.firstRunDone)
@@ -487,13 +478,8 @@ function showSystemIntegrationDialog() {
     window.openDialog(
       "chrome://messenger/content/systemIntegrationDialog.xhtml",
       "SystemIntegration",
-      "modal,centerscreen,chrome,resizable=no"
+      "dependent,centerscreen,chrome,resizable=no"
     );
-    // On Windows, there seems to be a delay between setting TB as the
-    // default client, and the isDefaultClient check succeeding.
-    if (shellService.isDefaultClient(true, Ci.nsIShellService.MAIL)) {
-      Services.obs.notifyObservers(window, "mail:setAsDefault");
-    }
   }
 }
 
@@ -586,6 +572,13 @@ async function atStartupRestoreTabs(aDontRestoreFirstTab) {
   // Note: The tabs have not finished loading at this point.
   SessionStoreManager._restored = true;
   Services.obs.notifyObservers(window, "mail-tabs-session-restored");
+  // We only restore one window, so this is it...
+  Services.obs.notifyObservers(window, "sessionstore-windows-restored");
+  // For the crash monitor.
+  Services.obs.notifyObservers(
+    window,
+    "sessionstore-final-state-write-complete"
+  );
 
   return !!state;
 }
@@ -771,10 +764,6 @@ async function loadStartFolder(initialUri) {
 }
 
 function OpenMessageInNewTab(msgHdr, tabParams = {}) {
-  if (!msgHdr) {
-    return null;
-  }
-
   if (tabParams.background === undefined) {
     tabParams.background = Services.prefs.getBoolPref(
       "mail.tabs.loadInBackground"

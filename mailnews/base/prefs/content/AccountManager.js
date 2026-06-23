@@ -1,5 +1,4 @@
-/* -*- Mode: JavaScript; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
@@ -80,13 +79,14 @@ ChromeUtils.defineLazyGetter(this, "gSubDialog", function () {
       styleSheets: [
         "chrome://messenger/skin/preferences/dialog.css",
         "chrome://messenger/skin/preferences/preferences.css",
+        "chrome://messenger/skin/variables.css",
       ],
       resizeCallback: ({ frame }) => {
         UIFontSize.registerWindow(frame.contentWindow);
 
         // Resize the dialog to fit the content with edited font size.
         requestAnimationFrame(() => {
-          const dialogs = frame.ownerGlobal.gSubDialog._dialogs;
+          const dialogs = frame.documentGlobal.gSubDialog._dialogs;
           const dialog = dialogs.find(
             d => d._frame.contentDocument == frame.contentDocument
           );
@@ -637,7 +637,7 @@ function checkUserServerChanges(showAlert) {
 
   // Get the new username, hostname and type from the page.
   var typeElem = getPageFormElement("server.type");
-  var hostElem = getPageFormElement("server.hostName");
+  var hostElem = getPageFormElement("server.hostname");
   var userElem = getPageFormElement("server.username");
   if (typeElem && userElem && hostElem) {
     var newType = getFormElementValue(typeElem);
@@ -645,7 +645,7 @@ function checkUserServerChanges(showAlert) {
       currentAccount,
       accountValues,
       "server",
-      "hostName",
+      "hostname",
       null,
       false
     );
@@ -894,13 +894,6 @@ function markDefaultServer(newDefault, oldDefault) {
 }
 
 /**
- * Notify the UI to rebuild the account tree.
- */
-function rebuildAccountTree() {
-  // TODO: Reimplement or replace.
-}
-
-/**
  * Make currentAccount (currently selected in the account tree) the default one.
  */
 function onSetDefault(event) {
@@ -1017,7 +1010,7 @@ function saveAccount(accountValues, account) {
       } else if (type == "imap") {
         dest = server.QueryInterface(Ci.nsIImapIncomingServer);
       } else if (type == "ews") {
-        dest = server.QueryInterface(Ci.IEwsIncomingServer);
+        dest = server.QueryInterface(Ci.IExchangeIncomingServer);
       } else if (type == "none") {
         dest = server.QueryInterface(Ci.nsINoIncomingServer);
       } else if (type == "nntp") {
@@ -1292,7 +1285,7 @@ function loadPage(pageId) {
 
 // save the values of the widgets to the given server
 function savePage(account) {
-  if (!account) {
+  if (!account || !MailServices.accounts.getAccount(account.key)) {
     return;
   }
 
@@ -1380,7 +1373,7 @@ function getAccountValue(
       } else if (type == "imap") {
         source = server.QueryInterface(Ci.nsIImapIncomingServer);
       } else if (type == "ews") {
-        source = server.QueryInterface(Ci.IEwsIncomingServer);
+        source = server.QueryInterface(Ci.IExchangeIncomingServer);
       } else if (type == "none") {
         source = server.QueryInterface(Ci.nsINoIncomingServer);
       } else if (type == "nntp") {
@@ -1657,7 +1650,6 @@ function setAccountLabel(aAccountKey, aLabel) {
     row.title = aLabel;
     row.querySelector(".name").textContent = aLabel;
   }
-  rebuildAccountTree(false);
 }
 
 var gAccountTree = {
@@ -1690,7 +1682,6 @@ var gAccountTree = {
       const accountKeyList = Array.from(mainTree.children, row => row.id);
       accountKeyList.pop(); // Remove SMTP.
       MailServices.accounts.reorderAccounts(accountKeyList);
-      rebuildAccountTree();
     });
     mainTree.addEventListener("expanded", event => {
       this._dataStore.setValue(

@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -16,6 +15,7 @@ interface nsIShellService : nsISupports
   const unsigned short NEWS = 0x0002;
   const unsigned short RSS  = 0x0004;
   const unsigned short CALENDAR = 0x0008;
+  const unsigned short NET_THUNDERBIRD = 0x0010;
 
   /**
    * Determines whether or not Thunderbird is the "Default Client" for the

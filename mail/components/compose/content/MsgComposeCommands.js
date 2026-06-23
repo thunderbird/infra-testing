@@ -92,6 +92,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ComposeUtils: "resource:///modules/ComposeUtils.sys.mjs",
   MailStringUtils: "resource:///modules/MailStringUtils.sys.mjs",
+  makeMozIconImageSet: "resource:///modules/MozIconUtils.mjs",
+  QuoteSanitizer: "resource:///modules/QuoteSanitizer.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "taskbarProgress", () => {
@@ -552,16 +554,18 @@ function updateEditableFields(aDisable) {
     return;
   }
 
-  if (aDisable) {
-    gMsgCompose.editor.flags |= Ci.nsIEditor.eEditorReadonlyMask;
-  } else {
-    gMsgCompose.editor.flags &= ~Ci.nsIEditor.eEditorReadonlyMask;
+  if (gMsgCompose.editor) {
+    if (aDisable) {
+      gMsgCompose.editor.flags |= Ci.nsIEditor.eEditorReadonlyMask;
+    } else {
+      gMsgCompose.editor.flags &= ~Ci.nsIEditor.eEditorReadonlyMask;
 
-    try {
-      const checker = GetCurrentEditor().getInlineSpellChecker(true);
-      checker.enableRealTimeSpell = gSpellCheckingEnabled;
-    } catch (ex) {
-      // An error will be thrown if there are no dictionaries. Just ignore it.
+      try {
+        const checker = GetCurrentEditor().getInlineSpellChecker(true);
+        checker.enableRealTimeSpell = gSpellCheckingEnabled;
+      } catch (ex) {
+        // An error will be thrown if there are no dictionaries. Just ignore it.
+      }
     }
   }
 
@@ -584,6 +588,8 @@ function updateEditableFields(aDisable) {
 /**
  * Small helper function to check whether the node passed in is a signature.
  * Note that a text node is not a DOM element, hence .localName can't be used.
+ *
+ * @param {Node} aNode - Node to check.
  */
 function isSignature(aNode) {
   return (
@@ -659,6 +665,15 @@ var stateListener = {
       editor.resetModificationCount();
     }
     if (gMsgCompose.composeHTML) {
+      const doc = getBrowser().contentDocument;
+      if (
+        doc.querySelector('blockquote[type="cite"], .moz-forward-container')
+      ) {
+        const isDarkMode =
+          window.matchMedia("(prefers-color-scheme: dark)").matches &&
+          Services.prefs.getBoolPref("mail.dark-reader.enabled", false);
+        lazy.QuoteSanitizer.sanitize(doc, isDarkMode);
+      }
       loadHTMLMsgPrefs();
     }
     AdjustFocus();
@@ -810,8 +825,7 @@ var stateListener = {
         if (gMsgCompose) {
           gMsgCompose.onSendNotPerformed(null, Cr.NS_ERROR_ABORT);
         }
-
-        MsgComposeCloseWindow();
+        window.close();
       }
     } else if (gAutoSaving) {
       // If we failed to save, and we're autosaving, need to re-mark the editor
@@ -872,6 +886,9 @@ var gSendListener = {
       if (!params.exceptionAdded) {
         return;
       }
+      if (!gCurrentIdentity) {
+        return;
+      }
       const server = MailServices.outgoingServer.getServerByKey(
         gCurrentIdentity.smtpServerKey
       );
@@ -904,6 +921,11 @@ var progressListener = {
     if (aStateFlags & Ci.nsIWebProgressListener.STATE_START) {
       progressMeter.hidden = false;
       progressMeter.removeAttribute("value");
+      lazy.taskbarProgress?.setProgressState(
+        Ci.nsITaskbarProgress.STATE_NORMAL,
+        0,
+        0
+      );
     }
 
     if (aStateFlags & Ci.nsIWebProgressListener.STATE_STOP) {
@@ -2100,7 +2122,7 @@ function msgComposeContextOnShowing(event) {
     linkText,
     linkUrl,
     selectionText: isTextSelected ? selectionInfo.fullText : undefined,
-    pageUrl: target.ownerGlobal.top.location.href,
+    pageUrl: target.documentGlobal.top.location.href,
     onComposeBody: true,
   };
   subject.context = subject;
@@ -2264,19 +2286,14 @@ function addAttachCloudMenuItems(aParentMenu) {
       }
       if (!addedFiles.find(f => f.name == upload.name || f.url == upload.url)) {
         const fileItem = document.createXULElement("menuitem");
-        const fileUrl =
-          "list-style-image: image-set('moz-icon://" +
-          upload.name +
-          "?size=16&scale=1' 1x, 'moz-icon://" +
-          upload.name +
-          "?size=16&scale=2' 2x, 'moz-icon://" +
-          upload.name +
-          "?size=16&scale=3' 3x)";
         fileItem.cloudFileUpload = upload;
         fileItem.cloudFileAccount = account;
         fileItem.setAttribute("label", upload.name);
         fileItem.setAttribute("class", "menuitem-iconic");
-        fileItem.setAttribute("style", fileUrl);
+        fileItem.setAttribute(
+          "style",
+          `list-style-image: ${lazy.makeMozIconImageSet(upload.name, 16)}`
+        );
         aParentMenu.appendChild(fileItem);
         addedFiles.push({ name: upload.name, url: upload.url });
       }
@@ -3168,8 +3185,17 @@ function GetArgs(originalData) {
     var argname = pairs[i].substring(0, pos);
     var argvalue = pairs[i].substring(pos + 1);
     if (argvalue.startsWith("'") && argvalue.endsWith("'")) {
+      // Single quotes act as a raw literal escape. We strip the quotes
+      // but do not decode. This is especially important for the 'body'
+      // argument ensuring unaltered content.
       args[argname] = argvalue.substring(1, argvalue.length - 1);
     } else {
+      // Double quotes must be stripped to prevent validation errors (such as
+      // trailing quotes in email addresses), but the contents still need to be
+      // URI decoded to support tools like xdg-email.
+      if (argvalue.startsWith('"') && argvalue.endsWith('"')) {
+        argvalue = argvalue.substring(1, argvalue.length - 1);
+      }
       try {
         args[argname] = decodeURIComponent(argvalue);
       } catch (e) {
@@ -3352,7 +3378,7 @@ function manageAttachmentNotification(force = false) {
   // Construct the notification as we don't have one.
   const msg = document.createElement("div");
   msg.onclick = function () {
-    openOptionsDialog("paneCompose", "compositionAttachmentsCategory", {
+    openPreferencesTab("paneCompose", "compositionAttachmentsCategory", {
       subdialog: "attachment_reminder_button",
     });
   };
@@ -5575,7 +5601,7 @@ async function ComposeLoad() {
       getComposeBundle().getString("initErrorDlgMessage")
     );
 
-    MsgComposeCloseWindow();
+    window.close();
     return;
   }
 
@@ -5836,10 +5862,6 @@ function ComposeUnload() {
   if (gAutoSaveTimeout) {
     clearTimeout(gAutoSaveTimeout);
   }
-  if (msgWindow) {
-    msgWindow.closeWindow();
-  }
-
   ReleaseGlobalVariables();
 
   top.controllers.removeController(SecurityController);
@@ -5850,8 +5872,7 @@ function ComposeUnload() {
     }
   }
 
-  // This destroys the window for us.
-  MsgComposeCloseWindow();
+  window.close();
 }
 
 function onEncryptionChoice(value) {
@@ -6423,11 +6444,11 @@ async function GenericSendMessage(msgType) {
 
     await CompleteGenericSendMessage(msgType);
     window.dispatchEvent(new CustomEvent("compose-prepare-message-completed"));
-  } catch (exception) {
-    console.error(exception);
+  } catch (ex) {
+    console.warn(`Send FAILED; ${ex.message}`, ex);
     window.dispatchEvent(
       new CustomEvent("compose-prepare-message-completed", {
-        detail: { exception },
+        detail: { exception: ex },
       })
     );
   }
@@ -6448,7 +6469,6 @@ async function CompleteGenericSendMessage(msgType) {
   if (gAutoSaving && gAutoSavingInProgress) {
     return;
   }
-  let sendError = null;
   try {
     if (gAutoSaving) {
       gAutoSavingInProgress = true;
@@ -6538,11 +6558,7 @@ async function CompleteGenericSendMessage(msgType) {
         gSendOperationInProgress = true;
       }
     }
-    msgWindow.domWindow = window;
-    msgWindow.rootDocShell.allowAuth = true;
-    // This doesn't look great, but the purpose of `progress.msgWindow` is to
-    // clear `msgWindow.statusFeedback` when the progress ends.
-    msgWindow.statusFeedback = progress;
+    window.browsingContext.docShell.allowAuth = true;
     progress.msgWindow = msgWindow;
     await gMsgCompose.sendMsg(
       msgType,
@@ -6551,9 +6567,13 @@ async function CompleteGenericSendMessage(msgType) {
       progress
     );
   } catch (ex) {
-    console.warn("GenericSendMessage FAILED: " + ex);
     ToggleWindowLock(false);
-    sendError = ex;
+    if (ex?.result == Cr.NS_ERROR_ABORT) {
+      // The user cancelled the send; this is not an error.
+      return;
+    }
+    console.warn(`GenericSendMessage FAILED: ${ex.message}`, ex);
+    return;
   } finally {
     if (gAutoSaving) {
       gAutoSavingInProgress = false;
@@ -6590,8 +6610,12 @@ async function CompleteGenericSendMessage(msgType) {
     window.dispatchEvent(new CustomEvent("aftersave"));
   }
 
-  if (sendError) {
-    throw sendError;
+  if (
+    msgType == Ci.nsIMsgCompDeliverMode.Now ||
+    msgType == Ci.nsIMsgCompDeliverMode.Later ||
+    msgType == Ci.nsIMsgCompDeliverMode.Background
+  ) {
+    window.close();
   }
 }
 
@@ -6792,16 +6816,34 @@ function showAddressRowButtonOnDragover(event) {
  * @param {Event} event - The DOM drop event on a recipient disclosure label.
  */
 function showAddressRowButtonOnDrop(event) {
-  if (event.dataTransfer.types.includes("text/pills")) {
-    // If the dragged data includes the type "text/pills", we believe that
-    // the user is dragging our own pills, so we try to move the selected pills
-    // to the address row of the recipient label they were dropped on (Cc, Bcc,
-    // etc.), which will also show the row if needed. If there are no selected
-    // pills (so "text/pills" was generated elsewhere), moveSelectedPills() will
-    // bail out and we'll do nothing.
-    const row = document.getElementById(event.target.dataset.addressRow);
-    document.getElementById("recipientsContainer").moveSelectedPills(row);
+  if (!event.dataTransfer.types.includes("text/pills")) {
+    return;
   }
+  const row = document.getElementById(event.target.dataset.addressRow);
+  const recipientsArea = document.getElementById("recipientsContainer");
+  // The drag may have started in another compose window; find the recipients
+  // area it came from so its pills can be removed there.
+  const sourceRecipientsArea =
+    event.dataTransfer.mozSourceNode?.ownerDocument.getElementById(
+      "recipientsContainer"
+    );
+  if (!sourceRecipientsArea || sourceRecipientsArea == recipientsArea) {
+    // Same-window drag: move the selected pills to the address row of the
+    // recipient label they were dropped on (Cc, Bcc, etc.), which will also
+    // show the row if needed. If there are no selected pills (so "text/pills"
+    // was generated elsewhere), moveSelectedPills() will bail out and we'll
+    // do nothing.
+    recipientsArea.moveSelectedPills(row);
+    return;
+  }
+  const addresses = JSON.parse(event.dataTransfer.getData("text/pills"));
+  recipientsArea.createDNDPills(
+    row.querySelector(".address-container"),
+    addresses,
+    false,
+    null,
+    sourceRecipientsArea
+  );
 }
 
 /**
@@ -7975,7 +8017,7 @@ function ComposeCanClose() {
       window,
       getComposeBundle().getString("saveDlogTitle"),
       getComposeBundle().getFormattedString("saveDlogMessages3", [
-        draftsFolder.name,
+        draftsFolder.localizedName,
       ]),
       Services.prompt.BUTTON_TITLE_SAVE * Services.prompt.BUTTON_POS_0 +
         Services.prompt.BUTTON_TITLE_CANCEL * Services.prompt.BUTTON_POS_1 +
@@ -8052,14 +8094,6 @@ function RemoveDraft() {
 function SetContentAndBodyAsUnmodified() {
   gMsgCompose.bodyModified = false;
   gContentChanged = false;
-}
-
-function MsgComposeCloseWindow() {
-  if (gMsgCompose) {
-    gMsgCompose.CloseWindow();
-  } else {
-    window.close();
-  }
 }
 
 function GetLastAttachDirectory() {
@@ -9351,7 +9385,7 @@ function OpenSelectedAttachment() {
           background: false,
           linkHandler: "single-page",
         });
-        tabmail.ownerGlobal.focus();
+        tabmail.documentGlobal.focus();
         return;
       }
       // If no tabmail, open PDF same as other attachments.
@@ -10551,7 +10585,7 @@ function DisplaySaveFolderDlg(folderURI) {
     const bundle = getComposeBundle();
     const SaveDlgTitle = bundle.getString("SaveDialogTitle");
     const dlgMsg = bundle.getFormattedString("SaveDialogMsg", [
-      msgfolder.name,
+      msgfolder.localizedName,
       msgfolder.server.prettyName,
     ]);
 
@@ -11455,7 +11489,8 @@ var gComposeNotificationBar = {
       );
     } else {
       document.l10n.setAttributes(
-        gComposeNotification.getNotificationWithValue("blockedContent"),
+        gComposeNotification.getNotificationWithValue("blockedContent")
+          .messageText,
         "blocked-content-message",
         { count: urls.length }
       );

@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -15,7 +14,7 @@
 #include "nsIMsgAccountManager.h"
 #include "nsIIOService.h"
 #include "nsINntpService.h"
-#include "nsIMsgStatusFeedback.h"
+#include "nsIFeedbackService.h"
 #include "nsServiceManagerUtils.h"
 #include "mozilla/Components.h"
 
@@ -43,10 +42,6 @@ NS_IMETHODIMP nsMsgOfflineManager::GetWindow(nsIMsgWindow** aWindow) {
 }
 NS_IMETHODIMP nsMsgOfflineManager::SetWindow(nsIMsgWindow* aWindow) {
   m_window = aWindow;
-  if (m_window)
-    m_window->GetStatusFeedback(getter_AddRefs(m_statusFeedback));
-  else
-    m_statusFeedback = nullptr;
   return NS_OK;
 }
 
@@ -175,10 +170,6 @@ nsresult nsMsgOfflineManager::SendUnsentMessages() {
     }
   }
   if (identityToUse) {
-#ifdef MOZ_SUITE
-    if (m_statusFeedback) pMsgSendLater->SetStatusFeedback(m_statusFeedback);
-#endif
-
     pMsgSendLater->AddListener(this);
     rv = pMsgSendLater->SendUnsentMessages(identityToUse);
     ShowStatus("sendingUnsent");
@@ -202,12 +193,15 @@ nsresult nsMsgOfflineManager::ShowStatus(const char* statusMsgName) {
   }
 
   nsString statusString;
-  nsresult res = mStringBundle->GetStringFromName(statusMsgName, statusString);
+  nsresult rv = mStringBundle->GetStringFromName(statusMsgName, statusString);
+  NS_ENSURE_SUCCESS(rv, rv);
 
-  if (NS_SUCCEEDED(res) && m_statusFeedback)
-    m_statusFeedback->ShowStatusString(statusString);
-
-  return res;
+  nsCOMPtr<nsIFeedbackService> feedback =
+      mozilla::components::Feedback::Service();
+  if (feedback) {
+    feedback->ReportStatus(NS_ConvertUTF16toUTF8(statusString), ""_ns);
+  }
+  return rv;
 }
 
 nsresult nsMsgOfflineManager::DownloadOfflineNewsgroups() {
@@ -307,10 +301,15 @@ nsMsgOfflineManager::OnMessageSendProgress(uint32_t aCurrentMessage,
                                            uint32_t aTotalMessageCount,
                                            uint32_t aMessageSendPercent,
                                            uint32_t aMessageCopyPercent) {
-  if (m_statusFeedback && aTotalMessageCount)
-    return m_statusFeedback->ShowProgress((100 * aCurrentMessage) /
-                                          aTotalMessageCount);
+  if (!aTotalMessageCount) {
+    return NS_OK;
+  }
 
+  nsCOMPtr<nsIFeedbackService> feedback =
+      mozilla::components::Feedback::Service();
+  if (feedback) {
+    feedback->ReportProgress((100 * aCurrentMessage) / aTotalMessageCount);
+  }
   return NS_OK;
 }
 

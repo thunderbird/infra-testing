@@ -13,6 +13,9 @@ var { MessageListTracker, MessageTracker, MessageManager, TagTracker } =
 var { SpaceTracker } = ChromeUtils.importESModule(
   "resource:///modules/ExtensionSpaces.sys.mjs"
 );
+var { ProtectedToolbarButtonTracker } = ChromeUtils.importESModule(
+  "resource:///modules/ExtensionToolbarButtons.sys.mjs"
+);
 var { XPCOMUtils } = ChromeUtils.importESModule(
   "resource://gre/modules/XPCOMUtils.sys.mjs"
 );
@@ -42,6 +45,7 @@ const MESSAGE_PROTOCOLS = [
   "nntp",
   "snews",
   "x-moz-ews",
+  "x-moz-graph",
 ];
 
 (function () {
@@ -203,8 +207,9 @@ function getTabBrowser(nativeTabInfo) {
     }
   }
 
-  if (nativeTabInfo.ownerGlobal && nativeTabInfo.ownerGlobal.getBrowser) {
-    return nativeTabInfo.ownerGlobal.getBrowser();
+  const win = nativeTabInfo.ownerGlobal ?? nativeTabInfo;
+  if (win?.getBrowser) {
+    return win.getBrowser();
   }
 
   return null;
@@ -412,7 +417,6 @@ class TabTracker extends TabTrackerBase {
     super();
 
     this._tabs = new WeakMap();
-    this._browsers = new Map();
     this._tabIds = new Map();
     this._nextId = 1;
     this._movingTabs = new Map();
@@ -496,30 +500,22 @@ class TabTracker extends TabTrackerBase {
   }
 
   /**
-   * Returns the tab id corresponding to the given browser element.
+   * Returns the native tab associated with the given <browser>, if any.
    *
    * @param {XULElement} browser - The <browser> element to retrieve for
-   * @returns {Integer} The tab's numeric ID
+   * @returns {NativeTabInfo|null} The native tab, or null if not found
    */
-  getBrowserTabId(browser) {
-    let id = this._browsers.get(browser.browserId);
-    if (id) {
-      return id;
-    }
-
+  getTabForBrowser(browser) {
     const window = browser.browsingContext.topChromeWindow;
     const tabmail = window.document.getElementById("tabmail");
-    const tab = tabmail && tabmail.getTabForBrowser(browser);
-
+    const tab = tabmail?.getTabForBrowser(browser);
     if (tab) {
-      id = this.getId(tab);
-      this._browsers.set(browser.browserId, id);
-      return id;
+      return tab;
     }
     if (windowTracker.isSecondaryWindow(window)) {
-      return this.getId(window);
+      return window;
     }
-    return -1;
+    return null;
   }
 
   /**
@@ -530,10 +526,6 @@ class TabTracker extends TabTrackerBase {
    */
   setId(nativeTabInfo, id) {
     this._tabs.set(nativeTabInfo, id);
-    const browser = getTabBrowser(nativeTabInfo);
-    if (browser) {
-      this._browsers.set(browser.browserId, id);
-    }
     this._tabIds.set(id, nativeTabInfo);
   }
 
@@ -548,9 +540,6 @@ class TabTracker extends TabTrackerBase {
     const id = this._tabs.get(nativeTabInfo);
     if (id) {
       this._tabs.delete(nativeTabInfo);
-      if (nativeTabInfo.browser) {
-        this._browsers.delete(nativeTabInfo.browser.browserId);
-      }
       if (this._tabIds.get(id) === nativeTabInfo) {
         this._tabIds.delete(id);
       }
@@ -707,7 +696,7 @@ class TabTracker extends TabTrackerBase {
     const browser = getTabBrowser(nativeTabInfo);
     const tabmail = browser.ownerDocument.getElementById("tabmail");
     const tabIndex = tabmail._getTabContextForTabbyThing(nativeTabInfo)[0];
-    const newWindowId = windowTracker.getId(browser.ownerGlobal);
+    const newWindowId = windowTracker.getId(browser.documentGlobal);
 
     this.emit("tab-attached", {
       nativeTabInfo,
@@ -727,7 +716,7 @@ class TabTracker extends TabTrackerBase {
     const browser = getTabBrowser(nativeTabInfo);
     const tabmail = browser.ownerDocument.getElementById("tabmail");
     const tabIndex = tabmail._getTabContextForTabbyThing(nativeTabInfo)[0];
-    const oldWindowId = windowTracker.getId(browser.ownerGlobal);
+    const oldWindowId = windowTracker.getId(browser.documentGlobal);
 
     this.emit("tab-detached", {
       nativeTabInfo,
@@ -770,7 +759,7 @@ class TabTracker extends TabTrackerBase {
    * @returns {{ tabId:Integer, windowId:Integer }} The browsing data for the element
    */
   getBrowserData(browser) {
-    const window = browser.ownerGlobal;
+    const window = browser.documentGlobal;
     if (window?.top.document.documentURI === "about:addons") {
       // When we're loaded into a <browser> inside about:addons, we need to go up
       // one more level.
@@ -785,7 +774,7 @@ class TabTracker extends TabTrackerBase {
       return { tabId: -1, windowId: -1 };
     }
 
-    let windowId = windowTracker.getId(browser.ownerGlobal);
+    let windowId = windowTracker.getId(browser.documentGlobal);
     // Do not return invalid windowIds. windowTracker.getId() just pulls the
     // outerWindowID, while windowTracker.getWindow() does more checks on the
     // validity.
@@ -794,8 +783,9 @@ class TabTracker extends TabTrackerBase {
     } catch (ex) {
       windowId = -1;
     }
+    const tab = this.getTabForBrowser(browser);
     return {
-      tabId: this.getBrowserTabId(browser),
+      tabId: tab ? this.getId(tab) : -1,
       windowId,
     };
   }
@@ -1218,7 +1208,7 @@ class TabmailTab extends Tab {
 
   /** Returns the native window object of the tab. */
   get window() {
-    return this.tabmail.ownerGlobal;
+    return this.tabmail.documentGlobal;
   }
 }
 
@@ -1771,4 +1761,9 @@ extensions.on("startup", (type, extension) => {
 
 extensions.on("shutdown", (type, extension) => {
   messageListTracker._contextLists.delete(extension);
+});
+
+const protectedToolbarExtensionTracker = new ProtectedToolbarButtonTracker();
+Object.assign(global, {
+  protectedToolbarExtensionTracker,
 });

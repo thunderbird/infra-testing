@@ -4,13 +4,15 @@
 
 #include "nsAutoSyncState.h"
 
-#include "EwsFetchMsgsToOffline.h"
-#include "IEwsFolder.h"
+#include "ExchangeFetchMsgsToOffline.h"
+#include "IExchangeFolder.h"
 #include "nsImapMailFolder.h"
+#include "nsImapUtils.h"
 #include "nsIImapService.h"
 #include "nsIMsgMailNewsUrl.h"
 #include "nsIMsgMailSession.h"
 #include "nsMsgFolderFlags.h"
+#include "nsMsgUtils.h"
 #include "nsIAutoSyncManager.h"
 #include "nsIAutoSyncMsgStrategy.h"
 #include "nsServiceManagerUtils.h"
@@ -444,7 +446,8 @@ NS_IMETHODIMP nsAutoSyncState::OnStopRunningUrl(nsIURI* aUrl,
     nsCOMPtr<nsIMsgImapMailFolder> imapFolder =
         do_QueryReferent(mOwnerFolder, &rv);
     NS_ENSURE_SUCCESS(rv, rv);
-    int32_t serverTotal, serverUnseen, serverRecent, serverNextUID;
+    int32_t serverTotal, serverUnseen, serverRecent;
+    ImapUid serverNextUID;
     imapFolder->GetServerTotal(&serverTotal);
     imapFolder->GetServerUnseen(&serverUnseen);
     imapFolder->GetServerRecent(&serverRecent);
@@ -460,11 +463,10 @@ NS_IMETHODIMP nsAutoSyncState::OnStopRunningUrl(nsIURI* aUrl,
         serverRecent != mLastServerRecent  //||
         /*(serverUnseen != mLastServerUnseen)*/) {
       if (MOZ_LOG_TEST(gAutoSyncLog, LogLevel::Debug)) {
-        nsCString folderName;
-        ownerFolder->GetURI(folderName);
-        MOZ_LOG(gAutoSyncLog, LogLevel::Debug,
-                ("%s: folder %s status changed serverNextUID=%d lastNextUID=%d",
-                 __func__, folderName.get(), serverNextUID, mLastNextUID));
+        MOZ_LOG_FMT(
+            gAutoSyncLog, LogLevel::Debug,
+            "{}: folder {} status changed serverNextUID={} lastNextUID={}",
+            __func__, ownerFolder->URI(), serverNextUID, mLastNextUID);
         MOZ_LOG(gAutoSyncLog, LogLevel::Debug,
                 ("%s: serverTotal = %d lastServerTotal = %d serverRecent = %d "
                  "lastServerRecent = %d\n",
@@ -669,14 +671,12 @@ NS_IMETHODIMP nsAutoSyncState::DownloadMessagesForOffline(
   rv = folder->GetIncomingServerType(serverType);
   NS_ENSURE_SUCCESS(rv, rv);
   if (serverType.EqualsLiteral("imap")) {
-    // The keys are IMAP UIDs we can send to the server.
-    nsAutoCString messageIds;
-    nsTArray<nsMsgKey> msgKeys;
-    rv = nsImapMailFolder::BuildIdsAndKeyArray(messages, messageIds, msgKeys);
-    NS_ENSURE_SUCCESS(rv, rv);
-    if (messageIds.IsEmpty()) {
+    nsTArray<nsMsgKey> msgKeys = MOZ_TRY(MsgGetKeysFromHdrs(messages));
+    nsTArray<ImapUid> uids = MOZ_TRY(UidsFromHdrs(messages));
+    if (uids.IsEmpty()) {
       return NS_OK;
     }
+    nsAutoCString messageIds(UidSetFromUids(uids));
 
     if (MOZ_LOG_TEST(gAutoSyncLog, LogLevel::Debug)) {
       nsCString folderName;
@@ -692,7 +692,8 @@ NS_IMETHODIMP nsAutoSyncState::DownloadMessagesForOffline(
     rv = imapService->DownloadMessagesForOffline(messageIds, folder, this,
                                                  nullptr);
     NS_ENSURE_SUCCESS(rv, rv);
-  } else if (serverType.EqualsLiteral("ews")) {
+  } else if (serverType.EqualsLiteral("ews") ||
+             serverType.EqualsLiteral("graph")) {
     nsTArray<nsMsgKey> keys(messages.Length());
     for (nsIMsgDBHdr* hdr : messages) {
       nsMsgKey key;
@@ -703,7 +704,7 @@ NS_IMETHODIMP nsAutoSyncState::DownloadMessagesForOffline(
     MOZ_LOG(gAutoSyncLog, LogLevel::Info,
             ("Downloading %d messages for offline, for folder %s",
              (int)keys.Length(), folder->URI().get()));
-    rv = EwsFetchMsgsToOffline(
+    rv = ExchangeFetchMsgsToOffline(
         folder, keys, [folder, self = RefPtr(this)](nsresult status) {
           // For IMAP, this is handled in OnStopRunningUrl().
           folder->ReleaseSemaphore(
@@ -714,7 +715,7 @@ NS_IMETHODIMP nsAutoSyncState::DownloadMessagesForOffline(
                    status, folder->URI().get()));
 
           // Let the folder know these messages are now stored offline.
-          nsCOMPtr<IEwsFolder> ewsFolder{do_QueryInterface(folder)};
+          nsCOMPtr<IExchangeFolder> ewsFolder{do_QueryInterface(folder)};
           if (ewsFolder) {
             ewsFolder->HandleDownloadedMessages();
           }
@@ -760,7 +761,7 @@ NS_IMETHODIMP nsAutoSyncState::SetLastUpdateTime(PRTime aLastUpdateTime) {
 }
 
 void nsAutoSyncState::SetServerCounts(int32_t total, int32_t recent,
-                                      int32_t unseen, int32_t nextUID) {
+                                      int32_t unseen, ImapUid nextUID) {
   mLastServerTotal = total;
   mLastServerRecent = recent;
   mLastServerUnseen = unseen;

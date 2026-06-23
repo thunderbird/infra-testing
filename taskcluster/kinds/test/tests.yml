@@ -58,13 +58,9 @@ xpcshell:
             macosx1470-64/debug: 6
             macosx1470-64.*/opt: 4
             windows.*/debug: 2
-            windows11-64-24h2-asan/opt: 2
-            windows11-64-24h2-ccov/opt: 3
+            windows11-64-25h2-asan/opt: 2
+            windows11-64-25h2-ccov/opt: 3
             default: 1
-    worker-type:
-        by-test-platform:
-            windows11-64-24h2-ccov/opt: win11-64-24h2-ssd
-            default: default
     instance-size: default
     max-run-time:
         by-variant:
@@ -125,7 +121,11 @@ mochitest-thunderbird:
     description: "Mochitest browser-chrome-thunderbird run"
     suite:
         category: mochitest
-        name: mochitest-browser-chrome-thunderbird
+        name:
+            by-variant:
+                a11y-checks: mochitest-browser-chrome-thunderbird-a11y
+                default: mochitest-browser-chrome-thunderbird
+    try-name: mochitest-browser-chrome-thunderbird
     target:
         by-test-platform:
             windows11-64.*:
@@ -135,7 +135,6 @@ mochitest-thunderbird:
             default: null
     treeherder-symbol: M(bct)
     built-projects-only: true
-    test-manifest-loader: null  # don't load tests in the taskgraph
     loopback-video: true
     max-run-time:
         by-variant:
@@ -149,11 +148,16 @@ mochitest-thunderbird:
                     default: 3600
     variants:
         - msix
+        - a11y-checks
     run-on-projects:
         by-variant:
             msix:
                 by-test-platform:
                     windows11-64.*: built-projects
+                    default: []
+            a11y-checks:
+                by-test-platform:
+                    linux.*64/opt: built-projects
                     default: []
             default: built-projects
     tier:
@@ -175,6 +179,7 @@ mochitest-thunderbird:
     mozharness:
         script: desktop_unittest.py
         mochitest-flavor: browser
+        chunked: true
         config:
             by-test-platform:
                 windows.*:
@@ -187,10 +192,6 @@ mochitest-thunderbird:
                     - unittests/linux_unittest.py
                     - remove_executables.py
                     - unittests/thunderbird_extra.py
-    worker-type:
-        by-test-platform:
-            windows11-64-24h2-ccov/opt: win11-64-24h2-ssd
-            default: default
     instance-size:
         by-test-platform:
             linux.*64-tsan.*/opt: xlarge-noscratch  # runs out of memory on default/m3.large

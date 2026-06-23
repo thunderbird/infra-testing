@@ -82,6 +82,8 @@ add_setup(async function () {
     "tagKeysCol",
     "totalCol",
     "unreadCol",
+    "accountCol",
+    "serverKeyCol",
   ];
   SENT_DEFAULTS = [
     "threadCol",
@@ -100,6 +102,8 @@ add_setup(async function () {
     "tagKeysCol",
     "totalCol",
     "unreadCol",
+    "accountCol",
+    "serverKeyCol",
   ];
   VIRTUAL_DEFAULTS = [
     "threadCol",
@@ -237,7 +241,7 @@ async function toggleColumn(columnID) {
   await columnsChangedEvent;
 
   // The column picker menupopup doesn't close automatically on purpose.
-  EventUtils.synthesizeKey("VK_ESCAPE", {}, about3Pane);
+  EventUtils.synthesizeKey("KEY_Escape", {}, about3Pane);
   await BrowserTestUtils.waitForPopupEvent(colPickerPopup, "hidden");
   await new Promise(about3Pane.requestAnimationFrame);
   await TestUtils.waitForTick();
@@ -277,7 +281,7 @@ add_task(async function test_keypress_on_columns() {
   EventUtils.synthesizeMouseAtCenter(row, {}, about3Pane);
 
   // Press SHIFT+TAB and LEFT to focus on the column picker.
-  EventUtils.synthesizeKey("VK_TAB", { shiftKey: true }, about3Pane);
+  EventUtils.synthesizeKey("KEY_Tab", { shiftKey: true }, about3Pane);
   EventUtils.synthesizeKey("KEY_ArrowLeft", {}, about3Pane);
 
   Assert.ok(
@@ -293,7 +297,7 @@ add_task(async function test_keypress_on_columns() {
     "#threadTree .menupopup-column-picker"
   );
   // Pressing Enter should open the column picker popup.
-  EventUtils.synthesizeKey("VK_RETURN", {}, about3Pane);
+  EventUtils.synthesizeKey("KEY_Enter", {}, about3Pane);
   await BrowserTestUtils.waitForPopupEvent(colPickerPopup, "shown");
 
   Assert.equal(
@@ -303,7 +307,7 @@ add_task(async function test_keypress_on_columns() {
   );
 
   // Close the column picker.
-  EventUtils.synthesizeKey("VK_ESCAPE", {}, about3Pane);
+  EventUtils.synthesizeKey("KEY_Escape", {}, about3Pane);
   await BrowserTestUtils.waitForPopupEvent(colPickerPopup, "hidden");
 
   // Move the focus to another column.
@@ -326,7 +330,7 @@ add_task(async function test_keypress_on_columns() {
   await BrowserTestUtils.waitForPopupEvent(colPickerPopup, "shown");
 
   // Close the column picker.
-  EventUtils.synthesizeKey("VK_ESCAPE", {}, about3Pane);
+  EventUtils.synthesizeKey("KEY_Escape", {}, about3Pane);
   await BrowserTestUtils.waitForPopupEvent(colPickerPopup, "hidden");
 });
 
@@ -975,7 +979,7 @@ add_task(async function test_column_defaults_gloda_collection() {
     }),
     title: "Test gloda results",
   });
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => tab.chromeBrowser.contentWindow.gViewWrapper?.isSynthetic,
     "synthetic view loaded"
   );
@@ -994,7 +998,7 @@ add_task(async function test_persist_columns_gloda_collection() {
     }),
     title: "Test gloda results 1",
   });
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => tab1.chromeBrowser.contentWindow.gViewWrapper?.isSynthetic,
     "synthetic view loaded"
   );
@@ -1013,7 +1017,7 @@ add_task(async function test_persist_columns_gloda_collection() {
     }),
     title: "Test gloda results 2",
   });
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => tab2.chromeBrowser.contentWindow.gViewWrapper?.isSynthetic,
     "synthetic view loaded"
   );
@@ -1036,7 +1040,7 @@ add_task(async function test_reset_columns_gloda_collection() {
     }),
     title: "Test gloda results 1",
   });
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => tab1.chromeBrowser.contentWindow.gViewWrapper?.isSynthetic,
     "synthetic view loaded"
   );
@@ -1062,7 +1066,7 @@ add_task(async function test_reset_columns_gloda_collection() {
     }),
     title: "Test gloda results 2",
   });
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => tab2.chromeBrowser.contentWindow.gViewWrapper?.isSynthetic,
     "synthetic view loaded"
   );
@@ -1103,7 +1107,7 @@ add_task(async function test_double_click_column_picker() {
   menuItem.dispatchEvent(new MouseEvent("dblclick", { button: 0 }));
 
   // The column picker menupopup doesn't close automatically on purpose.
-  EventUtils.synthesizeKey("VK_ESCAPE", {}, about3Pane);
+  EventUtils.synthesizeKey("KEY_Escape", {}, about3Pane);
   await BrowserTestUtils.waitForPopupEvent(colPickerPopup, "hidden");
 
   Assert.deepEqual(

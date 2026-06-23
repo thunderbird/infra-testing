@@ -19,6 +19,8 @@
       content="default-src chrome:; script-src chrome: 'unsafe-inline' moz-src:; style-src chrome: 'unsafe-inline'"
     />
     <link rel="localization" href="messenger/accountSettings.ftl" />
+    <link rel="stylesheet" href="chrome://messenger/skin/colors.css" />
+    <link rel="stylesheet" href="chrome://messenger/skin/variables.css" />
     <link rel="stylesheet" href="chrome://messenger/skin/accountManage.css" />
     <script
       defer="defer"
@@ -122,7 +124,7 @@
                 id="server.storeTypeMenulist"
                 oncommand="clickStoreTypeMenu(this)"
               >
-                <menupopup id="server.storeTypeMenupopup" native="false">
+                <menupopup id="server.storeTypeMenupopup">
                   <menuitem
                     id="server.mboxStore"
                     value="@mozilla.org/msgstore/berkeleystore;1"

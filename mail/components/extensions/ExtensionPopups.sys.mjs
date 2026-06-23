@@ -1,5 +1,3 @@
-/* -*- Mode: indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set sts=2 sw=2 et tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -33,7 +31,7 @@ export class BasePopup {
     this.popupURL = popupURL;
     this.viewNode = viewNode;
     this.browserStyle = browserStyle;
-    this.window = viewNode.ownerGlobal;
+    this.window = viewNode.documentGlobal;
     this.destroyed = false;
     this.fixedWidth = fixedWidth;
     this.blockParser = blockParser;
@@ -100,8 +98,8 @@ export class BasePopup {
         panel.removeEventListener("popuppositioned", this, { capture: true });
       }
       if (panel && panel.id !== REMOTE_PANEL_ID) {
-        panel.style.removeProperty("--arrowpanel-background");
-        panel.style.removeProperty("--arrowpanel-border-color");
+        panel.style.removeProperty("--panel-background");
+        panel.style.removeProperty("--panel-border-color");
         panel.removeAttribute("remote");
       }
 
@@ -194,7 +192,7 @@ export class BasePopup {
               // to be fully flushed makes us sure that when the popup panel grabs the focus
               // nsMenuPopupFrame::LayoutPopup has already been colled and set the frame
               // visibility to `nsViewVisibility_kShow`).
-              this.browser.ownerGlobal.promiseDocumentFlushed(() => {
+              this.browser.documentGlobal.promiseDocumentFlushed(() => {
                 if (this.destroyed) {
                   return;
                 }
@@ -238,7 +236,7 @@ export class BasePopup {
     browser.setAttribute("selectmenulist", "ContentSelectDropdown");
     browser.setAttribute("constrainpopups", "false");
     browser.setAttribute("datetimepicker", "DateTimePickerPanel");
-    browser.setAttribute("nodefaultsrc", "true");
+    browser.toggleAttribute("nodefaultsrc", true);
     browser.setAttribute("maychangeremoteness", "true");
 
     // Ensure the browser will initially load in the same group as other
@@ -249,7 +247,7 @@ export class BasePopup {
     );
 
     if (this.extension.remote) {
-      browser.setAttribute("remote", "true");
+      browser.toggleAttribute("remote", true);
       browser.setAttribute("remoteType", this.extension.remoteType);
     }
 
@@ -383,12 +381,12 @@ export class BasePopup {
       background = "#fff";
     }
     if (this.panel.id != "widget-overflow") {
-      this.panel.style.setProperty("--arrowpanel-background", background);
+      this.panel.style.setProperty("--panel-background", background);
     }
     if (background == "#fff") {
       // Set a usable default color that work with the default background-color.
       this.panel.style.setProperty(
-        "--arrowpanel-border-color",
+        "--panel-border-color",
         "hsla(210,4%,10%,.15)"
       );
     }
@@ -412,7 +410,7 @@ export class ViewPopup extends BasePopup {
       panel.setAttribute("type", "arrow");
       panel.setAttribute("class", `panel-no-padding ${POPUP_PANEL_CLASS_NAME}`);
       if (remote) {
-        panel.setAttribute("remote", "true");
+        panel.toggleAttribute("remote", true);
         panel.id = REMOTE_PANEL_ID;
       }
       panel.setAttribute("neverhidden", "true");

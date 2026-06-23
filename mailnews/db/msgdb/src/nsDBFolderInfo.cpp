@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -22,7 +21,7 @@ struct mdbOid gDBFolderInfoOID;
 static const char* kNumMessagesColumnName = "numMsgs";
 // have to leave this as numNewMsgs even though it's numUnread Msgs
 static const char* kNumUnreadMessagesColumnName = "numNewMsgs";
-static const char* kFlagsColumnName = "flags";
+static const char* kFolderFlagsColumnName = "flags";
 static const char* kFolderSizeColumnName = "folderSize";
 static const char* kExpungedBytesColumnName = "expungedBytes";
 static const char* kFolderDateColumnName = "folderDate";
@@ -54,8 +53,7 @@ nsDBFolderInfo::QueryInterface(REFNSIID iid, void** result) {
 }
 
 nsDBFolderInfo::nsDBFolderInfo(nsMsgDatabase* mdb)
-    : m_flags(0),
-      m_tableKindToken(0) {
+    : m_flags(0), m_tableKindToken(0) {
   m_mdbTable = NULL;
   m_mdbRow = NULL;
   m_version = 1;                 // for upgrading...
@@ -69,7 +67,7 @@ nsDBFolderInfo::nsDBFolderInfo(nsMsgDatabase* mdb)
   m_numUnreadMessages = 0;
   m_numMessages = 0;
   // IMAP only
-  m_ImapUidValidity = kUidUnknown;
+  m_ImapUidValidity = ImapUid_None;
   m_totalPendingMessages = 0;
   m_unreadPendingMessages = 0;
 
@@ -183,7 +181,7 @@ nsresult nsDBFolderInfo::InitMDBInfo() {
                          &m_numMessagesColumnToken);
     store->StringToToken(env, kNumUnreadMessagesColumnName,
                          &m_numUnreadMessagesColumnToken);
-    store->StringToToken(env, kFlagsColumnName, &m_flagsColumnToken);
+    store->StringToToken(env, kFolderFlagsColumnName, &m_flagsColumnToken);
     store->StringToToken(env, kFolderSizeColumnName, &m_folderSizeColumnToken);
     store->StringToToken(env, kExpungedBytesColumnName,
                          &m_expungedBytesColumnToken);
@@ -215,8 +213,8 @@ nsresult nsDBFolderInfo::LoadMemberVariables() {
   GetInt32PropertyWithToken(m_flagsColumnToken, m_flags);
   GetInt64PropertyWithToken(m_folderSizeColumnToken, m_folderSize);
   GetUint32PropertyWithToken(m_folderDateColumnToken, m_folderDate);
-  GetInt32PropertyWithToken(m_imapUidValidityColumnToken, m_ImapUidValidity,
-                            kUidUnknown);
+  GetUint32PropertyWithToken(m_imapUidValidityColumnToken, m_ImapUidValidity,
+                             ImapUid_None);
   GetInt64PropertyWithToken(m_expungedBytesColumnToken, m_expungedBytes);
   GetUint32PropertyWithToken(m_highWaterMessageKeyColumnToken,
                              m_highWaterMessageKey);
@@ -417,12 +415,12 @@ NS_IMETHODIMP nsDBFolderInfo::AndFlags(int32_t flags, int32_t* result) {
   return SetInt32PropertyWithToken(m_flagsColumnToken, m_flags);
 }
 
-NS_IMETHODIMP nsDBFolderInfo::GetImapUidValidity(int32_t* result) {
+NS_IMETHODIMP nsDBFolderInfo::GetImapUidValidity(ImapUid* result) {
   *result = m_ImapUidValidity;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsDBFolderInfo::SetImapUidValidity(int32_t uidValidity) {
+NS_IMETHODIMP nsDBFolderInfo::SetImapUidValidity(ImapUid uidValidity) {
   m_ImapUidValidity = uidValidity;
   return SetUint32PropertyWithToken(m_imapUidValidityColumnToken,
                                     m_ImapUidValidity);

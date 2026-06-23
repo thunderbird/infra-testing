@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,20 +6,22 @@
 #define COMM_MAILNEWS_BASE_SRC_NSMSGINCOMINGSERVER_H_
 
 #include "nsIMsgIncomingServer.h"
-#include "nsIPrefBranch.h"
-#include "nsIMsgFilterList.h"
+
 #include "msgCore.h"
-#include "nsIMsgFolder.h"
-#include "nsIFile.h"
+#include "msgIPasswordAuthModule.h"
 #include "nsCOMPtr.h"
-#include "nsIPop3IncomingServer.h"
-#include "nsWeakReference.h"
+#include "nsIFile.h"
 #include "nsIMsgDatabase.h"
-#include "nsISpamSettings.h"
+#include "nsIMsgFilterList.h"
 #include "nsIMsgFilterPlugin.h"
-#include "nsTHashMap.h"
+#include "nsIMsgFolder.h"
 #include "nsIMsgPluggableStore.h"
 #include "nsIObserver.h"
+#include "nsIPop3IncomingServer.h"
+#include "nsIPrefBranch.h"
+#include "nsISpamSettings.h"
+#include "nsTHashMap.h"
+#include "nsWeakReference.h"
 
 class nsIMsgFolderCache;
 class nsIMsgProtocolInfo;
@@ -74,7 +75,7 @@ class nsMsgIncomingServer : public nsIMsgIncomingServer,
 
   virtual nsresult CreateRootFolder();
 
-  nsresult InternalSetHostName(const nsACString& aHostname,
+  nsresult InternalSetHostname(const nsACString& aHostname,
                                const char* prefName);
 
   nsCOMPtr<nsIFile> mFilterFile;
@@ -102,7 +103,7 @@ class nsMsgIncomingServer : public nsIMsgIncomingServer,
  protected:
   bool m_canHaveFilters;
   bool mPerformingBiff;
-  RefPtr<MsgPasswordAuthModule> mPasswordModule;
+  nsCOMPtr<msgIPasswordAuthModule> mPasswordModule;
 };
 
 #endif  // COMM_MAILNEWS_BASE_SRC_NSMSGINCOMINGSERVER_H_

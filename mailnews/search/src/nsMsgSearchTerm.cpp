@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -657,7 +656,8 @@ nsresult nsMsgSearchTerm::MatchArbitraryHeader(
 
   while (processingHeaders) {
     nsCString charsetIgnored;
-    if (bodyHandler.GetNextLine(buf, charsetIgnored) < 0 ||
+    bool needsQPResetIgnored;
+    if (bodyHandler.GetNextLine(buf, charsetIgnored, needsQPResetIgnored) < 0 ||
         EMPTY_MESSAGE_LINE(buf))
       processingHeaders =
           false;  // No more lines or empty line terminating headers.
@@ -782,7 +782,7 @@ NS_IMETHODIMP nsMsgSearchTerm::MatchUint32HdrProperty(nsIMsgDBHdr* aHdr,
 }
 
 nsresult nsMsgSearchTerm::MatchBody(nsIMsgSearchScopeTerm* scope,
-                                    const char* folderCharset, nsIMsgDBHdr* msg,
+                                    const char* msgCharset, nsIMsgDBHdr* msg,
                                     bool* pResult) {
   NS_ENSURE_ARG_POINTER(pResult);
   nsresult rv = NS_OK;
@@ -808,7 +808,8 @@ nsresult nsMsgSearchTerm::MatchBody(nsIMsgSearchScopeTerm* scope,
 
     nsAutoCString buf;
     nsAutoCString charset;
-    int32_t n = bodyHandler.GetNextLine(buf, charset);
+    bool needsQPReset = false;
+    int32_t n = bodyHandler.GetNextLine(buf, charset, needsQPReset);
     if (n < 0) {
       break;  // EOF
     }
@@ -822,6 +823,9 @@ nsresult nsMsgSearchTerm::MatchBody(nsIMsgSearchScopeTerm* scope,
       size_t bufLength = buf.Length();
       if ((bufLength > 0) && softLineBreak) buf.SetLength(bufLength - 1);
     }
+    if (needsQPReset) {
+      bodyHandler.resetQP();
+    }
     compare.Append(buf);
     // If this line ends with a soft line break, loop around
     // and get the next line before looking for the search string.
@@ -831,9 +835,8 @@ nsresult nsMsgSearchTerm::MatchBody(nsIMsgSearchScopeTerm* scope,
     if (!compare.IsEmpty()) {
       char startChar = (char)compare.CharAt(0);
       if (startChar != '\r' && startChar != '\n') {
-        rv = MatchString(compare,
-                         charset.IsEmpty() ? folderCharset : charset.get(),
-                         &result);
+        rv = MatchString(
+            compare, charset.IsEmpty() ? msgCharset : charset.get(), &result);
       }
       compare.Truncate();
     }

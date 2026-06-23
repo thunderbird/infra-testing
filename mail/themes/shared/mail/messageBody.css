@@ -109,7 +109,7 @@ mailattachcount {
 @media (prefers-color-scheme: dark) and -moz-pref("mail.dark-reader.enabled") {
   html {
     background-color: var(--color-gray-90);
-    color: var(--color-white);
+    color: var(--color-text-base-dark);
   }
 }
 
@@ -124,7 +124,9 @@ mailattachcount {
 
 img {
   &[shrinktofit] {
-    max-inline-size: 100% !important;
+    /* width of the document, minus the margin of the body (8px in the UA
+    stylesheet), minus the scrollbar */
+    max-inline-size: calc(100svi - 16px - env(scrollbar-inline-size)) !important;
 
     &[overflowing] {
       cursor: zoom-in;
@@ -244,7 +246,7 @@ img {
 /* stylelint-disable-next-line media-query-no-invalid */
 @media (prefers-color-scheme: dark) and -moz-pref("mail.dark-reader.enabled") {
   a:link {
-    color: LinkText;
+    color: var(--color-text-highlight-dark);
   }
   a:visited {
     color: VisitedText;

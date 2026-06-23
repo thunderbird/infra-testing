@@ -6,6 +6,10 @@ const { AccountCreationUtils } = ChromeUtils.importESModule(
   "resource:///modules/accountcreation/AccountCreationUtils.sys.mjs"
 );
 
+const { isFirstRun } = ChromeUtils.importESModule(
+  "resource:///modules/accountcreation/FirstRun.sys.mjs"
+);
+
 // TODO: Uncomment when below for close button is uncommented.
 // const { MailServices } = ChromeUtils.importESModule(
 //   "resource:///modules/MailServices.sys.mjs"
@@ -57,7 +61,6 @@ class AccountHubHeader extends HTMLElement {
     this.l10n = new DOMLocalization([
       "branding/brand.ftl",
       "messenger/accountcreation/accountHub.ftl",
-      "messenger/accountcreation/accountSetup.ftl",
     ]);
     this.l10n.connectRoot(shadowRoot);
 
@@ -68,14 +71,26 @@ class AccountHubHeader extends HTMLElement {
 
     this.#closeButton = this.shadowRoot.querySelector("#closeButton");
     this.#minimizeButton = this.shadowRoot.querySelector("#minimizeButton");
-    // TODO: Re-enable / re-think how this will work when first time experience
-    // is enabled.
-    // this.#closeButton.hidden = !MailServices.accounts.accounts.length;
+
     this.#closeButton.addEventListener("click", () => this.#closeAccountHub());
     this.#minimizeButton.addEventListener("click", () =>
       this.#minimizeAccountHub()
     );
 
+    this.refresh();
+  }
+
+  /**
+   * Refresh the header, this is needed when the first run state changes while
+   * the header is already loaded, so that it can update the aria-hidden
+   * attributes and the welcome text visibility.
+   */
+  refresh() {
+    if (!this.shadowRoot) {
+      return;
+    }
+    this.#setBrandingTitle();
+    this.#closeButton.hidden = isFirstRun();
     this.clearNotifications();
   }
 
@@ -83,7 +98,8 @@ class AccountHubHeader extends HTMLElement {
    * Show an error notification in-case something went wrong.
    *
    * @param {object} options - An options object for displaying notification.
-   * @param {string} [options.description] - A raw string to show in the title.
+   * @param {string|Node} [options.description] - A raw string or DOM content to
+   *   show in the description.
    * @param {Error} [options.error] - An error object. Must be set if type is "error".
    * @param {string} [options.fluentTitleId] - A string representing a fluent id
    *   to localize for the title.
@@ -91,7 +107,7 @@ class AccountHubHeader extends HTMLElement {
    *   fluent string.
    * @param {string} [options.fluentDescriptionId] - A string representing a
    *   fluent id to localize for the description.
-   * @param {string} [options.title] - A raw string to display in the description.
+   * @param {string} [options.title] - A raw string to display in the title.
    * @param {"error"|"warning"|"info"|"success"} options.type - The type of notification.
    */
   showNotification({
@@ -167,6 +183,13 @@ class AccountHubHeader extends HTMLElement {
       return;
     }
 
+    if (Node.isInstance(description)) {
+      descriptionElement
+        .querySelector(".raw-description")
+        .replaceChildren(description);
+      return;
+    }
+
     if (description || (type == "error" && error?.message)) {
       let descriptionText = description || "";
       if (type == "error" && error?.message) {
@@ -176,6 +199,26 @@ class AccountHubHeader extends HTMLElement {
       descriptionElement.querySelector(".raw-description").textContent =
         descriptionText;
     }
+  }
+
+  async #setBrandingTitle() {
+    const header = this.shadowRoot.querySelector("#brandingHeader");
+    const nameText = header.querySelector(".branding-header-name");
+    const titleText = header.querySelector(".branding-header-title");
+    const firstRun = isFirstRun();
+
+    header.classList.toggle("account-hub-first-run", firstRun);
+    document.l10n.setAttributes(
+      nameText,
+      firstRun ? "account-hub-welcome" : "account-hub-brand"
+    );
+    document.l10n.setAttributes(
+      titleText,
+      firstRun ? "account-hub-welcome-brand" : "account-hub-title"
+    );
+    nameText.toggleAttribute("aria-hidden", firstRun);
+    titleText.toggleAttribute("aria-hidden", firstRun);
+    header.querySelector(".account-hub-welcome-text").hidden = !firstRun;
   }
 
   /**
@@ -250,6 +293,9 @@ class AccountHubHeader extends HTMLElement {
     this.shadowRoot.querySelector("#emailFormNotificationToggle").hidden = true;
   }
 
+  /**
+   * Show the branding header.
+   */
   showBrandingHeader() {
     this.shadowRoot.querySelector("#brandingHeader").hidden = false;
   }

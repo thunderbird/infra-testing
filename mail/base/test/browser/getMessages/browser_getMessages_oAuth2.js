@@ -112,7 +112,7 @@ add_setup(async function () {
     MailServices.accounts.removeAccount(pop3Account, false);
     MailServices.accounts.removeAccount(ewsAccount, false);
 
-    Services.logins.removeAllLogins();
+    await Services.logins.removeAllLoginsAsync();
     Services.prefs.clearUserPref("mailnews.oauth.loglevel");
     Services.prefs.clearUserPref("signon.rememberSignons");
 
@@ -162,7 +162,9 @@ async function waitForMessages(inbox) {
 
   await TestUtils.waitForCondition(
     () => inbox.getNumUnread(false) == 10 && inbox.numPendingUnread == 0,
-    `waiting for new ${inbox.server.type} messages to be received`
+    `waiting for new ${inbox.server.type} messages to be received`,
+    100,
+    200
   );
   await promiseServerIdle(inbox.server);
   info(`${inbox.server.type} messages received`);
@@ -179,15 +181,19 @@ async function waitForMessages(inbox) {
 async function handleOAuthDialog() {
   const oAuthWindow = await OAuth2TestUtils.promiseOAuthWindow();
   info("oauth2 window shown");
+  const windowClosedPromise = BrowserTestUtils.windowClosed(oAuthWindow);
   await SpecialPowers.spawn(
     oAuthWindow.getBrowser(),
     [{ expectedHint: "user", username: "user", password: "password" }],
     OAuth2TestUtils.submitOAuthLogin
   );
+  await windowClosedPromise;
 }
 
-function checkSavedPassword() {
-  const logins = Services.logins.findLogins("oauth://test.test", "", "");
+async function checkSavedPassword() {
+  const logins = await Services.logins.searchLoginsAsync({
+    origin: "oauth://test.test",
+  });
   Assert.equal(
     logins.length,
     1,
@@ -226,6 +232,7 @@ add_task(async function testNoTokens() {
         issuer: "test.test",
         reason: "no refresh token",
         result: "succeeded",
+        where: "internal",
       },
     ]);
 
@@ -234,8 +241,8 @@ add_task(async function testNoTokens() {
     await fetchMessages(inbox);
     await waitForMessages(inbox);
 
-    checkSavedPassword(inbox);
-    Services.logins.removeAllLogins();
+    await checkSavedPassword(inbox);
+    await Services.logins.removeAllLoginsAsync();
 
     await promiseServerIdle(inbox.server);
     inbox.server.closeCachedConnections();
@@ -270,14 +277,14 @@ add_task(async function testNoAccessToken() {
     await fetchMessages(inbox);
     await waitForMessages(inbox);
 
-    checkSavedPassword(inbox);
+    await checkSavedPassword(inbox);
     await promiseServerIdle(inbox.server);
     inbox.server.closeCachedConnections();
 
     OAuth2TestUtils.forgetObjects();
   }
 
-  Services.logins.removeAllLogins();
+  await Services.logins.removeAllLoginsAsync();
 });
 
 /**
@@ -318,14 +325,14 @@ add_task(async function testExpiredAccessToken() {
     await fetchMessages(inbox);
     await waitForMessages(inbox);
 
-    checkSavedPassword(inbox);
+    await checkSavedPassword(inbox);
     await promiseServerIdle(inbox.server);
     inbox.server.closeCachedConnections();
 
     OAuth2TestUtils.forgetObjects();
   }
 
-  Services.logins.removeAllLogins();
+  await Services.logins.removeAllLoginsAsync();
 });
 
 /**
@@ -350,11 +357,6 @@ add_task(async function testBadAccessToken() {
   oAuth2Server.accessToken = "bad_access_token";
 
   for (const inbox of allInboxes) {
-    Assert.ok(
-      !MockAlertsService.alert,
-      "no alerts were shown before this test"
-    );
-
     info("poisoning the cache with a bad access token");
 
     const expiredModule = new OAuth2Module();
@@ -367,6 +369,7 @@ add_task(async function testBadAccessToken() {
       `getting messages for ${inbox.server.type} inbox with a bad access token`
     );
 
+    MockAlertsService.reset();
     await fetchMessages(inbox);
     const alert = await TestUtils.waitForCondition(
       () => MockAlertsService.alert,
@@ -397,7 +400,7 @@ add_task(async function testBadAccessToken() {
     OAuth2TestUtils.forgetObjects();
   }
 
-  Services.logins.removeAllLogins();
+  await Services.logins.removeAllLoginsAsync();
   oAuth2Server.accessToken = "access_token";
 });
 
@@ -437,14 +440,15 @@ add_task(async function testBadRefreshToken() {
         issuer: "test.test",
         reason: "invalid grant",
         result: "succeeded",
+        where: "internal",
       },
     ]);
 
-    checkSavedPassword(inbox);
+    await checkSavedPassword(inbox);
     await promiseServerIdle(inbox.server);
     inbox.server.closeCachedConnections();
 
     OAuth2TestUtils.forgetObjects();
-    Services.logins.removeAllLogins();
+    await Services.logins.removeAllLoginsAsync();
   }
 });

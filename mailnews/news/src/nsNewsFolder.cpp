@@ -1,11 +1,9 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsNewsFolder.h"
 
-#include "mozilla/intl/Localization.h"
 #include "nsIDBFolderInfo.h"
 #include "prlog.h"
 
@@ -30,16 +28,12 @@
 
 #include "nsLocalFile.h"
 #include "nsNetUtil.h"
-#include "nsIAuthPrompt.h"
 #include "nsIURL.h"
 #include "nsNetCID.h"
-#include "nsINntpUrl.h"
 
 #include "nsMsgI18N.h"
 
 #include "nsIMsgFolderNotificationService.h"
-#include "nsILoginInfo.h"
-#include "nsILoginManager.h"
 #include "mozilla/Components.h"
 #include "mozilla/Preferences.h"
 #include "nsIInputStream.h"
@@ -239,7 +233,18 @@ nsMsgNewsFolder::UpdateFolder(nsIMsgWindow* aWindow) {
       // and send a folder loaded notification to the front end.
       rv = GetNewMessages(aWindow, nullptr);
     }
-    if (rv != NS_MSG_ERROR_OFFLINE) return rv;
+    if (rv != NS_MSG_ERROR_OFFLINE) {
+      // For the server root folder there are no running URLs that will fire
+      // kFolderLoaded, so notify immediately.
+      // For newsgroup folders, nsMsgDBFolder::OnStopRunningUrl fires
+      // kFolderLoaded when the async download completes.
+      bool isNewsServer = false;
+      GetIsServer(&isNewsServer);
+      if (isNewsServer) {
+        NotifyFolderEvent(kFolderLoaded);
+      }
+      return rv;
+    }
   }
   // We're not getting messages because either get_messages_on_select is
   // false or we're offline. Send an immediate folder loaded notification.
@@ -630,9 +635,9 @@ nsMsgNewsFolder::DeleteMessages(nsTArray<RefPtr<nsIMsgDBHdr>> const& msgHdrs,
 }
 
 NS_IMETHODIMP nsMsgNewsFolder::CancelMessage(nsIMsgDBHdr* msgHdr,
+                                             nsIUrlListener* aUrlListener,
                                              nsIMsgWindow* aMsgWindow) {
   NS_ENSURE_ARG_POINTER(msgHdr);
-  NS_ENSURE_ARG_POINTER(aMsgWindow);
 
   nsresult rv;
 
@@ -673,8 +678,8 @@ NS_IMETHODIMP nsMsgNewsFolder::CancelMessage(nsIMsgDBHdr* msgHdr,
 
   nsCOMPtr<nsIURI> resultUri;
   return nntpService->CancelMessage(cancelURL, messageURI,
-                                    nullptr /* consumer */, nullptr, aMsgWindow,
-                                    getter_AddRefs(resultUri));
+                                    nullptr /* consumer */, aUrlListener,
+                                    aMsgWindow, getter_AddRefs(resultUri));
 }
 
 NS_IMETHODIMP nsMsgNewsFolder::GetNewMessages(nsIMsgWindow* aMsgWindow,
@@ -691,18 +696,6 @@ nsresult nsMsgNewsFolder::GetNewsMessages(nsIMsgWindow* aMsgWindow,
                                           nsIUrlListener* aUrlListener) {
   nsresult rv = NS_OK;
 
-  bool isNewsServer = false;
-  rv = GetIsServer(&isNewsServer);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  if (isNewsServer) {
-    nsCOMPtr<nsIMsgIncomingServer> server;
-    rv = GetServer(getter_AddRefs(server));
-    NS_ENSURE_SUCCESS(rv, rv);
-
-    return server->PerformExpand(aMsgWindow);
-  }
-
   nsCOMPtr<nsINntpService> nntpService =
       do_GetService("@mozilla.org/messenger/nntpservice;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -711,12 +704,27 @@ nsresult nsMsgNewsFolder::GetNewsMessages(nsIMsgWindow* aMsgWindow,
   rv = GetNntpServer(getter_AddRefs(nntpServer));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsIURI> resultUri;
-  rv = nntpService->GetNewNews(nntpServer, mURI, aGetOld, this, aMsgWindow,
-                               getter_AddRefs(resultUri));
-  if (aUrlListener && NS_SUCCEEDED(rv) && resultUri) {
-    nsCOMPtr<nsIMsgMailNewsUrl> msgUrl(do_QueryInterface(resultUri));
-    if (msgUrl) msgUrl->RegisterListener(aUrlListener);
+  bool isNewsServer = false;
+  rv = GetIsServer(&isNewsServer);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  if (!isNewsServer) {
+    nsCOMPtr<nsIURI> resultUri;
+    rv = nntpService->GetNewNews(nntpServer, mURI, aGetOld, this, aMsgWindow,
+                                 getter_AddRefs(resultUri));
+    if (aUrlListener && NS_SUCCEEDED(rv) && resultUri) {
+      nsCOMPtr<nsIMsgMailNewsUrl> msgUrl(do_QueryInterface(resultUri));
+      if (msgUrl) msgUrl->RegisterListener(aUrlListener);
+    }
+  } else {
+    for (auto folder : mSubFolders) {
+      nsCString uri;
+      rv = folder->GetURI(uri);
+      NS_ENSURE_SUCCESS(rv, rv);
+      nsCOMPtr<nsIURI> resultUri;
+      nntpService->GetNewNews(nntpServer, uri, aGetOld, aUrlListener,
+                              aMsgWindow, getter_AddRefs(resultUri));
+    }
   }
   return rv;
 }
@@ -837,8 +845,7 @@ NS_IMETHODIMP nsMsgNewsFolder::SetGroupPassword(
   return NS_OK;
 }
 
-nsresult nsMsgNewsFolder::CreateNewsgroupUrlForSignon(const char* ref,
-                                                      nsAString& result) {
+NS_IMETHODIMP nsMsgNewsFolder::GetUrlForSignon(nsAString& result) {
   nsresult rv;
 
   nsCOMPtr<nsIMsgIncomingServer> server;
@@ -856,10 +863,10 @@ nsresult nsMsgNewsFolder::CreateNewsgroupUrlForSignon(const char* ref,
   if (singleSignon) {
     // Do not include username in the url when interacting with LoginManager.
     nsCString serverURI = "news://"_ns;
-    nsCString hostName;
-    rv = server->GetHostName(hostName);
+    nsCString hostname;
+    rv = server->GetHostname(hostname);
     NS_ENSURE_SUCCESS(rv, rv);
-    serverURI.Append(hostName);
+    serverURI.Append(hostname);
     rv = NS_MutateURI(NS_STANDARDURLMUTATOR_CONTRACTID)
              .SetSpec(serverURI)
              .Finalize(url);
@@ -889,174 +896,26 @@ nsresult nsMsgNewsFolder::CreateNewsgroupUrlForSignon(const char* ref,
     // password manager "blanks" those out.
     if (socketType == nsMsgSocketType::SSL) {
       rv = NS_MutateURI(url)
-               .SetPort(nsINntpUrl::DEFAULT_NNTPS_PORT)
+               .SetPort(nsINntpIncomingServer::DEFAULT_NNTPS_PORT)
                .Finalize(url);
       NS_ENSURE_SUCCESS(rv, rv);
     }
   }
 
   nsCString rawResult;
-  if (ref) {
-    rv = NS_MutateURI(url).SetRef(nsDependentCString(ref)).Finalize(url);
-    NS_ENSURE_SUCCESS(rv, rv);
 
-    rv = url->GetSpec(rawResult);
-    NS_ENSURE_SUCCESS(rv, rv);
-  } else {
-    // If the url doesn't have a path, make sure we don't get a '/' on the end
-    // as that will confuse searching in password manager.
-    nsCString spec;
-    rv = url->GetSpec(spec);
-    NS_ENSURE_SUCCESS(rv, rv);
+  // The url doesn't have a path, make sure we don't get a '/' on the end
+  // as that will confuse searching in password manager.
+  nsCString spec;
+  rv = url->GetSpec(spec);
+  NS_ENSURE_SUCCESS(rv, rv);
 
-    if (!spec.IsEmpty() && spec[spec.Length() - 1] == '/')
-      rawResult = StringHead(spec, spec.Length() - 1);
-    else
-      rawResult = spec;
-  }
+  if (!spec.IsEmpty() && spec[spec.Length() - 1] == '/')
+    rawResult = StringHead(spec, spec.Length() - 1);
+  else
+    rawResult = spec;
+
   result = NS_ConvertASCIItoUTF16(rawResult);
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsMsgNewsFolder::GetAuthenticationCredentials(nsIMsgWindow* aMsgWindow,
-                                              bool mayPrompt, bool mustPrompt,
-                                              bool* validCredentials) {
-  // Not strictly necessary, but it would help consumers to realize that this is
-  // a rather nonsensical combination.
-  NS_ENSURE_FALSE(mustPrompt && !mayPrompt, NS_ERROR_INVALID_ARG);
-  NS_ENSURE_ARG_POINTER(validCredentials);
-
-  nsString signonUrl;
-  nsresult rv = CreateNewsgroupUrlForSignon(nullptr, signonUrl);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  // If we don't have a username or password, try to load it via the login mgr.
-  // Do this even if mustPrompt is true, to prefill the dialog.
-  if (mGroupUsername.IsEmpty() || mGroupPassword.IsEmpty()) {
-    nsCOMPtr<nsILoginManager> loginMgr =
-        do_GetService(NS_LOGINMANAGER_CONTRACTID, &rv);
-    NS_ENSURE_SUCCESS(rv, rv);
-
-    nsTArray<RefPtr<nsILoginInfo>> logins;
-    rv = loginMgr->FindLogins(signonUrl, EmptyString(), signonUrl, logins);
-    NS_ENSURE_SUCCESS(rv, rv);
-
-    if (logins.Length() > 0) {
-      nsString uniUsername, uniPassword;
-      logins[0]->GetUsername(uniUsername);
-      logins[0]->GetPassword(uniPassword);
-      mGroupUsername = NS_LossyConvertUTF16toASCII(uniUsername);
-      mGroupPassword = NS_LossyConvertUTF16toASCII(uniPassword);
-
-      *validCredentials = true;
-    }
-  }
-
-  // Show the prompt if we need to
-  if (mustPrompt ||
-      (mayPrompt && (mGroupUsername.IsEmpty() || mGroupPassword.IsEmpty()))) {
-    nsCOMPtr<nsIAuthPrompt> authPrompt =
-        do_GetService("@mozilla.org/messenger/msgAuthPrompt;1");
-    if (!authPrompt) {
-      return NS_ERROR_FAILURE;
-    }
-
-    if (authPrompt) {
-      nsAutoCString serverName;
-      nsCOMPtr<nsIMsgIncomingServer> server;
-      rv = GetServer(getter_AddRefs(server));
-      NS_ENSURE_SUCCESS(rv, rv);
-
-      server->GetPrettyName(serverName);
-
-      nsCOMPtr<nsINntpIncomingServer> nntpServer;
-      rv = GetNntpServer(getter_AddRefs(nntpServer));
-      NS_ENSURE_SUCCESS(rv, rv);
-
-      bool singleSignon = true;
-      nntpServer->GetSingleSignon(&singleSignon);
-
-      // Format the prompt text strings
-      RefPtr<mozilla::intl::Localization> l10n =
-          mozilla::intl::Localization::Create({"messenger/news.ftl"_ns}, true);
-
-      nsAutoCString promptTitle;
-      rv = LocalizeMessage(l10n, "enter-news-credentials-title"_ns, {},
-                           promptTitle);
-      NS_ENSURE_SUCCESS(rv, rv);
-
-      nsAutoCString promptText;
-      if (singleSignon) {
-        rv = LocalizeMessage(l10n, "enter-news-server-credentials"_ns,
-                             {{"server"_ns, serverName}}, promptText);
-      } else {
-        rv = LocalizeMessage(
-            l10n, "enter-news-group-credentials"_ns,
-            {{"newsgroup"_ns, mName}, {"server"_ns, serverName}}, promptText);
-      }
-      NS_ENSURE_SUCCESS(rv, rv);
-
-      // Fill the signon url for the dialog
-      nsString signonURL;
-      rv = CreateNewsgroupUrlForSignon(nullptr, signonURL);
-      NS_ENSURE_SUCCESS(rv, rv);
-
-      // Prefill saved username/password
-      char16_t* uniGroupUsername =
-          ToNewUnicode(NS_ConvertASCIItoUTF16(mGroupUsername));
-      char16_t* uniGroupPassword =
-          ToNewUnicode(NS_ConvertASCIItoUTF16(mGroupPassword));
-
-      // Prompt for the dialog
-      rv = authPrompt->PromptUsernameAndPassword(
-          NS_ConvertUTF8toUTF16(promptTitle).get(),
-          NS_ConvertUTF8toUTF16(promptText).get(), signonURL.get(),
-          nsIAuthPrompt::SAVE_PASSWORD_PERMANENTLY, &uniGroupUsername,
-          &uniGroupPassword, validCredentials);
-
-      nsAutoString uniPasswordAdopted, uniUsernameAdopted;
-      uniPasswordAdopted.Adopt(uniGroupPassword);
-      uniUsernameAdopted.Adopt(uniGroupUsername);
-      NS_ENSURE_SUCCESS(rv, rv);
-
-      // Only use the username/password if the user didn't cancel.
-      if (*validCredentials) {
-        SetGroupUsername(NS_LossyConvertUTF16toASCII(uniUsernameAdopted));
-        SetGroupPassword(NS_LossyConvertUTF16toASCII(uniPasswordAdopted));
-      } else {
-        mGroupUsername.Truncate();
-        mGroupPassword.Truncate();
-      }
-    }
-  }
-
-  *validCredentials = !(mGroupUsername.IsEmpty() || mGroupPassword.IsEmpty());
-  return NS_OK;
-}
-
-NS_IMETHODIMP nsMsgNewsFolder::ForgetAuthenticationCredentials() {
-  nsString signonUrl;
-  nsresult rv = CreateNewsgroupUrlForSignon(nullptr, signonUrl);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  nsCOMPtr<nsILoginManager> loginMgr =
-      do_GetService(NS_LOGINMANAGER_CONTRACTID, &rv);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  nsTArray<RefPtr<nsILoginInfo>> logins;
-  rv = loginMgr->FindLogins(signonUrl, EmptyString(), signonUrl, logins);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  // There should only be one-login stored for this url, however just in case
-  // there isn't.
-  for (uint32_t i = 0; i < logins.Length(); ++i)
-    loginMgr->RemoveLogin(logins[i]);
-
-  // Clear out the saved passwords for anyone else who tries to call.
-  mGroupUsername.Truncate();
-  mGroupPassword.Truncate();
-
   return NS_OK;
 }
 

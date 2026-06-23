@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -11,9 +10,11 @@
 #include "nsTArray.h"
 #include "nsIMailboxSpec.h"
 #include "nsCOMPtr.h"
+#include "mozilla/Span.h"
 
 class nsImapFlagAndUidState;
 class nsImapProtocol;
+class nsIMsgDBHdr;
 
 static const char kImapRootURI[] = "imap:/";
 static const char kImapMessageRootURI[] = "imap-message:/";
@@ -34,11 +35,46 @@ extern nsresult nsBuildImapMessageURI(const char* baseURI, nsMsgKey key,
 extern nsresult nsCreateImapBaseMessageURI(const nsACString& baseURI,
                                            nsCString& baseMessageURI);
 
-void AllocateImapUidString(const uint32_t* msgUids, uint32_t& msgCount,
+void AllocateImapUidString(const ImapUid* msgUids, uint32_t& msgCount,
                            nsImapFlagAndUidState* flagState,
                            nsCString& returnString);
-void ParseUidString(const char* uidString, nsTArray<nsMsgKey>& keys);
-void AppendUid(nsCString& msgIds, uint32_t uid);
+void ParseUidString(const char* uidString, nsTArray<ImapUid>& uids);
+void AppendUid(nsCString& msgIds, ImapUid uid);
+
+/**
+ * Build an IMAP UID-set string from a bunch of UIDs, as per
+ * https://datatracker.ietf.org/doc/html/rfc9051#name-sequence-set-and-uid-set
+ *
+ * The input doesn't need to be ordered, may contain duplicates, and may be
+ * empty.
+ * All input values MUST be non-zero (UIDs are non-zero by definition).
+ *
+ * examples:
+ * UidSetFromUids({1,5,8,9,10})
+ *   => "1,5,8:10"
+ * UidSetFromUids({10,9,9,9,1,5,8})
+ *   => "1,5,8:10"
+ * UidSetFromUids({})
+ *   => ""
+ *
+ * NOTE: This implementation makes style choices. In the IMAP spec, no
+ * guarantee is made about the ordering of UID-set strings.
+ * e.g. Input of {1,2,8,9,10} could produce any of
+ * "1,2,8:10", "1,2,2,2,2,2,8:10", "1:2,8:10", "2,10:8,1" etc...
+ * The spec allows any of these.
+ * In practice the output will likely be sorted and de-duped,
+ * but the spec implies you shouldn't rely on that.
+ */
+nsCString UidSetFromUids(mozilla::Span<const ImapUid> uids);
+
+/**
+ * Returns a list of UIDs for the given messages.
+ * If a message doesn't have a UID, it will _not_ appear in the returned list.
+ * So the size of the returned list may differ to the number of messages passed
+ * in.
+ */
+mozilla::Result<nsTArray<ImapUid>, nsresult> UidsFromHdrs(
+    nsTArray<RefPtr<nsIMsgDBHdr>> const& hdrs);
 
 class nsImapMailboxSpec : public nsIMailboxSpec {
  public:
@@ -54,12 +90,12 @@ class nsImapMailboxSpec : public nsIMailboxSpec {
 
   uint32_t mBoxFlags;
   uint32_t mSupportedUserFlags;
-  int32_t mFolder_UIDVALIDITY;
+  ImapUid mFolder_UIDVALIDITY;
   uint64_t mHighestModSeq;
   int32_t mNumOfMessages;
   int32_t mNumOfUnseenMessages;
   int32_t mNumOfRecentMessages;
-  int32_t mNextUID;
+  ImapUid mNextUID;
   nsCString mAllocatedPathName;
   nsCString mHostName;
   nsString mUnicharPathName;

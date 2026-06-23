@@ -133,7 +133,10 @@ add_task(async function test_choosing_pop3_account_creation() {
 
   await subtest_clear_status_bar();
   MailServices.accounts.removeAccount(popAccount);
-  Services.logins.removeAllLogins();
+  MailServices.outgoingServer.deleteServer(
+    MailServices.outgoingServer.servers.find(s => s.key != "smtp1")
+  );
+  await Services.logins.removeAllLoginsAsync();
 
   pop3Server.close();
   IMAPServer.close();

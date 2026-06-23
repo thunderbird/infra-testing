@@ -48,13 +48,13 @@ export const ThemeVariableMap = [
     },
   ],
   [
-    "--toolbar-bgcolor",
+    "--toolbar-background-color",
     {
       lwtProperty: "toolbarColor",
     },
   ],
   [
-    "--toolbar-color",
+    "--toolbar-text-color",
     {
       lwtProperty: "toolbar_text",
     },
@@ -108,7 +108,7 @@ export const ThemeVariableMap = [
     },
   ],
   [
-    "--arrowpanel-border-color",
+    "--panel-border-color",
     {
       lwtProperty: "popup_border",
     },

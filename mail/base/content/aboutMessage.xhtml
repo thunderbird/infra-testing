@@ -33,7 +33,7 @@
 
   <link rel="stylesheet" href="chrome://calendar/skin/calendar.css" />
   <link rel="stylesheet" href="chrome://calendar/skin/shared/calendar-invitation-display.css" />
-  <link rel="stylesheet" href="chrome://messenger/skin/messageWindow.css" />
+  <link rel="stylesheet" href="chrome://messenger/skin/aboutMessage.css" />
   <link rel="stylesheet" href="chrome://messenger/skin/popupPanel.css" />
   <link rel="stylesheet" href="chrome://messenger/skin/messageHeader.css" />
   <link rel="stylesheet" href="chrome://messenger/skin/icons.css" />
@@ -81,6 +81,7 @@
   <script defer="defer" src="chrome://messenger/content/msgHdrView.js"></script>
   <script defer="defer" src="chrome://messenger/content/aboutMessage.js"></script>
   <script type="module" src="chrome://messenger/content/attachment-list.mjs"></script>
+  <script type="module" src="chrome://messenger/content/lazy-findbar.mjs"></script>
 </head>
 <html:body xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
@@ -141,10 +142,10 @@
                  disablesecurity="true"
                  disablehistory="true"
                  type="content"
-                 primary="true"
+                 primary="primary"
                  autofind="false"
-                 nodefaultsrc="true"
-                 forcemessagemanager="true"
+                 nodefaultsrc="nodefaultsrc"
+                 forcemessagemanager="forcemessagemanager"
                  maychangeremoteness="true"
                  messagemanagergroup="single-page"
                  autocompletepopup="PopupAutoComplete"
@@ -157,7 +158,7 @@
         <vbox id="attachmentView" collapsed="collapsed">
 #include msgAttachmentView.inc.xhtml
         </vbox>
-        <findbar id="findToolbar" browserid="messagepane"/>
+        <html:lazy-findbar id="findToolbar" browserid="messagepane"/>
       </vbox>
 #include msgSecurityPane.inc.xhtml
     </hbox>
@@ -166,6 +167,6 @@
   <panel is="autocomplete-richlistbox-popup" id="PopupAutoComplete"
          type="autocomplete"
          role="group"
-         noautofocus="true"/>
+         noautofocus="noautofocus"/>
 </popupset>
 </html>

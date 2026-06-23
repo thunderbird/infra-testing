@@ -6,9 +6,10 @@
 
 const tabmail = document.getElementById("tabmail");
 let header;
+let tab;
 
 add_setup(async function () {
-  const tab = tabmail.openTab("contentTab", {
+  tab = tabmail.openTab("contentTab", {
     url: "chrome://mochitests/content/browser/comm/mail/components/accountcreation/test/browser/files/accountHubHeader.xhtml",
   });
 
@@ -135,6 +136,61 @@ add_task(async function test_subheader_showNotification_fluent_title() {
   );
 });
 
+add_task(async function test_showNotification_dom_description() {
+  const notification = header.shadowRoot.querySelector(
+    "#emailFormNotification"
+  );
+
+  const { ownerDocument } = header;
+  const description = ownerDocument.createDocumentFragment();
+  const text = ownerDocument.createElement("span");
+  text.textContent = "First description.";
+  const link = ownerDocument.createElement("a");
+  link.href = "https://example.com/";
+  link.textContent = "Read more";
+  description.append(text, " ", link);
+
+  header.showNotification({
+    title: "Test notification",
+    description,
+    type: "info",
+  });
+
+  Assert.ok(
+    BrowserTestUtils.isVisible(notification),
+    "Should show notification"
+  );
+
+  const localizedDescription = notification.querySelector(
+    ".localized-description"
+  );
+  Assert.equal(
+    localizedDescription.textContent,
+    "",
+    "Should not use the localized description container"
+  );
+
+  const rawDescription = notification.querySelector(".raw-description");
+  Assert.equal(
+    rawDescription.textContent,
+    "First description. Read more",
+    "Should insert DOM description content"
+  );
+
+  Assert.equal(
+    rawDescription.querySelector("a")?.href,
+    "https://example.com/",
+    "Should preserve DOM nodes in the description"
+  );
+
+  header.clearNotifications();
+
+  Assert.ok(
+    BrowserTestUtils.isHidden(notification),
+    "Notification should be hidden"
+  );
+});
+
 add_task(async function test_showNotification_error_without_cause() {
   const notification = header.shadowRoot.querySelector(
     "#emailFormNotification"
@@ -183,5 +239,45 @@ add_task(async function test_showNotification_error_without_cause() {
   Assert.ok(
     BrowserTestUtils.isHidden(notification),
     "Notification should be hidden again after clearNotifications()"
+  );
+});
+
+add_task(async function test_showAccountHubBranding() {
+  Assert.equal(
+    header.shadowRoot
+      .querySelector(".branding-header-name")
+      .getAttribute("data-l10n-id"),
+    "account-hub-brand",
+    "Should show default branding header text"
+  );
+  Assert.equal(
+    header.shadowRoot
+      .querySelector(".branding-header-title")
+      .getAttribute("data-l10n-id"),
+    "account-hub-title",
+    "Should show default branding title text"
+  );
+  Assert.ok(
+    !header.shadowRoot
+      .querySelector(".branding-header-name")
+      .hasAttribute("aria-hidden"),
+    "Should not expose name to screen reader"
+  );
+  Assert.ok(
+    !header.shadowRoot
+      .querySelector(".branding-header-title")
+      .hasAttribute("aria-hidden"),
+    "Should not expose title to screen reader"
+  );
+  Assert.ok(
+    BrowserTestUtils.isVisible(header.shadowRoot.querySelector("#closeButton")),
+    "Close button should be visible on subsequent run"
+  );
+
+  Assert.ok(
+    BrowserTestUtils.isHidden(
+      header.shadowRoot.querySelector(".account-hub-welcome-text")
+    ),
+    "Should hide a11y friendly welcome text on subsequent run"
   );
 });

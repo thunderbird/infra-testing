@@ -2,31 +2,33 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::sync::Arc;
+
 use fxhash::FxHashMap;
-use ms_graph_tb::{DeltaResponse, paths};
-use protocol_shared::{
-    EXCHANGE_DISTINGUISHED_IDS, EXCHANGE_ROOT_FOLDER,
-    authentication::credentials::AuthenticationProvider, client::DoOperation,
-    safe_xpcom::SafeEwsFolderListener,
+use ms_graph_tb::{
+    pagination::{DeltaItem, DeltaResponse},
+    paths::me::mail_folders,
 };
-use xpcom::RefCounted;
+use protocol_shared::{
+    EXCHANGE_DISTINGUISHED_IDS, EXCHANGE_ROOT_FOLDER, ServerType, client::DoOperation,
+    safe_xpcom::SafeExchangeFolderListener,
+};
 
 use crate::error::XpComGraphError;
 
 use super::XpComGraphClient;
 
 struct DoSyncFolderHierarchy<'a> {
-    pub listener: &'a SafeEwsFolderListener,
+    pub listener: &'a SafeExchangeFolderListener,
     pub sync_state_token: Option<String>,
-    pub endpoint: &'a url::Url,
 }
 
-impl<ServerT: AuthenticationProvider + RefCounted>
-    DoOperation<XpComGraphClient<ServerT>, XpComGraphError> for DoSyncFolderHierarchy<'_>
+impl<ServerT: ServerType> DoOperation<XpComGraphClient<ServerT>, XpComGraphError>
+    for DoSyncFolderHierarchy<'_>
 {
     const NAME: &'static str = "sync folder hierarchy";
     type Okay = ();
-    type Listener = SafeEwsFolderListener;
+    type Listener = SafeExchangeFolderListener;
 
     async fn do_operation(
         &mut self,
@@ -38,14 +40,18 @@ impl<ServerT: AuthenticationProvider + RefCounted>
         // them.
         let (mut response, well_known) = match self.sync_state_token {
             Some(ref token) => {
-                let request = paths::me_mail_folders_delta::GetDelta::try_from(token.as_str())?;
-                let response = client.send_request(request).await?;
+                let request = mail_folders::delta::GetDelta::try_from(token.as_str())?;
+                let response = client
+                    .send_request_json_response(request, Default::default())
+                    .await?;
                 (response, None)
             }
             None => {
-                let endpoint = self.endpoint.as_str().to_string();
-                let request = paths::me_mail_folders_delta::Get::new(endpoint);
-                let response = client.send_request(request).await?;
+                let base_url = client.base_api_url()?.to_string();
+                let request = mail_folders::delta::Get::new(base_url);
+                let response = client
+                    .send_request_json_response(request, Default::default())
+                    .await?;
                 let well_known = Some(get_well_known_folder_map(client, self.listener).await?);
                 (response, well_known)
             }
@@ -54,47 +60,69 @@ impl<ServerT: AuthenticationProvider + RefCounted>
         loop {
             let folders = response.response();
 
-            for folder in folders {
-                let folder_id = folder.entity().id()?.to_string();
-                let display_name = folder
-                    .display_name()?
-                    .ok_or_else(|| XpComGraphError::Processing {
-                        message: format!("Folder without display name: {folder_id}"),
-                    })?
-                    .to_string();
-                let parent_folder_id = folder
-                    .parent_folder_id()?
-                    .ok_or_else(|| XpComGraphError::Processing {
-                        message: format!("Folder without parent ID: {display_name} {folder_id}"),
-                    })?
-                    .to_string();
+            for folder_delta in folders {
+                match folder_delta {
+                    DeltaItem::Removed(folder) => {
+                        let folder_id = folder.id().to_string();
+                        let reason = folder.reason();
+                        log::debug!(
+                            "Removing folder {folder_id} from delta sync (reason: {reason:?})"
+                        );
+                        self.listener.on_folder_deleted(folder_id)?;
+                    }
+                    DeltaItem::Present(folder) => {
+                        let folder_id = folder.entity().id()?.to_string();
+                        let display_name = folder
+                            .display_name()?
+                            .ok_or_else(|| XpComGraphError::Processing {
+                                message: format!("Folder without display name: {folder_id}"),
+                            })?
+                            .to_string();
+                        let parent_folder_id = folder
+                            .parent_folder_id()?
+                            .ok_or_else(|| XpComGraphError::Processing {
+                                message: format!(
+                                    "Folder without parent ID: {display_name} {folder_id}"
+                                ),
+                            })?
+                            .to_string();
 
-                // FIXME: get @removed objects
-                // https://learn.microsoft.com/en-us/graph/delta-query-overview#resource-representation-in-the-delta-query-response
+                        log::debug!(
+                            "Found folder in response with ID {folder_id} ({display_name})"
+                        );
 
-                // Graph doesn't provide a way to consistently distinguish new
-                // and updated objects, so it's tracked here by attempting to
-                // modify the folders and falling back to creating them.
-                if let Err(err) = self.listener.on_folder_updated(
-                    Some(folder_id.clone()),
-                    Some(parent_folder_id.clone()),
-                    Some(display_name.clone()),
-                ) {
-                    log::debug!(
-                        "Folder update failed ({err}); falling back to create for {folder_id}"
-                    );
-                    self.listener.on_folder_created(
-                        Some(folder_id),
-                        Some(parent_folder_id),
-                        Some(display_name),
-                        &well_known,
-                    )?;
+                        // Graph doesn't provide a way to consistently
+                        // distinguish new and updated objects, so it's tracked
+                        // here by attempting to modify the folders and falling
+                        // back to creating them.
+                        let result = self.listener.on_folder_updated(
+                            Some(folder_id.clone()),
+                            Some(parent_folder_id.clone()),
+                            Some(display_name.clone()),
+                        );
+
+                        if let Err(nserror::NS_MSG_ERROR_FOLDER_MISSING) = result {
+                            log::debug!("Creating folder {folder_id}");
+
+                            self.listener.on_folder_created(
+                                Some(folder_id),
+                                Some(parent_folder_id),
+                                Some(display_name),
+                                &well_known,
+                            )?;
+                        } else {
+                            result?;
+                            log::debug!("Updated folder {folder_id}");
+                        }
+                    }
                 }
             }
 
             match response {
                 DeltaResponse::NextLink { next_page, .. } => {
-                    response = client.send_request(next_page).await?
+                    response = client
+                        .send_request_json_response(next_page, Default::default())
+                        .await?;
                 }
                 DeltaResponse::DeltaLink { delta_link, .. } => {
                     self.listener.on_sync_state_token_changed(&delta_link)?;
@@ -112,18 +140,27 @@ impl<ServerT: AuthenticationProvider + RefCounted>
     fn into_failure_arg(self) {}
 }
 
-impl<ServerT: AuthenticationProvider + RefCounted> XpComGraphClient<ServerT> {
-    pub async fn sync_folder_hierarchy(
-        self,
-        listener: SafeEwsFolderListener,
+impl<ServerT: ServerType> XpComGraphClient<ServerT> {
+    /// Retrieve changes in the folder list/hierarchy by querying the [folder
+    /// delta] endpoint.
+    ///
+    /// If we have already sync'd in the past, `sync_state_token` holds a token
+    /// that allows us to only retrieve changes since then. Otherwise, the list
+    /// of changes provided in the response should contain enough information to
+    /// allow us to build our folder list/hierarchy.
+    ///
+    /// [folder delta]:
+    ///     https://learn.microsoft.com/en-us/graph/api/mailfolder-delta
+    pub(crate) async fn sync_folder_hierarchy(
+        self: Arc<XpComGraphClient<ServerT>>,
+        listener: SafeExchangeFolderListener,
         sync_state_token: Option<String>,
     ) {
         let operation = DoSyncFolderHierarchy {
             listener: &listener,
             sync_state_token,
-            endpoint: &self.endpoint,
         };
-        operation.handle_operation(&self, &listener).await
+        operation.handle_operation(&self, &listener).await;
     }
 }
 
@@ -131,9 +168,9 @@ impl<ServerT: AuthenticationProvider + RefCounted> XpComGraphClient<ServerT> {
 ///
 /// This allows translating from the folder ID returned by `GetFolder`
 /// calls and well-known IDs associated with special folders.
-async fn get_well_known_folder_map<ServerT: AuthenticationProvider + RefCounted>(
+async fn get_well_known_folder_map<ServerT: ServerType>(
     client: &XpComGraphClient<ServerT>,
-    listener: &SafeEwsFolderListener,
+    listener: &SafeExchangeFolderListener,
 ) -> Result<FxHashMap<String, &'static str>, XpComGraphError> {
     // We should always request the root folder first to simplify processing
     // the response below.
@@ -142,18 +179,18 @@ async fn get_well_known_folder_map<ServerT: AuthenticationProvider + RefCounted>
         "expected first fetched folder to be root"
     );
 
-    let endpoint = client.endpoint.as_str().to_string();
+    let base_url = client.base_api_url()?.to_string();
 
     let mut ret = FxHashMap::default();
     for distinguished_id in EXCHANGE_DISTINGUISHED_IDS {
-        let request = paths::me_mail_folders_mail_folder_id::Get::new(
-            endpoint.clone(),
-            distinguished_id.to_string(),
-        );
+        let request =
+            mail_folders::mail_folder_id::Get::new(base_url.clone(), distinguished_id.to_string());
 
         // FIXME: Figure out what the response looks like when a well-known
         // folder isn't present, and handle accordingly.
-        let folder = client.send_request(request).await?;
+        let folder = client
+            .send_request_json_response(request, Default::default())
+            .await?;
         let folder_id = folder.entity().id()?.to_string();
 
         if *distinguished_id == EXCHANGE_ROOT_FOLDER {

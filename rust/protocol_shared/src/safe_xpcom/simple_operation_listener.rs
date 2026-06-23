@@ -5,22 +5,26 @@
 use nserror::nsresult;
 use nsstring::nsCString;
 use thin_vec::ThinVec;
-use xpcom::interfaces::IEwsSimpleOperationListener;
+use xpcom::interfaces::IExchangeSimpleOperationListener;
 
 use crate::safe_xpcom::{SafeListener, SafeListenerWrapper};
 
 /// See [`SafeListenerWrapper`].
-pub type SafeEwsSimpleOperationListener = SafeListenerWrapper<IEwsSimpleOperationListener>;
+pub type SafeExchangeSimpleOperationListener =
+    SafeListenerWrapper<IExchangeSimpleOperationListener>;
 
-impl SafeEwsSimpleOperationListener {
-    /// Convert types and forward to [`IEwsSimpleOperationListener::OnOperationSuccess`].
+impl SafeExchangeSimpleOperationListener {
+    /// Convert types and forward to [`IExchangeSimpleOperationListener::OnOperationSuccess`].
     fn on_operation_success(
         &self,
         new_ids: ThinVec<nsCString>,
         use_legacy_fallback: bool,
     ) -> nsresult {
         // SAFETY: all types here are safe across the Rust/C++ boundary
-        unsafe { self.0.OnOperationSuccess(&new_ids, use_legacy_fallback) }
+        unsafe {
+            self.0
+                .OnOperationSuccess(&raw const new_ids, use_legacy_fallback)
+        }
     }
 }
 
@@ -29,7 +33,7 @@ impl SafeEwsSimpleOperationListener {
 /// operation.
 ///
 /// This is just a typed version of the `use_legacy_fallback` boolean argument in
-/// [`IEwsSimpleOperationListener::OnOperationSuccess`] to make return types, etc., more legible.
+/// [`IExchangeSimpleOperationListener::OnOperationSuccess`] to make return types, etc., more legible.
 pub enum UseLegacyFallback {
     No,
     Yes,
@@ -54,8 +58,8 @@ impl From<bool> for UseLegacyFallback {
 }
 
 pub struct SimpleOperationSuccessArgs {
-    new_ids: ThinVec<nsCString>,
-    use_legacy_fallback: UseLegacyFallback,
+    pub new_ids: ThinVec<nsCString>,
+    pub use_legacy_fallback: UseLegacyFallback,
 }
 
 impl<I, S> From<(I, UseLegacyFallback)> for SimpleOperationSuccessArgs
@@ -71,7 +75,7 @@ where
     }
 }
 
-impl SafeListener for SafeEwsSimpleOperationListener {
+impl SafeListener for SafeExchangeSimpleOperationListener {
     type OnSuccessArg = SimpleOperationSuccessArgs;
     type OnFailureArg = ();
 

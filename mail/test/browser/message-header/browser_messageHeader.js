@@ -1046,11 +1046,11 @@ async function subtest_more_widget_display(node, showAll = false) {
   const maxLines = Services.prefs.getIntPref(LINES_PREF);
 
   if (showAll) {
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => numLines > maxLines,
       `Currently visible lines are more than the number of max lines. ${numLines} > ${maxLines}`
     );
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         !aboutMessage.document
           .getElementById("expandedtoBox")
@@ -1058,12 +1058,12 @@ async function subtest_more_widget_display(node, showAll = false) {
       "The `more` button doesn't exist."
     );
   } else {
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => numLines <= maxLines,
       `Currently visible lines are fewer than the number of max lines. ${numLines} <= ${maxLines}`
     );
     // Test that we've got a "more" button and that it's visible.
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         !aboutMessage.document.getElementById("expandedtoBox").moreButton
           .hidden,
@@ -1263,7 +1263,7 @@ add_task(async function test_show_all_header_mode() {
       "The view all headers checkbox was updated to the correct state"
     );
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         aboutMessage.document.getElementById("expandedsubjectBox").value
           .textContent,
@@ -1271,7 +1271,7 @@ add_task(async function test_show_all_header_mode() {
     );
 
     const panelHidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
-    EventUtils.synthesizeKey("VK_ESCAPE", {});
+    EventUtils.synthesizeKey("KEY_Escape", {});
     await panelHidden;
   }
 

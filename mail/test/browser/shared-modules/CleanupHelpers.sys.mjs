@@ -2,9 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, you can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { MailServices } from "resource:///modules/MailServices.sys.mjs";
 import { Assert } from "resource://testing-common/Assert.sys.mjs";
 import { BrowserTestUtils } from "resource://testing-common/BrowserTestUtils.sys.mjs";
 import { TestUtils } from "resource://testing-common/TestUtils.sys.mjs";
+import { setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 /**
  * Stop anything active in the status bar and clear the status text.
@@ -34,7 +36,7 @@ export async function clearStatusBar(window) {
       window.clearTimeout(status._stopTimeoutID);
       status._stopTimeoutID = null;
     }
-    status._stopMeteors();
+    MailServices.feedback.reportStatus("", "stop-meteors");
   }
 
   Assert.ok(
@@ -48,7 +50,8 @@ export async function clearStatusBar(window) {
   if (BrowserTestUtils.isVisible(status._progressBar)) {
     // Somehow the progress bar is still visible and probably in the
     // indeterminate state, meaning vsync timers are still active. Reset it.
-    status._stopMeteors();
+    MailServices.feedback.reportStatus("", "stop-meteors");
+    await new Promise(resolve => setTimeout(resolve));
   }
 
   Assert.equal(
@@ -71,4 +74,46 @@ export async function clearStatusBar(window) {
   status._statusText.value = "";
   status._statusLastShown = 0;
   status._statusQueue.length = 0;
+}
+
+// Record the servers and accounts that existed before the test ran, if any.
+// These will have been defined in the test manifest.
+const serversAtStart = MailServices.accounts.allServers.map(s => s.key);
+const accountsAtStart = MailServices.accounts.accounts.map(a => a.key);
+const outgoingAtStart = MailServices.outgoingServer.servers.map(s => s.key);
+
+export function removeServersAndAccounts() {
+  for (const server of MailServices.accounts.allServers) {
+    if (!serversAtStart.includes(server.key)) {
+      Assert.report(
+        true,
+        undefined,
+        undefined,
+        `Found server ${server.key} at the end of the test run`
+      );
+      MailServices.accounts.removeIncomingServer(server, false);
+    }
+  }
+  for (const account of MailServices.accounts.accounts) {
+    if (!accountsAtStart.includes(account.key)) {
+      Assert.report(
+        true,
+        undefined,
+        undefined,
+        `Found account ${account.key} at the end of the test run`
+      );
+      MailServices.accounts.removeAccount(account, false);
+    }
+  }
+  for (const server of MailServices.outgoingServer.servers) {
+    if (!outgoingAtStart.includes(server.key)) {
+      Assert.report(
+        true,
+        undefined,
+        undefined,
+        `Found server ${server.key} at the end of the test run`
+      );
+      MailServices.outgoingServer.deleteServer(server);
+    }
+  }
 }

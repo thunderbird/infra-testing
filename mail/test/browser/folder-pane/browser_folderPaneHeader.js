@@ -89,7 +89,7 @@ async function assertColumns(
 }
 
 async function assertAriaLabel(row, expectedLabel) {
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => row.getAttribute("aria-label") === expectedLabel,
     "The selected row aria-label should match the expected value"
   );
@@ -105,7 +105,7 @@ add_task(async function testHideFolderPaneHeader() {
   EventUtils.synthesizeMouseAtCenter(moreButton, {}, about3Pane);
   await BrowserTestUtils.waitForPopupEvent(moreContext, "shown");
 
-  const hiddenPromise = BrowserTestUtils.waitForCondition(
+  const hiddenPromise = TestUtils.waitForCondition(
     () => folderPaneHeader.hidden,
     "The folder pane header is hidden"
   );
@@ -114,7 +114,7 @@ add_task(async function testHideFolderPaneHeader() {
   );
   await hiddenPromise;
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => XULStoreUtils.isItemHidden("messenger", "folderPaneHeaderBar"),
     "The customization data was saved"
   );
@@ -162,7 +162,7 @@ add_task(async function testHideFolderPaneHeader() {
   );
 
   EventUtils.synthesizeMouseAtCenter(toggleFolderHeader, {}, window);
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => toggleFolderHeader.hasAttribute("checked"),
     "The toggle header menu item is checked"
   );
@@ -176,11 +176,11 @@ add_task(async function testHideFolderPaneHeader() {
   EventUtils.synthesizeKey("KEY_Escape", {}, about3Pane);
   await BrowserTestUtils.waitForPopupEvent(viewMenuPopup, "hidden");
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => !folderPaneHeader.hidden,
     "The folder pane header is visible"
   );
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => !XULStoreUtils.isItemHidden("messenger", "folderPaneHeaderBar"),
     "The customization data was saved"
   );
@@ -287,12 +287,12 @@ add_task(async function testTogglePaneHeaderButtons() {
 
     EventUtils.synthesizeMouseAtCenter(toggleMenuItem, {}, about3Pane);
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !toggleMenuItem.hasAttribute("checked"),
       `The ${toggle.label} menu item is unchecked`
     );
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => toggleButton.hidden,
       `The ${toggle.label}  button is hidden`
     );
@@ -301,7 +301,7 @@ add_task(async function testTogglePaneHeaderButtons() {
       toggle.buttonId == "#folderPaneGetMessages"
         ? "folderPaneGetMessages"
         : "folderPaneWriteMessage";
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => XULStoreUtils.isItemHidden("messenger", buttonName),
       "The customization data was saved"
     );
@@ -324,16 +324,16 @@ add_task(async function testTogglePaneHeaderButtons() {
     );
     EventUtils.synthesizeMouseAtCenter(toggleMenuItem, {}, about3Pane);
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => toggleMenuItem.hasAttribute("checked"),
       `The ${toggle.label} menu item is checked`
     );
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !toggleButton.hidden,
       `The ${toggle.label} button is not hidden`
     );
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => !XULStoreUtils.isItemHidden("messenger", buttonName),
       "The customization data was saved"
     );
@@ -541,7 +541,7 @@ add_task(async function testTotalCountVisible() {
   await BrowserTestUtils.waitForPopupEvent(moreContext, "shown");
 
   // Toggle total count ON.
-  const toggleOnPromise = BrowserTestUtils.waitForCondition(
+  const toggleOnPromise = TestUtils.waitForCondition(
     () => !totalCountBadge.hidden,
     "The total count badges are visible"
   );
@@ -556,7 +556,7 @@ add_task(async function testTotalCountVisible() {
       .hasAttribute("checked"),
     "The total count toggle is checked"
   );
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => XULStoreUtils.isItemVisible("messenger", "totalMsgCount"),
     "The customization data was saved"
   );
@@ -591,7 +591,7 @@ add_task(async function testFolderSizeVisible() {
   await BrowserTestUtils.waitForPopupEvent(moreContext, "shown");
 
   // Toggle folder size ON.
-  const toggleOnPromise = BrowserTestUtils.waitForCondition(
+  const toggleOnPromise = TestUtils.waitForCondition(
     () => !folderSizeBadge.hidden,
     "The folder sizes are visible"
   );
@@ -606,7 +606,7 @@ add_task(async function testFolderSizeVisible() {
       .hasAttribute("checked"),
     "The folder size toggle is checked"
   );
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => XULStoreUtils.isItemVisible("messenger", "folderPaneFolderSize"),
     "The folder size xulStore attribute is set to visible"
   );
@@ -630,7 +630,7 @@ add_task(async function testFolderSizeHidden() {
   await BrowserTestUtils.waitForPopupEvent(moreContext, "shown");
 
   // Toggle folder sizes OFF.
-  const toggleOffPromise = BrowserTestUtils.waitForCondition(
+  const toggleOffPromise = TestUtils.waitForCondition(
     () => folderSizeBadge.hidden,
     "The folder sizes are hidden"
   );
@@ -647,7 +647,7 @@ add_task(async function testFolderSizeHidden() {
     "The folder size toggle is unchecked"
   );
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => !XULStoreUtils.isItemVisible("messenger", "folderPaneFolderSize"),
     "The folder size xulStore visible attribute was set to false"
   );
@@ -664,7 +664,7 @@ add_task(async function testTotalCountHidden() {
   await BrowserTestUtils.waitForPopupEvent(moreContext, "shown");
 
   // Toggle total count OFF.
-  const toggleOffPromise = BrowserTestUtils.waitForCondition(
+  const toggleOffPromise = TestUtils.waitForCondition(
     () => totalCountBadge.hidden,
     "The total count badges are hidden"
   );
@@ -680,7 +680,7 @@ add_task(async function testTotalCountHidden() {
       .hasAttribute("checked"),
     "The total count toggle is unchecked"
   );
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => !XULStoreUtils.isItemVisible("messenger", "totalMsgCount"),
     "The customization data was saved"
   );
@@ -701,7 +701,7 @@ add_task(async function testHideLocalFoldersXULStore() {
     moreContext.querySelector("#folderPaneHeaderToggleLocalFolders")
   );
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => XULStoreUtils.isItemHidden("messenger", "folderPaneLocalFolders"),
     "The customization data to hide local folders should be saved"
   );
@@ -723,7 +723,7 @@ add_task(async function testHideLocalFoldersXULStore() {
     moreContext.querySelector("#folderPaneHeaderToggleLocalFolders")
   );
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => !XULStoreUtils.isItemHidden("messenger", "folderPaneLocalFolders"),
     "The customization data to hide local folders should be saved"
   );
@@ -737,7 +737,7 @@ add_task(async function testBadgesPersistentState() {
   const totalCountBadge = about3Pane.document.querySelector(".total-count");
   const folderSizeBadge = about3Pane.document.querySelector(".folder-size");
   // Show total count.
-  let toggleOnPromise = BrowserTestUtils.waitForCondition(
+  let toggleOnPromise = TestUtils.waitForCondition(
     () => !totalCountBadge.hidden,
     "The total count badges are visible"
   );
@@ -747,7 +747,7 @@ add_task(async function testBadgesPersistentState() {
   await toggleOnPromise;
 
   // Show folder size.
-  toggleOnPromise = BrowserTestUtils.waitForCondition(
+  toggleOnPromise = TestUtils.waitForCondition(
     () => !folderSizeBadge.hidden,
     "The folder sizes are visible"
   );
@@ -760,7 +760,7 @@ add_task(async function testBadgesPersistentState() {
   moreContext.activateItem(
     moreContext.querySelector("#folderPaneHeaderToggleLocalFolders")
   );
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => XULStoreUtils.isItemHidden("messenger", "folderPaneLocalFolders"),
     "The customization data to hide local folders should be saved"
   );
@@ -813,14 +813,14 @@ add_task(async function testBadgesPersistentState() {
   about3Pane.folderTree.selectedIndex = 0;
   about3Pane.folderTree.selectedIndex = 3;
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => currentTotal != row.querySelector(".total-count").textContent,
     `${currentTotal} != ${
       row.querySelector(".total-count").textContent
     } | The total count should have changed after adding messages`
   );
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => currentSize != row.querySelector(".folder-size").textContent,
     `${currentSize} != ${
       row.querySelector(".folder-size").textContent
@@ -874,4 +874,75 @@ add_task(async function testAddFolderToFavorites() {
     `Inbox, 9 unread messages, 10 total messages, ${row.folderSize}`
   );
   await assertColumns(row, 9, 10, row.folderSize);
+});
+
+/**
+ * Tests that rapid updates to folder properties are correctly debounced,
+ * and that the serial number tracking prevents older updates from
+ * overwriting newer ones if they happen to overlap.
+ */
+add_task(async function testAriaLabelRaceCondition() {
+  const row = about3Pane.folderTree.getRowAtIndex(1);
+  const originalUnread = row.unreadCount;
+
+  // Synchronous Debounce Test: Spam the property synchronously. The 50ms
+  // debounce should catch all of these and only fire a single localization
+  // request for "52".
+
+  row.unreadCount = 50;
+  row.unreadCount = 51;
+  row.unreadCount = 52;
+
+  // Wait a fixed time to ensure all debounced updates and promises fully
+  // settle.
+  // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  Assert.ok(
+    row.getAttribute("aria-label").includes("52"),
+    "The ARIA label should reflect the final synchronously set value (52) due to debouncing."
+  );
+  Assert.ok(
+    !row.getAttribute("aria-label").includes("50"),
+    "The ARIA label should never have processed the 50 update."
+  );
+
+  // Asynchronous Abort Test: Trigger an update, wait slightly longer than the
+  // 50ms debounce window, and trigger another.
+
+  row.unreadCount = 100;
+
+  // Wait slightly longer than the 50ms debounce window. We cannot guarantee
+  // the localization promises are still pending at this exact moment, but this
+  // simulates rapid sequential updates that *could* overlap in a slower environment.
+  // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+  await new Promise(resolve => setTimeout(resolve, 60));
+
+  // Immediately overwrite it with a new update.
+  row.unreadCount = 200;
+
+  // Wait a fixed time again to ensure all delayed promises completely resolve.
+  // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  Assert.ok(
+    row.getAttribute("aria-label").includes("200"),
+    "The ARIA label should reflect the final asynchronously set value (200)."
+  );
+  Assert.ok(
+    !row.getAttribute("aria-label").includes("100"),
+    "The serial number tracking prevents the 100 update from applying if promises overlapped."
+  );
+
+  // Clean Up: Safely restore the original unread count.
+
+  row.unreadCount = originalUnread;
+
+  // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  Assert.ok(
+    row.getAttribute("aria-label").includes(originalUnread.toString()),
+    "The ARIA label should be successfully restored."
+  );
 });

@@ -63,7 +63,6 @@
     http-equiv="Content-Security-Policy"
     content="default-src chrome:; style-src chrome: 'unsafe-inline'; script-src chrome: resource: 'unsafe-inline' moz-src:; img-src chrome: moz-icon:"
   />
-  <link rel="stylesheet" href="chrome://messenger/skin/messageWindow.css" />
   <link rel="stylesheet" href="chrome://messenger/skin/popupPanel.css" />
   <link rel="stylesheet" href="chrome://messenger/skin/messageHeader.css" />
   <link rel="stylesheet" href="chrome://messenger/skin/icons.css" />
@@ -71,7 +70,6 @@
   <link rel="stylesheet" href="chrome://messenger/skin/folderMenus.css" />
   <link rel="stylesheet" href="chrome://messenger/skin/attachmentList.css" />
   <link rel="stylesheet" href="chrome://messenger/skin/searchBox.css" />
-  <link rel="stylesheet" href="chrome://messenger/skin/panelUI.css" />
   <link rel="stylesheet" href="chrome://messenger/skin/contextMenu.css" />
   <link rel="stylesheet" href="chrome://calendar/skin/calendar.css" />
   <link
@@ -82,6 +80,7 @@
     rel="stylesheet"
     href="chrome://messenger/skin/openpgp/inlineNotification.css"
   />
+  <link rel="stylesheet" href="chrome://messenger/skin/messageWindow.css" />
 
   <link rel="localization" href="branding/brand.ftl" />
   <link rel="localization" href="messenger/shortcuts.ftl" />
@@ -90,7 +89,6 @@
   <link rel="localization" href="toolkit/global/textActions.ftl" />
   <link rel="localization" href="toolkit/printing/printUI.ftl" />
   <link rel="localization" href="messenger/menubar.ftl" />
-  <link rel="localization" href="messenger/appmenu.ftl" />
   <link rel="localization" href="messenger/openpgp/openpgp.ftl" />
   <link rel="localization" href="messenger/openpgp/openpgp-frontend.ftl" />
   <link rel="localization" href="calendar/calendar.ftl"/>
@@ -109,10 +107,6 @@
   <script defer="defer" src="chrome://communicator/content/utilityOverlay.js"></script>
   <script defer="defer" src="chrome://messenger/content/mailCore.js"></script>
   <script defer="defer" src="chrome://messenger/content/accountUtils.js"></script>
-#ifdef MOZ_SERVICES_SYNC
-  <script defer="defer" src="chrome://messenger/content/sync.js"></script>
-#endif
-  <script defer="defer" src="moz-src:///comm/mail/components/customizableui/content/panelUI.js"></script>
   <script defer="defer" src="chrome://messenger/content/chat/toolbarbutton-badge-button.js"></script>
   <script defer="defer" src="chrome://messenger/content/messenger-customization.js"></script>
 #ifdef XP_MACOSX
@@ -123,7 +117,6 @@
   <script defer="defer" src="chrome://calendar/content/calendar-management.js"></script>
   <script defer="defer" src="chrome://calendar/content/calendar-item-editing.js"></script>
   <script defer="defer" src="chrome://calendar/content/calendar-extract.js"></script>
-  <script defer="defer" src="chrome://messenger/content/shortcutsOverlay.js"></script>
 </head>
 <html:body xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
@@ -155,8 +148,6 @@
   <popupset id="mainPopupSet">
 #include widgets/browserPopups.inc.xhtml
 #include widgets/toolbarContext.inc.xhtml
-<!-- The panelUI is for the appmenu. -->
-#include ../../components/customizableui/content/panelUI.inc.xhtml
   </popupset>
 
   <toolbox id="mail-toolbox"
@@ -215,8 +206,7 @@
                    onpopupshowing="getMsgToolbarMenu_init();"
                    oncommand="MsgGetMessagesForAccount(event.target._folder); event.stopPropagation();"
                    expandFolders="false"
-                   mode="getMail"
-                   native="false">
+                   mode="getMail">
           <menuitem id="button-getAllNewMsg"
                     class="menuitem-iconic folderMenuItem"
                     label="&getAllNewMsgCmd.label;"
@@ -241,8 +231,7 @@
                    mode="filing"
                    showFileHereLabel="true"
                    showRecent="true"
-                   showFavorites="true"
-                   native="false"/>
+                   showFavorites="true"/>
 
       </toolbarbutton>
       <toolbarbutton id="button-showconversation"
@@ -256,7 +245,7 @@
                      label="&backButton1.label;"
                      command="cmd_goBack"
                      tooltiptext="&goBackButton.tooltip;">
-        <menupopup id="button-goBackPopup" onpopupshowing="backToolbarMenu_init(this)" native="false">
+        <menupopup id="button-goBackPopup" onpopupshowing="backToolbarMenu_init(this)">
           <menuitem id="button-goBack" label="&goBackCmd.label;" command="cmd_goBack"/>
           <menuseparator id="button-goBackSeparator"/>
         </menupopup>
@@ -267,7 +256,7 @@
                      label="&goForwardButton1.label;"
                      command="cmd_goForward"
                      tooltiptext="&goForwardButton.tooltip;">
-        <menupopup id="button-goForwardPopup" onpopupshowing="forwardToolbarMenu_init(this)" native="false">
+        <menupopup id="button-goForwardPopup" onpopupshowing="forwardToolbarMenu_init(this)">
           <menuitem id="button-goForward"
                     label="&goForwardCmd.label;"
                     command="cmd_goForward"/>
@@ -314,7 +303,7 @@
                      class="toolbarbutton-1"
                      label="&markButton.label;"
                      tooltiptext="&markButton.tooltip;">
-        <menupopup id="button-markPopup" onpopupshowing="InitMessageMark()" native="false">
+        <menupopup id="button-markPopup" onpopupshowing="InitMessageMark()">
           <menuitem id="markReadToolbarItem"
                     label="&markAsReadCmd.label;"
                     accesskey="&markAsReadCmd.accesskey;"
@@ -357,18 +346,16 @@
                      tooltiptext="&tagButton.tooltip;"
                      command="cmd_tag">
         <menupopup id="button-tagpopup"
-                   onpopupshowing="InitMessageTags(this);"
-                   native="false">
+                   onpopupshowing="InitMessageTags(this);">
           <menuitem id="button-addNewTag"
-                    label="&addNewTag.label;"
-                    accesskey="&addNewTag.accesskey;"
+                    data-l10n-id="tags-add-new"
                     command="cmd_addTag"/>
           <menuitem id="button-manageTags"
-                    label="&manageTags.label;"
-                    accesskey="&manageTags.accesskey;"
+                    data-l10n-id="tags-manage"
                     command="cmd_manageTags"/>
           <menuseparator id="button-tagpopup-sep-afterTagAddNew"/>
           <menuitem id="button-tagRemoveAll"
+                    data-l10n-id="tags-remove-all"
                     command="cmd_removeTags"/>
           <menuseparator id="button-afterTagRemoveAllSeparator"/>
         </menupopup>
@@ -453,7 +440,7 @@
              messagemanagergroup="single-page"/>
   </stack>
 
-  <panel id="customizeToolbarSheetPopup" noautohide="true">
+  <panel id="customizeToolbarSheetPopup" noautohide="noautohide">
     <iframe id="customizeToolbarSheetIFrame"
             style="&dialog.dimensions;"
             hidden="hidden"/>

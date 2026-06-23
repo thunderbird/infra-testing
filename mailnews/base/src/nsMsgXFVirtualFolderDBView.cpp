@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -296,14 +295,6 @@ nsMsgXFVirtualFolderDBView::OnSearchDone(nsresult status) {
   }
 
   m_doingSearch = false;
-  // We want to set imap delete model once the search is over because setting
-  // next message after deletion will happen before deleting the message and
-  // search scope can change with every search.
-
-  // Set to default in case it is non-imap folder.
-  mDeleteModel = nsMsgImapDeleteModels::MoveToTrash;
-  nsIMsgFolder* curFolder = m_folders.SafeObjectAt(0);
-  if (curFolder) GetImapDeleteModel(curFolder);
 
   nsCOMPtr<nsIMsgDatabase> virtDatabase;
   nsCOMPtr<nsIDBFolderInfo> dbFolderInfo;

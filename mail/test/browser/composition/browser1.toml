@@ -43,6 +43,7 @@ prefs = [
   "mail.winsearch.firstRunDone=true",
   "mailnews.start_page.override_url=about:blank",
   "mailnews.start_page.url=about:blank",
+  "mail.rights.override=true",
 ]
 subsuite = "thunderbird"
 support-files = [
@@ -65,6 +66,10 @@ run-if = [
   "os != 'linux'",
   "!headless"
 ] # See bug 1806870.
+
+["browser_attachmentInAltForward.js"]
+
+["browser_attachmentOnlyMultipartMixedForward.js"]
 
 ["browser_attachmentReminder.js"]
 

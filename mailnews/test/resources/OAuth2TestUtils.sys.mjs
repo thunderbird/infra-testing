@@ -9,18 +9,51 @@
 import { Assert } from "resource://testing-common/Assert.sys.mjs";
 import { BrowserTestUtils } from "resource://testing-common/BrowserTestUtils.sys.mjs";
 import { CommonUtils } from "resource://services-common/utils.sys.mjs";
+import { CryptoUtils } from "moz-src:///services/crypto/modules/utils.sys.mjs";
 import { HttpsProxy } from "resource://testing-common/mailnews/HttpsProxy.sys.mjs";
 import { HttpServer, HTTP_405 } from "resource://testing-common/httpd.sys.mjs";
+import { MockExternalProtocolService } from "resource://testing-common/mailnews/MockExternalProtocolService.sys.mjs";
 import { TestUtils } from "resource://testing-common/TestUtils.sys.mjs";
 
 import { OAuth2Module } from "resource:///modules/OAuth2Module.sys.mjs";
+import { OAuth2PageGenerator } from "moz-src:///comm/mailnews/base/src/OAuth2PageGenerator.sys.mjs";
 
-const validCodes = new Set();
+/**
+ * Map, but values are removed as they are retrieved. For items that should
+ * only be used once.
+ */
+class SingleUseMap extends Map {
+  get(key) {
+    const value = super.get(key);
+    super.delete(key);
+    return value;
+  }
+}
+
+/**
+ * A map of states to PKCE code challenges.
+ *
+ * @type {Map<string, string>}
+ */
+const codeChallenges = new SingleUseMap();
+/**
+ * A map of codes to PKCE code challenges.
+ *
+ * @type {Map<string, string>}
+ */
+const validCodes = new SingleUseMap();
+/**
+ * A map of tokens to granted scopes.
+ *
+ * @type {Map<string, string>}
+ */
 const tokens = new Map();
 
 export const OAuth2TestUtils = {
   /**
    * Start an OAuth2 server and add it to the proxy at oauth.test.test:443.
+   *
+   * @param {object} [serverOptions] - See the `OAuth2Server` constructor.
    */
   async startServer(serverOptions) {
     this._oAuth2Server = new OAuth2Server(serverOptions);
@@ -32,6 +65,11 @@ export const OAuth2TestUtils = {
     TestUtils.promiseTestFinished?.then(() => {
       this.stopServer();
       this.forgetObjects();
+      // Clear out any PKCE code challenges left over. In tests where OAuth
+      // completes successfully, there should be no codes left, but not all
+      // tests complete the process.
+      validCodes.clear();
+      codeChallenges.clear();
     });
     return this._oAuth2Server;
   },
@@ -74,6 +112,174 @@ export const OAuth2TestUtils = {
   },
 
   /**
+   * Wait for an OAuth request to be opened in the external browser.
+   *
+   * @returns {Promise<string>}
+   */
+  async promiseExternalOAuthURL() {
+    MockExternalProtocolService.init();
+    try {
+      return await MockExternalProtocolService.promiseLoad();
+    } finally {
+      MockExternalProtocolService.cleanup();
+    }
+  },
+
+  /**
+   * Check an OAuth request URL, then emulate submitting the server-side login
+   * form and following its redirect back to the localhost callback listener.
+   *
+   * @param {string} url
+   * @param {object} options
+   * @param {string} [options.expectedHint] - If given, the login_hint URL
+   *   parameter
+   * @param {string} [options.expectedScope] - If given, the scope URL parameter
+   *   will be checked. A space-separated list.
+   * @param {string} options.username - The username to use to log in.
+   * @param {string} options.password - The password to use to log in.
+   * @param {string} [options.grantedScope] - A subset of `expectedScope` to
+   *   grant permission for. If not given, all scopes will be allowed. If an
+   *   empty string, no scopes will be allowed.
+   * @param {string} [options.callbackState] - If given, override the state sent
+   *   to the callback listener. Useful for negative tests.
+   * @param {boolean} [options.expectSuccess=true] - Whether the request
+   *   should result in the success page.
+   */
+  async submitOAuthURL(
+    url,
+    {
+      expectedHint,
+      expectedScope = "test_mail test_addressbook test_calendar",
+      username,
+      password,
+      grantedScope,
+      callbackState,
+      expectSuccess = true,
+    }
+  ) {
+    // e.g.:
+    // https://oauth.test.test/form?
+    //   response_type=code&
+    //   client_id=test_client_id&
+    //   scope=test_mail&
+    //   state=DZ2G3YecvD5DKp2Xk-afXruKn6gHRzzNgdAKlaH7mUA&
+    //   code_challenge_method=S256&
+    //   code_challenge=nLDXlD8TosVgBMchtfh1krc9oRjFnbO6IYcNRYKVjas&
+    //   login_hint=romeo%40foo.invalid&
+    //   redirect_uri=net.thunderbird%3A%2F%2Foauth2%2Fcallback
+
+    const authURL = new URL(url);
+    const searchParams = authURL.searchParams;
+    Assert.equal(
+      searchParams.get("response_type"),
+      "code",
+      "request response_type"
+    );
+    Assert.equal(
+      searchParams.get("client_id"),
+      "test_client_id",
+      "request client_id"
+    );
+
+    const redirectURI = new URL(searchParams.get("redirect_uri"));
+    if (redirectURI.protocol == "http:") {
+      Assert.equal(
+        redirectURI.hostname,
+        "localhost",
+        "request redirect_uri hostname"
+      );
+    } else if (redirectURI.protocol == "net.thunderbird:") {
+      Assert.equal(
+        redirectURI.hostname,
+        "oauth2",
+        "request redirect_uri hostname"
+      );
+    } else {
+      Assert.ok(
+        false,
+        "redirect_uri should be an http: or net.net-thunderbird: URL"
+      );
+    }
+    Assert.equal(searchParams.get("scope"), expectedScope, "request scope");
+    if (expectedHint) {
+      Assert.equal(
+        searchParams.get("login_hint"),
+        expectedHint,
+        "request login_hint"
+      );
+    }
+
+    // Record the PKCE code challenge.
+    const state = searchParams.get("state");
+    const codeChallenge = searchParams.get("code_challenge");
+    Assert.ok(state, "request state");
+    Assert.ok(codeChallenge, "request code challenge");
+    Assert.equal(searchParams.get("code_challenge_method"), "S256");
+    codeChallenges.set(state, codeChallenge);
+
+    // Simulate the browser authorization form.
+    const body = new URLSearchParams();
+    body.set("redirect_uri", redirectURI.href);
+    body.set("state", callbackState ?? searchParams.get("state"));
+    body.set("username", username);
+    body.set("password", password);
+
+    if (grantedScope === undefined) {
+      grantedScope = expectedScope;
+    }
+    if (grantedScope) {
+      for (const scope of grantedScope.split(" ")) {
+        body.append("scope", scope);
+      }
+    }
+
+    if (redirectURI.protocol == "net.thunderbird:") {
+      // We can't do HTTP redirect to the callback URL, but we can call the
+      // code that generates it and pretend the redirect happened.
+      const redirectedURL = this._oAuth2Server.getRedirectURL(body.toString());
+      Cc["@mozilla.org/mail/oauth2-url-handler;1"]
+        .getService(Ci.nsIObserver)
+        .observe(null, "net-thunderbird-url", redirectedURL);
+      return;
+    }
+
+    // The form data is sent to the OAuth server, which sends a 303 Redirected
+    // response, sending the browser to our callback listener socket.
+    const authorizeURL = new URL("/authorize", authURL);
+    const authorizeResponse = await fetch(authorizeURL, {
+      method: "POST",
+      body,
+    });
+    Assert.equal(authorizeResponse.status, 200, "callback response status");
+    Assert.equal(
+      new URL(authorizeResponse.url).origin,
+      redirectURI.origin,
+      "authorization should redirect to the callback listener"
+    );
+
+    const source = await authorizeResponse.text();
+    const resultPageSource = await (expectSuccess
+      ? OAuth2PageGenerator.generateSuccessPage()
+      : OAuth2PageGenerator.generateErrorPage());
+    if (source == resultPageSource) {
+      Assert.equal(
+        "<result page source>",
+        "<result page source>",
+        "Should return the expected result page (truncated for log size)"
+      );
+    } else {
+      Assert.equal(
+        source,
+        resultPageSource,
+        "Should return the expected result page"
+      );
+    }
+
+    // At this point the browser is displaying a message to close the tab and
+    // return to Thunderbird.
+  },
+
+  /**
    * Callback function to run in a login prompt window. Note: This function is
    * serialized by SpecialPowers, so it can't use function shorthand.
    *
@@ -111,6 +317,7 @@ export const OAuth2TestUtils = {
       "https://localhost",
       "request redirect_uri"
     );
+    Assert.ok(searchParams.get("state"), "request state");
     Assert.equal(searchParams.get("scope"), expectedScope, "request scope");
     if (expectedHint) {
       Assert.equal(
@@ -212,6 +419,15 @@ export const OAuth2TestUtils = {
 };
 
 class OAuth2Server {
+  /**
+   * @param {object} options
+   * @param {string} [options.username="user"]
+   * @param {string} [options.password="password"]
+   * @param {string} [options.accessToken="access_token"]
+   * @param {string} [options.refreshToken="refresh_token"]
+   * @param {boolean} [options.rotateTokens=false]
+   * @param {?number} [options.expiry=null]
+   */
   constructor({
     username = "user",
     password = "password",
@@ -247,18 +463,27 @@ class OAuth2Server {
     tokens.clear();
   }
 
+  /**
+   * @param {nsIHttpRequest} request
+   * @param {nsIHttpResponse} response
+   */
   formHandler(request, response) {
     if (request.method != "GET") {
       throw HTTP_405;
     }
     const params = new URLSearchParams(request.queryString);
-    this.requestedScope = params.get("scope");
-    this._formHandler(response, params.get("redirect_uri"));
-  }
 
-  _formHandler(response, redirectUri) {
+    // Record the PKCE code challenge.
+    const state = params.get("state");
+    const codeChallenge = params.get("code_challenge");
+    Assert.ok(state, "request state");
+    Assert.ok(codeChallenge, "request code challenge");
+    Assert.equal(params.get("code_challenge_method"), "S256");
+    codeChallenges.set(state, codeChallenge);
+
     response.setHeader("Content-Type", "text/html", false);
-    const scopeCheckboxes = this.requestedScope
+    const scopeCheckboxes = params
+      .get("scope")
       .split(" ")
       .map(
         scope =>
@@ -273,10 +498,15 @@ class OAuth2Server {
       </head>
       <body>
         <form action="/authorize" method="post">
-          <input type="text" name="redirect_uri" readonly="readonly" value="${redirectUri}" />
-          <input type="text" name="username" />
-          <input type="password" name="password" />
-          ${scopeCheckboxes.join("")}
+          <label for="redirect_uri">redirect URI: </label>
+          <input type="text" name="redirect_uri" readonly="readonly" value="${params.get("redirect_uri")}" /><br/>
+          <label for="state">state token: </label>
+          <input type="text" name="state" readonly="readonly" value="${state}" /><br/>
+          <label for="username">username: </label>
+          <input type="text" name="username" /><br/>
+          <label for="password">password: </label>
+          <input type="password" name="password" /><br/>
+          ${scopeCheckboxes.join("")}<br/>
           <input type="submit" />
         </form>
       </body>
@@ -284,21 +514,31 @@ class OAuth2Server {
     `);
   }
 
+  /**
+   * @param {nsIHttpRequest} request
+   * @param {nsIHttpResponse} response
+   */
   authorizeHandler(request, response) {
     if (request.method != "POST") {
       throw HTTP_405;
     }
 
     const input = CommonUtils.readBytesFromInputStream(request.bodyInputStream);
-    const params = new URLSearchParams(input);
+    const url = this.getRedirectURL(input);
+    response.setStatusLine(request.httpVersion, 303, "Redirected");
+    response.setHeader("Location", url.href);
+  }
 
-    if (
-      params.get("username") != this.username ||
-      params.get("password") != this.password
-    ) {
-      this._formHandler(response, params.get("redirect_uri"));
-      return;
-    }
+  /**
+   * Get the complete redirect URL for a given authorization.
+   *
+   * @param {string} input - URL-encoded parameters.
+   * @returns {URL}
+   */
+  getRedirectURL(input) {
+    const params = new URLSearchParams(input);
+    const state = params.get("state");
+    Assert.ok(state, "request state");
 
     const url = new URL(params.get("redirect_uri"));
     if (params.getAll("scope").includes("bad_scope")) {
@@ -307,20 +547,20 @@ class OAuth2Server {
       this.grantedScope = params.getAll("scope").join(" ");
 
       // Create a unique code. It will become invalid after the first use.
-      const bytes = new Uint8Array(12);
-      for (let i = 0; i < bytes.length; i++) {
-        bytes[i] = Math.floor(Math.random() * 255);
-      }
+      const bytes = CryptoUtils.generateRandomBytes(12);
       const code = ChromeUtils.base64URLEncode(bytes, { pad: false });
-      validCodes.add(code);
+      validCodes.set(code, codeChallenges.get(state));
 
       url.searchParams.set("code", code);
     }
-
-    response.setStatusLine(request.httpVersion, 303, "Redirected");
-    response.setHeader("Location", url.href);
+    url.searchParams.set("state", state);
+    return url;
   }
 
+  /**
+   * @param {nsIHttpRequest} request
+   * @param {nsIHttpResponse} response
+   */
   tokenHandler(request, response) {
     if (request.method != "POST") {
       throw HTTP_405;
@@ -347,7 +587,13 @@ class OAuth2Server {
       validCodes.has(code)
     ) {
       // Authorisation just happened.
-      validCodes.delete(code);
+      const codeVerifier = params.get("code_verifier");
+      Assert.ok(codeVerifier, "request code verifier");
+      Assert.equal(
+        toBase64URL(CryptoUtils.sha256Base64(codeVerifier)),
+        validCodes.get(code),
+        "PKCE codes should match"
+      );
       data.access_token = this.accessToken;
       data.refresh_token = this.refreshToken;
       tokens.set(this.accessToken, this.grantedScope);
@@ -386,4 +632,8 @@ class OAuth2Server {
     response.setHeader("Content-Type", "application/json", false);
     response.write(JSON.stringify(data));
   }
+}
+
+function toBase64URL(base64) {
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }

@@ -2,18 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, you can obtain one at http://mozilla.org/MPL/2.0/. */
 
-@import url("chrome://messenger/skin/colors.css");
-
 dialog {
   border: 1px solid transparent;
-  border-radius: var(--arrowpanel-border-radius);
+  border-radius: var(--button-border-radius);
   background-color: var(--dialog-background-color);
   color: var(--dialog-text-color);
   padding: 15px;
   box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.5);
 
-  --dialog-text-color: var(--arrowpanel-color);
-  --dialog-background-color: var(--arrowpanel-background);
+  --dialog-text-color: var(--color-text-base);
+  --dialog-background-color: var(--color-surface-base);
   --dialog-box-text-color: light-dark(#181920, #f9f9fa);
   --dialog-box-background-color: light-dark(#fff, #353537);
   --dialog-box-border-color: light-dark(rgba(0, 0, 0, 0.3), hsla(0, 0%, 70%, 0.4));

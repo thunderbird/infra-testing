@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -49,39 +48,15 @@ interface nsIMsgNewsFolder : nsISupports {
    * true, then groupUsername and groupPassword are appropriately set up for
    * necessary authentication; if not, then authentication must be stopped.
    */
-  /// @{
 
-  /**
-   * Gets the authentication credentials, returning if the results are valid.
-   *
-   * If mustPrompt is true, then the user will always be asked for the
-   * credentials. Otherwise, if mayPrompt is true, then the user will be asked
-   * for credentials if there are no saved credentials. If mayPrompt is false,
-   * then no prompt will be shown, even if there are no saved credentials.
-   *
-   * If this method returns true, then groupUsername and groupPassword will
-   * contain non-empty results that could be used for authentication. If this
-   * method returns false, then the values of groupUsername and groupPassword
-   * will be cleared if they had previously been set. This could happen if
-   * mustPrompt were true and the user decided to cancel the authentication
-   * prompt.
-   *
-   * Note that this method will be executed synchronously; if an async prompt
-   * is wanted, it is the responsibility of the caller to manage it explicitly
-   * with nsIMsgAsyncPrompter.
-   */
-  boolean getAuthenticationCredentials(in nsIMsgWindow aMsgWindow,
-    in boolean mayPrompt, in boolean mustPrompt);
+  /// The URL used when storing passwords for this folder.
+  readonly attribute AString urlForSignon;
 
   /// The username that should be used for this group
   attribute ACString groupUsername;
 
   /// The password that should be used for this group
   attribute ACString groupPassword;
-
-  /// Forgets saved authentication credentials permanently.
-  void forgetAuthenticationCredentials();
-  /// @}
 
   nsIMsgFolder addNewsgroup(in AUTF8String newsgroupName, in ACString setStr);
 
@@ -120,9 +95,10 @@ interface nsIMsgNewsFolder : nsISupports {
    * sure that the user has proper permission to cancel the message.
    *
    * @param aMsgHdr     The header of the message to be canceled.
+   * @param aUrlListener  Listener (if any) for the operation.
    * @param aMsgWindow  The standard message window object, for error dialogs.
    */
-  void cancelMessage(in nsIMsgDBHdr aMsgHdr, in nsIMsgWindow aMsgWindow);
+  void cancelMessage(in nsIMsgDBHdr aMsgHdr, in nsIUrlListener aUrlListener, in nsIMsgWindow aMsgWindow);
 
   void refreshSizeOnDisk();
 };

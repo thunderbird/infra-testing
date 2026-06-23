@@ -25,8 +25,6 @@
   --books-pane-icon-size: 16px;
   --books-pane-icon-new: var(--icon-add);
 
-  --sidebar-background: var(--sidebar-background-color, var(--layout-background-1));
-
   &[uidensity="compact"] {
     --ab-card-line-height: 1em;
     --ab-card-table-row-height: 18px;
@@ -136,7 +134,6 @@ body {
 }
 
 #booksPaneCreateContact {
-  font-weight: normal;
   background-image: var(--books-pane-icon-new);
 }
 
@@ -156,7 +153,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  color: var(--listbox-color);
+  color: var(--sidebar-color);
   background-color: var(--sidebar-background);
 }
 
@@ -333,7 +330,6 @@ body {
 #displayButton {
   --button-margin: 0;
   background-image: var(--icon-display-options);
-  outline-offset: -1px;
 }
 
 /* Hide list items for sorting in table view. */
@@ -354,12 +350,12 @@ body:not(.layout-table):not(.all-ab-selected) ~ menupopup#sortContext > menuitem
 }
 
 #cards {
-  padding-block: 2px;
+  border-block-start: 1px solid var(--sidebar-border);
   -moz-context-properties: fill;
   fill: currentColor;
 
   &[rows="ab-card-row"] {
-    border-block-start: 1px solid var(--splitter-color);
+    padding-block: 2px;
   }
 }
 
@@ -504,11 +500,6 @@ tr[is="ab-card-row"].selected .recipient-avatar.is-mail-list {
       color: CanvasText;
     }
   }
-
-  & :is(menulist, select),
-  & button:not(.primary) {
-    outline-offset: -1px;
-  }
 }
 
 #editContactForm {
@@ -533,15 +524,13 @@ tr[is="ab-card-row"].selected .recipient-avatar.is-mail-list {
   & menulist:not([hidden]) {
     margin-inline: 4px;
     min-block-size: var(--button-height);
-    -moz-context-properties: fill, stroke;
-    fill: color-mix(in srgb, currentColor 20%, transparent);
-    stroke: currentColor;
-  }
 
-  & menulist > menupopup {
-    --panel-padding: 4px 0;
-    --panel-border-color: var(--arrowpanel-border-color);
-    --panel-border-radius: var(--arrowpanel-border-radius);
+    &,
+    & .menu-icon {
+      -moz-context-properties: fill, stroke;
+      fill: color-mix(in srgb, currentColor 20%, transparent);
+      stroke: currentColor;
+    }
   }
 }
 
@@ -614,7 +603,6 @@ body:not(.is-editing) #editContactForm {
 
   &:focus-visible {
     outline: var(--focus-outline);
-    outline-offset: 2px;
   }
 }
 
@@ -849,7 +837,7 @@ input[type="number"] {
 
   &::-moz-number-spin-up:hover,
   &::-moz-number-spin-down:hover {
-    background-color: var(--button-background-color-hover);
+    background-color: var(--button-hover-background-color);
   }
 
   &::-moz-number-spin-up {
@@ -857,13 +845,13 @@ input[type="number"] {
     border-block-end-width: 1px;
     border-block-end-style: solid;
     border-start-end-radius: var(--button-border-radius);
-    background-image: url("chrome://global/skin/icons/arrow-up-12.svg");
+    background-image: var(--icon-nav-up-sm);
   }
 
   &::-moz-number-spin-down {
     min-block-size: calc(var(--button-height) * 0.5 - 3px);
     border-end-end-radius: var(--button-border-radius);
-    background-image: url("chrome://global/skin/icons/arrow-down-12.svg");
+    background-image: var(--icon-nav-down-sm);
   }
 }
 
@@ -978,7 +966,7 @@ input[type="number"] {
 #cardCount {
   position: sticky;
   inset-block-end: 0;
-  border-block-start: 1px solid var(--splitter-color);
+  border-block-start: 1px solid var(--sidebar-border);
   color: color-mix(in srgb, currentColor 75%, transparent);
   padding: 9px;
   font-weight: 500;

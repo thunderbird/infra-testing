@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -39,6 +38,13 @@ const int32_t kMsgDBVersion = 1;
 // this will give us a buffer before we need to start reallocating the cache
 // array.
 const uint32_t kInitialMsgDBCacheSize = 20;
+
+/**
+ * Update an existing nsIMsgDBHdr using data from a RawHdr.
+ * RawHdr represents all the metadata that the database is interested in from
+ * RFC5322 message headers.
+ */
+nsresult ApplyRawHdrToDbHdr(RawHdr const& raw, nsIMsgDBHdr* hdr);
 
 class nsMsgDBService final : public nsIMsgDBService {
  public:

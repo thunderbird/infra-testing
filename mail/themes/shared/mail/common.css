@@ -10,50 +10,33 @@
   --button-height: 2.2em;
   --border-color: color-mix(in srgb, currentColor 46%, transparent);
   --button-border-radius: 3px;
-  --button-border-color: color-mix(in srgb, currentColor 9%, transparent);
   --button-border-color-hover: color-mix(in srgb, currentColor 17%, transparent);
   --in-content-deemphasized-text: color-mix(in srgb, currentColor 60%, transparent);
   --size-sidebar: auto;
   --menu-item-margin: 0 3px;
+  --panel-border-radius: 9px;
 
   @media not (forced-colors) {
     --background-color-box-info: light-dark(var(--layout-background-1), var(--layout-background-2));
-    --in-content-box-info-border: light-dark(var(--layout-border-0), transparent);
-    --button-background-color: light-dark(var(--grey-90-a10), rgba(249, 249, 250, 0.1));
-    --button-background-color-hover: light-dark(var(--grey-90-a20), rgba(249, 249, 250, 0.15));
-    --button-background-color-active: light-dark(var(--grey-90-a30), rgba(249, 249, 250, 0.2));
-    --in-content-categories-background: var(--layout-background-2);
-    --in-content-categories-border: var(--in-content-categories-background);
+    --border-color-box-info: light-dark(var(--layout-border-0), transparent);
     --color-accent-primary-selected-unfocused: light-dark(var(--color-gray-20), rgba(249, 249, 250, 0.05));
-    --in-content-item-hover: color-mix(in srgb, currentColor 12%, transparent);
-    --color-accent-primary-selected: color-mix(in srgb, currentColor 20%, transparent);
-    --text-color-accent-primary-selected: var(--text-color);
-    --button-background-color-primary: AccentColor;
-    --button-background-color-primary-hover: color-mix(in srgb, AccentColor 80%, black);
-    --button-background-color-primary-active: color-mix(in srgb, AccentColor 70%, black);
-    --button-text-color-primary: AccentColorText;
+    --color-accent-primary-selected: var(--selected-item-color);
+    --text-color-accent-primary-selected: var(--selected-item-text-color);
     --in-content-focus-outline-color: AccentColor;
     --in-content-accent-color: AccentColor;
-    --focus-outline-color: AccentColor;
   }
 
   @media (forced-colors) {
     --background-color-box-info: transparent;
-    --in-content-box-info-border: currentColor;
-    --in-content-categories-background: transparent;
-    --in-content-categories-border: currentColor;
+    --border-color-box-info: currentColor;
     --border-color: -moz-DialogText;
-    --button-background-color-primary: SelectedItem;
-    --button-background-color-primary-hover: SelectedItem;
-    --button-background-color-primary-active: SelectedItem;
-    --button-text-color-primary: SelectedItemText;
-    --button-text-color-primary-active: SelectedItemText;
     --in-content-accent-color: SelectedItem;
   }
 }
 
 :root {
   -moz-box-collapse: legacy;
+  background-color: var(--layout-background-0);
 
   &:not(.system-font-size) {
     font: message-box;
@@ -87,13 +70,6 @@ body table {
       background-color: var(--button-background-color) !important;
       color: unset;
     }
-
-    &[keyboard-navigation="true"]:focus-visible > .category[current],
-    & > .category:focus-visible {
-      background-color: var(--color-accent-primary-selected) !important;
-      color: var(--text-color-accent-primary-selected);
-      outline: none;
-    }
   }
 }
 
@@ -115,10 +91,33 @@ body table {
 
 .sidebar-footer-label {
   margin: 0;
+  font-size: 1rem;
+}
+
+@media (max-width: 830px) {
+  .sidebar-footer-list {
+    align-items: normal;
+  }
+
+  .sidebar-footer-link {
+    inline-size: auto;
+    block-size: 36px;
+  }
+
+  .sidebar-footer-label,
+  .category:not(.category-no-icon) > .category-name,
+  .category-icon + .category-name {
+    display: flex;
+  }
+
+  #categories:not(moz-page-nav),
+  #categories > .category {
+    inline-size: auto;
+  }
 }
 
 menulist > menupopup {
-  --panel-padding: 3px 0;
+  --panel-padding: 4px 0;
 
   & menuseparator {
     margin: 4px 8px;
@@ -126,21 +125,18 @@ menulist > menupopup {
 }
 
 menupopup {
-  @media not (-moz-windows-mica-popups) {
-    --panel-border-color: var(--border-color);
-    --panel-background: var(--background-color-box);
-    --panel-color: var(--text-color);
-  }
-
-  &::part(content) {
-    border-radius: var(--arrowpanel-border-radius);
-  }
+  --panel-padding: 4px 0;
 
   & > :is(menu, menuitem) {
     margin: var(--menu-item-margin);
     min-block-size: 24px;
-    padding-block: var(--menu-item-padding);
+    padding: 3px 6px;
     border-radius: 3px;
+
+    &:not([disabled])[_moz-menuactive="true"] {
+      color: inherit;
+      background-color: var(--panel-background-color-dimmed);
+    }
   }
 
   @media (-moz-windows-mica-popups) {
@@ -151,9 +147,9 @@ menupopup {
 }
 
 tab[selected] {
-  color: var(--button-text-color);
-  background-color: var(--button-background-color);
-  border-block-end-color: var(--in-content-accent-color);
+  color: inherit;
+  background-color: var(--panel-background-color-dimmed);
+  border-block-end-color: var(--selected-item-color);
 }
 
 input[type="search"] {

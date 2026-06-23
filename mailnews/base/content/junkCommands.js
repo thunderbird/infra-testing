@@ -179,12 +179,12 @@ MessageClassifier.prototype = {
             percentage,
           }
         );
-        top.window.MsgStatusFeedback.showStatusString(status);
+        MailServices.feedback.reportStatus(status);
       }
       MailServices.junk.classifyMessage(nextMsgURI, top.msgWindow, this);
     } else {
       const status = await document.l10n.formatValue("spam-processing-message");
-      top.window.MsgStatusFeedback.showStatusString(status);
+      MailServices.feedback.reportStatus(status);
       await performActionsOnJunkMsgs(
         this.mFolder,
         this.mJunkMsgHdrs,
@@ -193,7 +193,7 @@ MessageClassifier.prototype = {
       // This notification only exists for tests.
       Services.obs.notifyObservers(null, "message-classification-complete");
       setTimeout(() => {
-        top.window.MsgStatusFeedback.showStatusString("");
+        MailServices.feedback.reportStatus("");
       }, 500);
     }
   },
@@ -243,13 +243,11 @@ async function processFolderForJunk(aAll) {
   let tmpMsgURI;
   for (let i = 0; i < totalMessages; i++) {
     const index = aAll ? i : indices[i];
-    try {
-      tmpMsgURI = gDBView.getURIForViewIndex(index);
+    tmpMsgURI = gDBView.getURIForViewIndex(index);
+    if (tmpMsgURI) {
       break;
-    } catch (e) {
-      // dummy headers will fail, so look for another
-      continue;
     }
+    // dummy headers will fail, so look for another
   }
   if (!tmpMsgURI) {
     return;
@@ -266,6 +264,9 @@ async function processFolderForJunk(aAll) {
     const index = aAll ? i : indices[i];
     try {
       const msgURI = gDBView.getURIForViewIndex(index);
+      if (!msgURI) {
+        continue;
+      }
       const msgHdr =
         MailServices.messageServiceFromURI(msgURI).messageURIToMsgHdr(msgURI);
       msgClassifier.analyzeMessage(msgHdr, spamSettings);

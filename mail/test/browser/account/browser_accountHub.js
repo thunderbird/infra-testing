@@ -4,6 +4,10 @@
 
 "use strict";
 
+const { MockExternalProtocolService } = ChromeUtils.importESModule(
+  "resource://testing-common/mailnews/MockExternalProtocolService.sys.mjs"
+);
+
 const PREF_NAME = "mailnews.auto_config_url";
 const PREF_VALUE = Services.prefs.getCharPref(PREF_NAME);
 
@@ -12,24 +16,32 @@ add_setup(function () {
   const url =
     "http://mochi.test:8888/browser/comm/mail/test/browser/account/xml/";
   Services.prefs.setCharPref(PREF_NAME, url);
+
+  MockExternalProtocolService.init();
+
+  registerCleanupFunction(function () {
+    MockExternalProtocolService.cleanup();
+    // Restore the original pref.
+    Services.prefs.setCharPref(PREF_NAME, PREF_VALUE);
+  });
 });
 
-registerCleanupFunction(function () {
-  // Restore the original pref.
-  Services.prefs.setCharPref(PREF_NAME, PREF_VALUE);
+add_task(async function account_hub_does_not_exist_with_accounts() {
+  // We wait 1 second to make sure the account hub is not still opening.
+  // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  Assert.ok(
+    !document.querySelector("account-hub-container"),
+    "Account hub should not exist"
+  );
 });
-
-// TODO: Defer this for when the account hub replaces the account setup tab.
-// add_task(async function test_account_hub_opening_at_startup() {});
 
 add_task(async function test_account_hub_opening() {
   Services.fog.testResetFOG();
-  // TODO: Use an actual button once it's implemented in the UI.
-  // Open the dialog.
   await window.openAccountHub();
 
   let events = Glean.mail.accountHubLoaded.testGetValue();
-  Assert.equal(events.length, 2);
+  Assert.equal(events.length, 2, "Should initially have two events");
   Assert.deepEqual(
     events.map(v => v.extra.view_name),
     ["MAIL", "autoConfigSubview"]
@@ -98,8 +110,9 @@ add_task(async function test_account_email_step() {
   nameInput.value = "";
   emailInput.value = "";
 
-  // Check if the input icons are hidden.
-  const icons = emailTemplate.querySelectorAll("img");
+  // Validation/status icons should be hidden initially.
+  // Provider login buttons may contain visible images.
+  const icons = emailTemplate.querySelectorAll("img.form-icon");
 
   for (const icon of icons) {
     Assert.ok(BrowserTestUtils.isHidden(icon), `${icon.src} should be hidden`);
@@ -297,7 +310,7 @@ add_task(async function test_account_email_config_found() {
 
   // POP3 should be the recommended configuration.
   Assert.ok(
-    BrowserTestUtils.isVisible(pop3ConfigOption.querySelector(".info-badge")),
+    BrowserTestUtils.isVisible(pop3ConfigOption.querySelector(".badge")),
     "POP3 should be the recommended config option"
   );
 
@@ -452,6 +465,33 @@ add_task(async function test_cancel_finding_config() {
   await subtest_close_account_hub_dialog(dialog, emailTemplate);
 });
 
+add_task(async function test_account_hub_not_first_run() {
+  const dialog = await subtest_open_account_hub_dialog();
+
+  Assert.ok(
+    !dialog.classList.contains("account-hub-first-run"),
+    "Should not have the first run class"
+  );
+  Assert.ok(
+    !window.AccountHubController.isFirstRun,
+    "Should have first run correctly set"
+  );
+
+  const closeEvent = BrowserTestUtils.waitForEvent(dialog, "close");
+  EventUtils.synthesizeMouseAtCenter(
+    dialog
+      .querySelector("email-auto-form")
+      .shadowRoot.querySelector("account-hub-header")
+      .shadowRoot.querySelector("#closeButton"),
+    {}
+  );
+  await closeEvent;
+  Assert.ok(
+    !dialog.open,
+    "The dialog element should close when clicking on the close button"
+  );
+});
+
 add_task(async function test_account_enter_password_imap_account() {
   IMAPServer.open();
   SMTPServer.open();
@@ -500,11 +540,11 @@ add_task(async function test_account_enter_password_imap_account() {
   // remember password checkbox should be checked and enabled.
   Assert.ok(
     !rememberPasswordInput.disabled,
-    "The remember password input should be disabled."
+    "The remember password input should be enabled."
   );
   Assert.ok(
     rememberPasswordInput.checked,
-    "The remember password input should be unchecked."
+    "The remember password input should be checked."
   );
 
   await SpecialPowers.popPrefEnv();
@@ -572,6 +612,10 @@ add_task(async function test_account_enter_password_imap_account() {
 
   // The back button should be hidden now, as we shouldn't be able to cancel
   // account creation.
+  await BrowserTestUtils.waitForAttribute(
+    "hidden",
+    footer.querySelector("#back")
+  );
   Assert.ok(
     BrowserTestUtils.isHidden(footer.querySelector("#back")),
     "Back button should be hidden."
@@ -582,13 +626,11 @@ add_task(async function test_account_enter_password_imap_account() {
     "The email password subview should be hidden."
   );
 
-  let imapAccount;
-
-  await TestUtils.waitForCondition(
+  const imapAccount = await TestUtils.waitForCondition(
     () =>
-      (imapAccount = MailServices.accounts.accounts.find(
+      MailServices.accounts.accounts.find(
         account => account.identities[0]?.email === emailUser.email
-      )),
+      ),
     "The user account should be created."
   );
 
@@ -606,13 +648,84 @@ add_task(async function test_account_enter_password_imap_account() {
   // the success view.
   const successStep = dialog.querySelector("email-added-success");
   await BrowserTestUtils.waitForAttributeRemoval("hidden", successStep);
+  Assert.ok(
+    BrowserTestUtils.isVisible(
+      successStep.querySelector("#accountHubEncryptionLink")
+    ),
+    "E2E Encryption link should be visible."
+  );
+
+  // Clicking the E2E encryption link in the success page should open up the
+  // account manager.
+  const tabmail = document.getElementById("tabmail");
+  const e2eAccountManagerPromise = promiseTab("about:accountsettings", win => {
+    Assert.equal(
+      win.document.querySelector("#accounttree .current").id,
+      `${imapAccount.key}/am-e2e.xhtml`,
+      "Server should be selected in the account tree"
+    );
+  });
+  EventUtils.synthesizeMouseAtCenter(
+    successStep.querySelector("#accountHubEncryptionLink"),
+    {}
+  );
+  await e2eAccountManagerPromise;
 
   await subtest_clear_status_bar();
+  tabmail.closeTab(tabmail.currentTabInfo);
+
   MailServices.accounts.removeAccount(imapAccount);
-  Services.logins.removeAllLogins();
+  MailServices.outgoingServer.deleteServer(
+    MailServices.outgoingServer.servers.find(s => s.key != "smtp1")
+  );
+  await Services.logins.removeAllLoginsAsync();
 
   IMAPServer.close();
   SMTPServer.close();
 
   await subtest_close_account_hub_dialog(dialog, successStep);
 });
+
+add_task(async function test_footerLinks() {
+  const dialog = await subtest_open_account_hub_dialog();
+  const footer = dialog.querySelector("#emailFooter");
+  const links = footer.querySelectorAll("li:not([hidden]) a");
+
+  for (const link of links) {
+    const loadPromise = MockExternalProtocolService.promiseLoad();
+    EventUtils.synthesizeMouseAtCenter(link, {}, window);
+    Assert.equal(
+      await loadPromise,
+      link.href,
+      `Should externally open link for ${link.textContent}`
+    );
+  }
+
+  await subtest_close_account_hub_dialog(
+    dialog,
+    dialog.querySelector("email-auto-form")
+  );
+  MockExternalProtocolService.reset();
+});
+
+/**
+ * Wait for a tab to open, run a callback on it.
+ *
+ * @param {string} url - The URL of the expected tab.
+ * @param {Function} [callback] - A callback to run once the tab is open and
+ *   loaded. The callback takes the tab's window object as an argument.
+ */
+async function promiseTab(url, callback) {
+  const {
+    detail: { tabInfo },
+  } = await BrowserTestUtils.waitForEvent(window, "TabOpen");
+  await BrowserTestUtils.browserLoaded(tabInfo.browser);
+  await TestUtils.waitForTick();
+
+  Assert.equal(
+    tabInfo.browser.currentURI.spec,
+    url,
+    "correct page should be loaded in the tab"
+  );
+  await callback?.(tabInfo.browser.contentWindow);
+}

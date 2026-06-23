@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-registerCleanupFunction(() => {
-  Services.logins.removeAllLogins();
+registerCleanupFunction(async () => {
+  await Services.logins.removeAllLoginsAsync();
 });
 
 /**
@@ -36,7 +36,11 @@ add_task(async function testMigratePasswordOnChangeUsernameHostname() {
   nntpIncomingServer.username = "nntp";
   let password;
   let serverUri = "news://news.localhost";
-  for (const login of Services.logins.findLogins(serverUri, "", serverUri)) {
+  let logins = await Services.logins.searchLoginsAsync({
+    origin: serverUri,
+    httpRealm: serverUri,
+  });
+  for (const login of logins) {
     if (login.username == "nntp") {
       password = login.password;
     }
@@ -53,9 +57,13 @@ add_task(async function testMigratePasswordOnChangeUsernameHostname() {
   equal(pop3IncomingServer.password, "password-pop");
 
   // Change the hostname, check password can be found using the new hostname.
-  pop3IncomingServer.hostName = "localhost";
+  pop3IncomingServer.hostname = "localhost";
   serverUri = "mailbox://localhost";
-  for (const login of Services.logins.findLogins(serverUri, "", serverUri)) {
+  logins = await Services.logins.searchLoginsAsync({
+    origin: serverUri,
+    httpRealm: serverUri,
+  });
+  for (const login of logins) {
     if (login.username == "user-pop") {
       password = login.password;
     }
@@ -105,7 +113,7 @@ add_task(function testMigrateIdentitiesOnChangeUsernameHostname() {
   equal(identity2.draftsFolderURI, "mailbox://oscar@pop3.localhost/Drafts");
 
   // Change the hostname.
-  incomingServer1.hostName = "localhost";
+  incomingServer1.hostname = "localhost";
 
   // Check folders were correctly updated.
   identity1 = MailServices.accounts.getIdentity(identity1.key);
@@ -190,7 +198,7 @@ add_task(function testMigrateFiltersOnChangeUsernameHostname() {
   filterList.insertFilterAt(filterList.filterCount, filter);
 
   // Change the hostname, test targetFolderUri of filters are changed accordingly.
-  nntpIncomingServer.hostName = "localhost";
+  nntpIncomingServer.hostname = "localhost";
   filterList = nntpIncomingServer.getFilterList(null);
   filter = filterList.getFilterAt(0);
   equal(

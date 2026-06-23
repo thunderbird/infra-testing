@@ -31,7 +31,6 @@ XPCOMUtils.defineLazyScriptGetter(
 
 // This file stores variables common to mail windows
 var messenger;
-var statusFeedback;
 var msgWindow;
 
 UIDensity.registerWindow(window);
@@ -54,8 +53,6 @@ function OnMailWindowUnload() {
 
   window.browserDOMWindow = null;
 
-  msgWindow.closeWindow();
-
   window.MsgStatusFeedback.unload();
   Cc["@mozilla.org/activity-manager;1"]
     .getService(Ci.nsIActivityManager)
@@ -65,6 +62,8 @@ function OnMailWindowUnload() {
 /**
  * When copying/dragging, convert imap/mailbox URLs of images into data URLs so
  * that the images can be accessed in a paste elsewhere.
+ *
+ * @param {Event} e
  */
 function onCopyOrDragStart(e) {
   const browser = getBrowser();
@@ -199,11 +198,6 @@ function CreateMailWindowGlobals() {
 
   window.browserDOMWindow = new nsBrowserAccess();
 
-  statusFeedback = Cc["@mozilla.org/messenger/statusfeedback;1"].createInstance(
-    Ci.nsIMsgStatusFeedback
-  );
-  statusFeedback.setWrappedStatusFeedback(window.MsgStatusFeedback);
-
   Cc["@mozilla.org/activity-manager;1"]
     .getService(Ci.nsIActivityManager)
     .addListener(window.MsgStatusFeedback);
@@ -271,35 +265,74 @@ function toggleCaretBrowsing() {
 }
 
 function InitMsgWindow() {
-  // Set the domWindow before setting the status feedback object.
-  msgWindow.domWindow = window;
-  msgWindow.statusFeedback = statusFeedback;
   MailServices.mailSession.AddMsgWindow(msgWindow);
-  msgWindow.rootDocShell.allowAuth = true;
+  window.browsingContext.docShell.allowAuth = true;
   // Ensure we don't load xul error pages into the main window
-  msgWindow.rootDocShell.useErrorPages = false;
+  window.browsingContext.docShell.useErrorPages = false;
 
   document.addEventListener("dragstart", onCopyOrDragStart, true);
 
-  const keypressListener = {
-    handleEvent: event => {
-      if (event.defaultPrevented) {
-        return;
-      }
+  document.addEventListener(
+    "keypress",
+    {
+      handleEvent: event => {
+        if (event.defaultPrevented) {
+          return;
+        }
 
-      switch (event.code) {
-        case "F7":
-          // shift + F7 is the default DevTools shortcut for the Style Editor.
-          if (!event.shiftKey) {
-            toggleCaretBrowsing();
+        switch (event.code) {
+          case "F7": {
+            // shift + F7 is the default DevTools shortcut for the Style Editor.
+            if (!event.shiftKey) {
+              toggleCaretBrowsing();
+            }
+            break;
           }
-          break;
-      }
+          case "Space": {
+            const tabmail = document.getElementById("tabmail");
+            if (tabmail) {
+              const currentTabMode = tabmail.currentTabInfo?.mode?.name;
+              // Only intercept space for mail tabs. For other tabs (e.g. pdf.js
+              // in a contentTab) let the browser handle the key natively.
+              if (
+                currentTabMode != "mail3PaneTab" &&
+                currentTabMode != "mailMessageTab"
+              ) {
+                return;
+              }
+            }
+            event.preventDefault();
+            goDoCommand("cmd_space");
+            break;
+          }
+          case "KeyS": {
+            // Ctrl+S / Cmd+S should trigger save.
+            if (event.altKey || event.ctrlKey == event.metaKey) {
+              // Ctrl+Alt+S / Cmd+Control+S - don't hijack this.
+              break;
+            }
+            const tabmail = document.getElementById("tabmail");
+            if (tabmail?.currentTabInfo?.mode?.name == "contentTab") {
+              // In a pdf.js content tab, trigger the page's own save action.
+              event.preventDefault();
+              try {
+                tabmail.currentTabInfo.browser.browsingContext.currentWindowGlobal
+                  ?.getActor("Pdfjs")
+                  ?.sendAsyncMessage("PDFJS:Save", {});
+              } catch (ex) {}
+              return;
+            }
+            event.preventDefault();
+            goDoCommand("cmd_saveAsFile");
+            break;
+          }
+        }
+      },
     },
-  };
-  document.addEventListener("keypress", keypressListener, {
-    mozSystemGroup: true,
-  });
+    {
+      mozSystemGroup: true,
+    }
+  );
 }
 
 // We're going to implement our status feedback for the mail window in JS now.
@@ -319,6 +352,21 @@ function nsMsgStatusFeedback() {
 
   // make sure the stop button is accurate from the get-go
   goUpdateCommand("cmd_stop");
+
+  window.addEventListener("message", event => {
+    if (event.data.statusMessage) {
+      this.showStatusString(event.data.statusMessage);
+    } else {
+      if (event.data.progress) {
+        this.showProgress(event.data.progress);
+      }
+      if (event.data.meteors == "start-meteors") {
+        this.startMeteors();
+      } else if (event.data.meteors == "stop-meteors") {
+        this.stopMeteors();
+      }
+    }
+  });
 }
 
 /**
@@ -368,9 +416,11 @@ nsMsgStatusFeedback.prototype = {
       url = Services.textToSubURI.unEscapeURIForUI(url);
 
       // Encode bidirectional formatting characters.
-      // (RFC 3987 sections 3.2 and 4.1 paragraph 6)
+      //
+      // https://url.spec.whatwg.org/#url-rendering-i18n
+      // https://www.unicode.org/reports/tr9/#Directional_Formatting_Characters
       url = url.replace(
-        /[\u200e\u200f\u202a\u202b\u202c\u202d\u202e]/g,
+        /[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g,
         encodeURIComponent
       );
     }
@@ -453,7 +503,7 @@ nsMsgStatusFeedback.prototype = {
       // Drop further messages until the queue has cleared up.
       return;
     }
-    if (!statusText && this._statusQueue.length > 0) {
+    if (!statusText && this._statusQueue.length) {
       // Don't queue empty strings in the middle.
       return;
     }
@@ -570,6 +620,9 @@ nsMsgStatusFeedback.prototype = {
     }
   },
 
+  /**
+   * @param {integer} percentage
+   */
   showProgress(percentage) {
     this._statusFeedbackProgress = percentage;
     this.updateProgress();
@@ -951,6 +1004,10 @@ nsBrowserAccess.prototype = {
 /**
  * Called from the extensions manager to open an add-on options XUL document.
  * Only the "open in tab" option is supported, so that's what we'll do here.
+ *
+ * @param {string} aURI
+ * @param {boolean} aOpenNew - Open new tab or not.
+ * @param {*} aOpenParams - Parms to pass to openTab.
  */
 function switchToTabHavingURI(aURI, aOpenNew, aOpenParams = {}) {
   const tabmail = document.getElementById("tabmail");
@@ -1120,6 +1177,9 @@ window.addEventListener("aboutMessageLoaded", event => {
   });
 });
 
+const messengerBundle = Services.strings.createBundle(
+  "chrome://messenger/locale/messenger.properties"
+);
 contentProgress.addListener({
   onLocationChange() {
     // Clear any URL for a hovered link that is displayed in the status bar.
@@ -1128,8 +1188,8 @@ contentProgress.addListener({
   // Listener to correctly set the busy flag on the webBrowser in about:3pane. All
   // other content tabs are handled by tabmail.js.
   onStateChange(browser, _webProgress, _request, stateFlags, statusCode) {
-    // Skip if this is not the webBrowser in about:3pane.
-    if (browser.id != "webBrowser") {
+    // Skip if this is not the webBrowser in about:3pane, or the messagepane.
+    if (browser.id != "webBrowser" && browser.id != "messagepane") {
       return;
     }
     let status;
@@ -1146,5 +1206,19 @@ contentProgress.addListener({
       status = "complete";
     }
     browser.busy = status == "loading";
+
+    if (browser.id == "messagepane") {
+      if (stateFlags & Ci.nsIWebProgressListener.STATE_IS_NETWORK) {
+        if (stateFlags & Ci.nsIWebProgressListener.STATE_START) {
+          window.MsgStatusFeedback.startMeteors();
+          window.MsgStatusFeedback.showStatusString(
+            messengerBundle.GetStringFromName("documentLoading")
+          );
+        } else if (stateFlags & Ci.nsIWebProgressListener.STATE_STOP) {
+          window.MsgStatusFeedback.stopMeteors();
+          window.MsgStatusFeedback.showStatusString("");
+        }
+      }
+    }
   },
 });

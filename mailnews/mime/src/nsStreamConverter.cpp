@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -16,7 +15,7 @@
 #include "nsICategoryManager.h"
 #include "nsIMsgMailNewsUrl.h"
 #include "nsIMsgQuote.h"
-#include "nsINntpUrl.h"
+#include "nsINntpIncomingServer.h"
 #include "nsIPipe.h"
 #include "nsMimeTypes.h"
 #include "nsMsgUtils.h"
@@ -110,10 +109,20 @@ nsresult bridge_new_new_uri(void* bridgeStream, nsIURI* aURI,
           } else {
             *override_charset = false;
             // Special treatment for news: URLs. Get the server default charset.
-            nsCOMPtr<nsINntpUrl> nntpURL(do_QueryInterface(aURI));
-            if (nntpURL) {
+            nsAutoCString scheme;
+            if (NS_SUCCEEDED(aURI->GetScheme(scheme)) && IsNewsScheme(scheme)) {
               nsCString charset;
-              rv = nntpURL->GetCharset(charset);
+              rv = NS_ERROR_FAILURE;
+              nsCOMPtr<nsIMsgMailNewsUrl> mailNewsUrl(do_QueryInterface(aURI));
+              if (mailNewsUrl) {
+                nsCOMPtr<nsIMsgIncomingServer> server;
+                mailNewsUrl->GetServer(getter_AddRefs(server));
+                nsCOMPtr<nsINntpIncomingServer> nntpServer(
+                    do_QueryInterface(server));
+                if (nntpServer) {
+                  rv = nntpServer->GetCharset(charset);
+                }
+              }
               if (NS_SUCCEEDED(rv)) {
                 *default_charset = ToNewCString(charset);
               } else {
@@ -489,9 +498,12 @@ NS_IMETHODIMP nsStreamConverter::Init(nsIURI* aURI,
     if (!contractID.IsEmpty()) categoryName = contractID;
 
     mEmitter = do_CreateInstance(categoryName.get(), &rv);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
 
-    if ((NS_FAILED(rv)) || (!mEmitter)) {
-      return NS_ERROR_OUT_OF_MEMORY;
+    if (!mEmitter) {
+      return NS_ERROR_INVALID_POINTER;
     }
   }
 

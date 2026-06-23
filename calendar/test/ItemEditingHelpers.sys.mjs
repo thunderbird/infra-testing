@@ -147,7 +147,7 @@ export async function setData(dialogWindow, iframeWindow, data) {
   }
 
   // all-day
-  if (data.allday !== undefined && isEvent) {
+  if (data.allday !== undefined) {
     const checkbox = iframeDocument.getElementById("event-all-day");
     if (checkbox.checked != data.allday) {
       synthesizeMouseAtCenter(checkbox, {}, iframeWindow);
@@ -348,7 +348,7 @@ export async function setData(dialogWindow, iframeWindow, data) {
       for (const attachment of attachments) {
         if (attachment.tooltipText.includes(data.attachment.remove)) {
           synthesizeMouseAtCenter(attachment, {}, iframeWindow);
-          synthesizeKey("VK_DELETE", {}, dialogWindow);
+          synthesizeKey("KEY_Delete", {}, dialogWindow);
         }
       }
     }
@@ -388,6 +388,23 @@ export async function setData(dialogWindow, iframeWindow, data) {
  * @param {Window} dialogWindow
  */
 export async function saveAndCloseItemDialog(dialogWindow) {
+  let calendarObserver;
+  const itemSaved = new Promise(resolve => {
+    calendarObserver = {
+      QueryInterface: ChromeUtils.generateQI(["calIObserver"]),
+      onAddItem: resolve,
+      onModifyItem: resolve,
+      onDeleteItem() {},
+      onStartBatch() {},
+      onEndBatch() {},
+      onLoad() {},
+      onError() {},
+      onPropertyChanged() {},
+      onPropertyDeleting() {},
+    };
+    cal.manager.addCalendarObserver(calendarObserver);
+  });
+
   const dialogClosing = BrowserTestUtils.domWindowClosed(dialogWindow);
   synthesizeMouseAtCenter(
     dialogWindow.document.getElementById("button-saveandclose"),
@@ -396,6 +413,8 @@ export async function saveAndCloseItemDialog(dialogWindow) {
   );
   await dialogClosing;
   Assert.report(false, undefined, undefined, "Item dialog closed");
+  await itemSaved;
+  cal.manager.removeCalendarObserver(calendarObserver);
   await new Promise(resolve => setTimeout(resolve));
 }
 
@@ -405,7 +424,7 @@ export async function saveAndCloseItemDialog(dialogWindow) {
  * @param {Window} dialogWindow
  */
 export function cancelItemDialog(dialogWindow) {
-  synthesizeKey("VK_ESCAPE", {}, dialogWindow);
+  synthesizeKey("KEY_Escape", {}, dialogWindow);
 }
 
 /**
@@ -426,9 +445,9 @@ async function setReminderMenulist(iframeWindow, id) {
   menulist.focus();
 
   synthesizeMouseAtCenter(menulist, {}, iframeWindow);
-  await BrowserTestUtils.waitForPopupEvent(menulist, "shown");
+  await BrowserTestUtils.waitForPopupEvent(menulist.menupopup, "shown");
   synthesizeMouseAtCenter(menuitem, {}, iframeWindow);
-  await BrowserTestUtils.waitForPopupEvent(menulist, "hidden");
+  await BrowserTestUtils.waitForPopupEvent(menulist.menupopup, "hidden");
   await sleep(iframeWindow);
 }
 
@@ -600,29 +619,45 @@ async function setTimezone(dialogWindow, iframeWindow, timezone) {
     undefined,
     "chrome://calendar/content/calendar-event-dialog-timezone.xhtml",
     {
-      async callback(timezoneWindow) {
+      async callback(win) {
         Assert.report(false, undefined, undefined, "Timezone dialog opened");
-        await TestUtils.waitForCondition(
-          () => Services.focus.activeWindow == timezoneWindow,
-          "timezone dialog active"
-        );
+        if (Services.focus.activeWindow != win) {
+          let focusTimeoutId;
+          const focusTimeout = new Promise(resolve => {
+            focusTimeoutId = win.setTimeout(() => {
+              Assert.report(false, undefined, undefined, `Will force focus to ${win.location}`);
+              win.focus();
+              resolve();
+            }, 5000);
+          });
+          await Promise.race([BrowserTestUtils.waitForEvent(win, "activate"), focusTimeout]);
+          win.clearTimeout(focusTimeoutId);
+          Assert.report(
+            false,
+            undefined,
+            undefined,
+            `${Services.focus.activeWindow?.location} now active - ${Services.focus.focusedWindow?.location} has focus`
+          );
+        }
+        await new Promise(resolve => win.setTimeout(resolve));
 
-        const timezoneDocument = timezoneWindow.document;
+        const timezoneDocument = win.document;
         const timezoneMenulist = timezoneDocument.getElementById("timezone-menulist");
-        const timezoneMenuitem = timezoneMenulist.querySelector(`[value="${timezone}"]`);
+        const timezoneMenupopup = timezoneDocument.getElementById("timezone-menupopup");
 
-        synthesizeMouseAtCenter(timezoneMenulist, {}, timezoneWindow);
-        await BrowserTestUtils.waitForPopupEvent(timezoneMenulist, "shown");
+        synthesizeMouseAtCenter(timezoneMenulist, {}, win);
+        await BrowserTestUtils.waitForPopupEvent(timezoneMenupopup, "shown");
 
+        const timezoneMenuitem = timezoneMenupopup.querySelector(`[value="${timezone}"]`);
         timezoneMenuitem.scrollIntoView({ block: "start", behavior: "instant" });
 
-        synthesizeMouseAtCenter(timezoneMenuitem, {}, timezoneWindow);
-        await BrowserTestUtils.waitForPopupEvent(timezoneMenulist, "hidden");
+        synthesizeMouseAtCenter(timezoneMenuitem, {}, win);
+        await BrowserTestUtils.waitForPopupEvent(timezoneMenupopup, "hidden");
 
         synthesizeMouseAtCenter(
           timezoneDocument.querySelector("dialog").getButton("accept"),
           {},
-          timezoneWindow
+          win
         );
       },
     }
@@ -646,7 +681,7 @@ async function setTimezone(dialogWindow, iframeWindow, timezone) {
  * @param {string} value
  */
 export async function menulistSelect(menulist, value) {
-  const win = menulist.ownerGlobal;
+  const win = menulist.documentGlobal;
   Assert.report(
     false,
     undefined,
@@ -666,12 +701,12 @@ export async function menulistSelect(menulist, value) {
   Assert.ok(!menulist.disabled, `menulist id=${menulist.id} should be enabled`);
 
   synthesizeMouseAtCenter(menulist, {}, win);
-  await BrowserTestUtils.waitForPopupEvent(menulist, "shown");
+  await BrowserTestUtils.waitForPopupEvent(menulist.menupopup, "shown");
 
   Assert.report(false, undefined, undefined, `menulist id=${menulist.id} shown`);
 
   synthesizeMouseAtCenter(menuitem, {}, win);
-  await BrowserTestUtils.waitForPopupEvent(menulist, "hidden");
+  await BrowserTestUtils.waitForPopupEvent(menulist.menupopup, "hidden");
 
   await new Promise(resolve => win.setTimeout(resolve));
   Assert.equal(menulist.value, value, "menulist should get correct value");

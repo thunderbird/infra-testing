@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -49,10 +48,10 @@ void nsImapSearchResultIterator::ResetIterator() {
   fPositionInCurrentLine = fCurrentLine;
 }
 
-int32_t nsImapSearchResultIterator::GetNextMessageNumber() {
-  int32_t returnValue = 0;
+ImapUid nsImapSearchResultIterator::GetNextMatchUid() {
+  ImapUid returnValue = 0;
   if (fPositionInCurrentLine) {
-    returnValue = atoi(fPositionInCurrentLine);
+    returnValue = strtoul(fPositionInCurrentLine, nullptr, 10);
 
     // eat the current number
     while (isdigit(*++fPositionInCurrentLine)) {

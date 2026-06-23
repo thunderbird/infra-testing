@@ -26,6 +26,7 @@ add_setup(async () => {
     ServerTestUtils.serverDefs.imap.expiredTLS,
     ServerTestUtils.serverDefs.pop3.tls,
     ServerTestUtils.serverDefs.ews.tls,
+    ServerTestUtils.serverDefs.nntp.tls,
     ServerTestUtils.serverDefs.smtp.tls,
   ]);
 
@@ -126,7 +127,7 @@ add_setup(async () => {
   smtpTLS.description = "SMTP TLS";
 
   ewsOutgoingTLS = MailServices.outgoingServer.createServer("ews");
-  ewsOutgoingTLS.QueryInterface(Ci.nsIEwsServer);
+  ewsOutgoingTLS.QueryInterface(Ci.IExchangeOutgoingServer);
   ewsOutgoingTLS.initialize("https://test.test/EWS/Exchange.asmx");
   ewsOutgoingTLS.authMethod = Ci.nsMsgAuthMethod.passwordCleartext;
   ewsOutgoingTLS.username = "user";
@@ -169,7 +170,11 @@ add_task(async function testSwitchSocketTypes() {
 
   async function changeSocketType(type) {
     const shownPromise = BrowserTestUtils.waitForSelectPopupShown(window);
-    EventUtils.synthesizeMouseAtCenter(socketType, {}, socketType.ownerGlobal);
+    EventUtils.synthesizeMouseAtCenter(
+      socketType,
+      {},
+      socketType.documentGlobal
+    );
     const popup = await shownPromise;
     popup.activateItem(popup.children[options[type]]);
     await BrowserTestUtils.waitForPopupEvent(popup, "hidden");
@@ -253,7 +258,7 @@ add_task(async function testValidCertificate() {
   EventUtils.synthesizeMouseAtCenter(
     certCheck.viewButton,
     {},
-    certCheck.ownerGlobal
+    certCheck.documentGlobal
   );
   const {
     detail: { tabInfo: certificateTab },
@@ -357,7 +362,7 @@ add_task(async function testConnectionError() {
     certCheck,
     "failure",
     {
-      id: "certificate-test-failure",
+      id: "cert-error-ssl-connection-error",
       args: { hostname: "wrong.test:993" },
     },
     []
@@ -450,7 +455,7 @@ add_task(async function testPOP3() {
   EventUtils.synthesizeMouseAtCenter(
     certCheck.viewButton,
     {},
-    certCheck.ownerGlobal
+    certCheck.documentGlobal
   );
   const {
     detail: { tabInfo: certificateTab },
@@ -484,11 +489,21 @@ add_task(async function testEWS() {
 });
 
 /**
- * Test an NNTP server. This isn't implemented yet, but we need to check that
- * the certificate check UI is hidden.
+ * Test an NNTP server.
  */
 add_task(async function testNNTP() {
-  const accountsTab = await openTab(nntpTLS, "hidden");
+  const accountsTab = await openTab(nntpTLS, null, undefined, ["fetch"]);
+  const certCheck = getCertificateCheck(accountsTab);
+  await fetchCert(
+    certCheck,
+    "success",
+    {
+      id: "certificate-test-success",
+      args: { hostname: "test.test:563" },
+    },
+    ["view"]
+  );
+
   tabmail.closeTab(accountsTab);
 });
 
@@ -700,7 +715,7 @@ async function fetchCert(
   EventUtils.synthesizeMouseAtCenter(
     certCheck.fetchButton,
     {},
-    certCheck.ownerGlobal
+    certCheck.documentGlobal
   );
   await TestUtils.waitForTick();
   Assert.equal(
@@ -734,7 +749,7 @@ async function addException(certCheck, certificate) {
   EventUtils.synthesizeMouseAtCenter(
     certCheck.addExceptionButton,
     {},
-    certCheck.ownerGlobal
+    certCheck.documentGlobal
   );
   await dialogPromise;
 
@@ -771,7 +786,7 @@ async function removeException(certCheck, certificate) {
   EventUtils.synthesizeMouseAtCenter(
     certCheck.removeExceptionButton,
     {},
-    certCheck.ownerGlobal
+    certCheck.documentGlobal
   );
   await TestUtils.waitForTick();
 

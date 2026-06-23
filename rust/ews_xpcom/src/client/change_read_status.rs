@@ -14,7 +14,7 @@ use nsstring::nsCString;
 use protocol_shared::{
     client::DoOperation,
     safe_xpcom::{
-        SafeEwsSimpleOperationListener, SafeListener, SimpleOperationSuccessArgs,
+        SafeExchangeSimpleOperationListener, SafeListener, SimpleOperationSuccessArgs,
         UseLegacyFallback, handle_error,
     },
 };
@@ -23,7 +23,7 @@ use thin_vec::ThinVec;
 use crate::client::{ServerType, XpComEwsClient, XpComEwsError, process_response_message_class};
 
 struct DoChangeReadStatus<'a> {
-    listener: &'a SafeEwsSimpleOperationListener,
+    listener: &'a SafeExchangeSimpleOperationListener,
     message_ids: ThinVec<nsCString>,
     is_read: bool,
 }
@@ -33,7 +33,7 @@ impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError>
 {
     const NAME: &'static str = "change read status";
     type Okay = ();
-    type Listener = SafeEwsSimpleOperationListener;
+    type Listener = SafeExchangeSimpleOperationListener;
 
     async fn do_operation(
         &mut self,
@@ -156,9 +156,9 @@ impl<ServerT: ServerType> XpComEwsClient<ServerT> {
     /// Mark a message as read or unread by performing an [`UpdateItem` operation] via EWS.
     ///
     /// [`UpdateItem` operation]: https://learn.microsoft.com/en-us/exchange/client-developer/web-service-reference/updateitem-operation
-    pub async fn change_read_status(
+    pub(crate) async fn change_read_status(
         self: Arc<XpComEwsClient<ServerT>>,
-        listener: SafeEwsSimpleOperationListener,
+        listener: SafeExchangeSimpleOperationListener,
         message_ids: ThinVec<nsCString>,
         is_read: bool,
     ) {

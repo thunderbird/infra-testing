@@ -45,11 +45,26 @@
   value: false
   mirror: once
 
+# How many rows at a time should be sent from the back end to the front end?
+- name: mail.panorama.liveViewChunkSize
+  type: uint32_t
+  value: 45
+  mirror: always
+
 # Is Microsoft Graph enabled? This is currently experimental.
 - name: mail.graph.enabled
   type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Has the user ever set up a Microsoft365 account, specifically with EWS?
+# This will be used to assist users with Graph migration once EWS is
+# shut off on Microsoft365.
+- name: mail.exchange.hasMicrosoft365EwsAccount
+  type: bool
   value: false
   mirror: always
+  rust: true
 
 # See nsMimeHeaderDisplayTypes.
 # - 0: MicroHeaders

@@ -71,14 +71,13 @@ add_setup(async function () {
 });
 
 function resetDialog() {
-  dialog.removeAttribute("calendar-id");
   dialog.removeAttribute("recurrence-id");
-  dialog.removeAttribute("event-id");
   dialog.close();
 }
 
 add_task(async function test_dialogStructure() {
-  dialog.show();
+  dialog.setCalendarEvent(calendarEvent);
+  await dialog.show();
   const titlebar = dialog.querySelectorAll(".titlebar");
   const closeButton = dialog.querySelectorAll(".titlebar .close-button");
 
@@ -97,7 +96,8 @@ add_task(async function test_dialogStructure() {
 });
 
 add_task(async function test_dialogOpenAndClose() {
-  dialog.show();
+  dialog.setCalendarEvent(calendarEvent);
+  await dialog.show();
 
   Assert.ok(dialog.open, "Dialog is updated to open");
   EventUtils.synthesizeMouseAtCenter(
@@ -147,7 +147,8 @@ add_task(async function test_setCalendarEvent() {
 });
 
 add_task(async function test_dialogSubviewNavigation() {
-  dialog.show();
+  dialog.setCalendarEvent(calendarEvent);
+  await dialog.show();
   const subviewManager = dialog.querySelector(
     "calendar-dialog-subview-manager"
   );
@@ -197,10 +198,12 @@ add_task(async function test_dialogSubviewNavigation() {
     BrowserTestUtils.isHidden(otherSubview),
     "Other subview should be hidden again"
   );
+  resetDialog();
 });
 
 add_task(async function test_setCalendarEventResetsSubview() {
-  dialog.show();
+  dialog.setCalendarEvent(calendarEvent);
+  await dialog.show();
   const subviewManager = dialog.querySelector(
     "calendar-dialog-subview-manager"
   );
@@ -231,15 +234,16 @@ add_task(async function test_setCalendarEventResetsSubview() {
     !subviewManager.isDefaultSubviewVisible(),
     "Should be showing another subiew 2"
   );
-  const title = dialog.querySelector(".event-title");
-  await BrowserTestUtils.waitForCondition(
+  const title = dialog.querySelector(".calendar-dialog-title");
+  await TestUtils.waitForCondition(
     () => title.textContent.trim() == "Test Event",
     "waiting for title to be updated"
   );
 
   resetDialog();
 
-  dialog.show();
+  dialog.setCalendarEvent(calendarEvent);
+  await dialog.show();
 
   await BrowserTestUtils.waitForMutationCondition(
     dialog,
@@ -251,11 +255,6 @@ add_task(async function test_setCalendarEventResetsSubview() {
     () => subviewManager.isDefaultSubviewVisible()
   );
 
-  await BrowserTestUtils.waitForCondition(
-    () => title.textContent.trim() == "",
-    "waiting for title to be clear"
-  );
-
   Assert.ok(
     subviewManager.isDefaultSubviewVisible(),
     "Clearing event data should return to default subivew"
@@ -263,16 +262,10 @@ add_task(async function test_setCalendarEventResetsSubview() {
 });
 
 add_task(async function test_dialogTitle() {
-  dialog.show();
-  const title = dialog.querySelector(".event-title");
-
-  Assert.equal(
-    title.textContent.trim(),
-    "",
-    "The dialog title has no text before data is set"
-  );
+  const title = dialog.querySelector(".calendar-dialog-title");
 
   dialog.setCalendarEvent(calendarEvent);
+  await dialog.show();
   await BrowserTestUtils.waitForMutationCondition(
     title,
     {
@@ -290,12 +283,10 @@ add_task(async function test_dialogTitle() {
   );
 
   resetDialog();
-
-  Assert.equal(title.textContent, "", "The dialog title text is cleared");
 });
 
 add_task(async function test_dialogTitleOccurrenceException() {
-  const title = dialog.querySelector(".event-title");
+  const title = dialog.querySelector(".calendar-dialog-title");
   const start = cal.dtz.jsDateToDateTime(new Date(todayDate), 0);
   let end = new Date(todayDate);
   end.setDate(todayDate.getDate() + 1);
@@ -314,8 +305,8 @@ add_task(async function test_dialogTitleOccurrenceException() {
 
   const savedEvent = await calendar.addItem(event);
 
-  dialog.show();
   dialog.setCalendarEvent(savedEvent);
+  await dialog.show();
   await BrowserTestUtils.waitForMutationCondition(
     title,
     {
@@ -336,6 +327,7 @@ add_task(async function test_dialogTitleOccurrenceException() {
     cal.dtz.now()
   );
   dialog.setCalendarEvent(nextSavedOccurrence);
+  await dialog.show();
   await BrowserTestUtils.waitForMutationCondition(
     title,
     {
@@ -356,7 +348,6 @@ add_task(async function test_dialogTitleOccurrenceException() {
 });
 
 add_task(async function test_dialogLocation() {
-  dialog.show();
   const locationLink = dialog.querySelector("#locationLink");
   const locationText = dialog.querySelector("#locationText");
 
@@ -375,6 +366,7 @@ add_task(async function test_dialogLocation() {
     calendar,
   });
   dialog.setCalendarEvent(physicalLocation);
+  await dialog.show();
   await BrowserTestUtils.waitForMutationCondition(
     locationText,
     {
@@ -400,6 +392,7 @@ add_task(async function test_dialogLocation() {
     calendar,
   });
   dialog.setCalendarEvent(internetLocation);
+  await dialog.show();
   await BrowserTestUtils.waitForMutationCondition(
     locationLink,
     {
@@ -444,7 +437,6 @@ add_task(async function test_dialogLocation() {
 });
 
 add_task(async function test_dialogDescription() {
-  dialog.show();
   const calendarPlainTextDescription = dialog.querySelector(
     "#expandingDescription .plain-text-description"
   );
@@ -464,6 +456,7 @@ add_task(async function test_dialogDescription() {
   );
 
   dialog.setCalendarEvent(calendarEvent);
+  await dialog.show();
   await BrowserTestUtils.waitForMutationCondition(
     calendarPlainTextDescription,
     {
@@ -500,7 +493,6 @@ add_task(async function test_dialogDescription() {
 });
 
 add_task(async function test_dialogCategories() {
-  dialog.show();
   const categories = dialog.querySelector("calendar-dialog-categories");
 
   Assert.equal(
@@ -510,6 +502,7 @@ add_task(async function test_dialogCategories() {
   );
 
   dialog.setCalendarEvent(calendarEvent);
+  await dialog.show();
   await BrowserTestUtils.waitForMutationCondition(
     categories.shadowRoot.querySelector("ul"),
     {
@@ -536,7 +529,6 @@ add_task(async function test_dialogCategories() {
 });
 
 add_task(async function test_dialogDate() {
-  dialog.show();
   const dateRow = dialog.querySelector("calendar-dialog-date-row");
   const endDate = new Date(todayDate);
   endDate.setDate(todayDate.getDate());
@@ -549,6 +541,7 @@ add_task(async function test_dialogDate() {
   );
 
   dialog.setCalendarEvent(calendarEvent);
+  await dialog.show();
   await BrowserTestUtils.waitForMutationCondition(
     dateRow,
     {
@@ -588,8 +581,8 @@ add_task(async function test_dialogDate() {
 });
 
 add_task(async function test_dialogCalendarBarColor() {
-  dialog.show();
   dialog.setCalendarEvent(calendarEvent);
+  await dialog.show();
 
   await BrowserTestUtils.waitForMutationCondition(
     dialog,
@@ -620,8 +613,8 @@ add_task(async function test_dialogCalendarBarColor() {
 });
 
 add_task(async function test_calendarDailogName() {
-  dialog.show();
   dialog.setCalendarEvent(calendarEvent);
+  await dialog.show();
   const nameElement = dialog.querySelector(".calendar-name");
 
   await new Promise(requestAnimationFrame);
@@ -639,8 +632,8 @@ add_task(async function test_calendarDailogName() {
 });
 
 add_task(async function test_calendarDailogTitleTooltip() {
-  dialog.show();
   dialog.setCalendarEvent(calendarEvent);
+  await dialog.show();
   const titleElement = dialog.querySelector(".calendar-dialog-title");
 
   await new Promise(requestAnimationFrame);
@@ -658,7 +651,6 @@ add_task(async function test_calendarDailogTitleTooltip() {
 });
 
 add_task(async function test_dialogReminders() {
-  dialog.show();
   const remindersRow = dialog.querySelector("calendar-dialog-reminders-row");
   const reminderLabel = remindersRow.querySelector("#reminderCount");
   const reminderList = remindersRow.querySelector("#reminderList");
@@ -672,6 +664,7 @@ add_task(async function test_dialogReminders() {
     alarms,
   });
   dialog.setCalendarEvent(oneReminder);
+  await dialog.show();
 
   await BrowserTestUtils.waitForMutationCondition(
     reminderList,
@@ -711,6 +704,7 @@ add_task(async function test_dialogReminders() {
   });
 
   dialog.setCalendarEvent(multipleReminders);
+  await dialog.show();
 
   await BrowserTestUtils.waitForMutationCondition(
     reminderList,
@@ -764,16 +758,17 @@ add_task(async function test_dialogReminders() {
 });
 
 add_task(async function test_toggleRowVisibilty() {
-  dialog.show();
   let calendarEventData = {
     location: "foobar",
     name: "Physical location",
     description: "Foo",
     categories: ["TEST"],
+    attachments: ["https://example.com/"],
     calendar,
   };
   let calEvent = await createEvent(calendarEventData);
   dialog.setCalendarEvent(calEvent);
+  await dialog.show();
 
   // Test row visibility.
   const descriptionRow = dialog.querySelector("#descriptionRow");
@@ -782,6 +777,7 @@ add_task(async function test_toggleRowVisibilty() {
   );
   const categoriesRow = dialog.querySelector("calendar-dialog-categories");
   const locationRow = dialog.querySelector("#locationRow");
+  const attachmentsRow = dialog.querySelector("#attachmentsRow");
 
   // Wait for calendar dialog data to be updated.
   await BrowserTestUtils.waitForMutationCondition(
@@ -806,6 +802,10 @@ add_task(async function test_toggleRowVisibilty() {
     BrowserTestUtils.isVisible(locationRow),
     "Location row should be visible"
   );
+  Assert.ok(
+    BrowserTestUtils.isVisible(attachmentsRow),
+    "Attachments row should be visible"
+  );
 
   const descriptionEventPromise = BrowserTestUtils.waitForEvent(
     descriptionRow.querySelector("calendar-dialog-description-row"),
@@ -823,6 +823,7 @@ add_task(async function test_toggleRowVisibilty() {
   };
   calEvent = await createEvent(calendarEventData);
   dialog.setCalendarEvent(calEvent);
+  await dialog.show();
 
   // The toggleRowVisibility event should have fired from each component.
   await descriptionEventPromise;
@@ -840,6 +841,617 @@ add_task(async function test_toggleRowVisibilty() {
     BrowserTestUtils.isHidden(locationRow),
     "Location row should be hidden"
   );
+  Assert.ok(
+    BrowserTestUtils.isHidden(attachmentsRow),
+    "Attachments row should be hidden"
+  );
 
+  resetDialog();
+});
+
+add_task(async function test_joinMeetingButton() {
+  dialog.setCalendarEvent(calendarEvent);
+  await dialog.show();
+  const calendarPlainTextDescription = dialog.querySelector(
+    "#expandingDescription .plain-text-description"
+  );
+  const joinMeetingButton = dialog.querySelector("#joinMeeting");
+
+  // Wait for description text to be updated.
+  await BrowserTestUtils.waitForMutationCondition(
+    calendarPlainTextDescription,
+    {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    },
+    () => calendarPlainTextDescription.textContent.trim()
+  );
+
+  Assert.ok(
+    BrowserTestUtils.isHidden(joinMeetingButton),
+    "Join meeting button should be hidden"
+  );
+
+  // Setting an event with a meeting link in the description should show the
+  // join meeting button.
+  const meetingEvent = await createEvent({
+    name: "Meeting Event",
+    calendar,
+    description: "https://test.zoom.us/wc/join/12345",
+  });
+  dialog.setCalendarEvent(meetingEvent);
+  await dialog.show();
+
+  // Wait for description text to be updated.
+  await BrowserTestUtils.waitForMutationCondition(
+    calendarPlainTextDescription,
+    {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    },
+    () => calendarPlainTextDescription.textContent.trim()
+  );
+
+  Assert.ok(
+    BrowserTestUtils.isVisible(joinMeetingButton),
+    "Join meeting button should be visible"
+  );
+
+  const loadPromise = MockExternalProtocolService.promiseLoad();
+  const joinButtonClickedPromise = BrowserTestUtils.waitForEvent(
+    joinMeetingButton,
+    "click"
+  );
+  EventUtils.synthesizeMouseAtCenter(
+    joinMeetingButton,
+    {},
+    browser.contentWindow
+  );
+
+  await joinButtonClickedPromise;
+  Assert.equal(
+    await loadPromise,
+    "https://test.zoom.us/wc/join/12345",
+    "Should load meeting url"
+  );
+
+  resetDialog();
+});
+
+add_task(async function test_dialogAttachmentsSubview() {
+  const subviewManager = dialog.querySelector(
+    "calendar-dialog-subview-manager"
+  );
+  const calEvent = await createEvent({
+    attachments: ["https://example.com/"],
+    calendar,
+  });
+  dialog.setCalendarEvent(calEvent);
+  await dialog.show();
+  subviewManager.showSubview("calendarAttachmentsSubview");
+  const list = dialog.querySelector(
+    "#calendarAttachmentsList .attachments-list"
+  );
+
+  await BrowserTestUtils.waitForMutationCondition(
+    list,
+    {
+      subtree: true,
+      childList: true,
+    },
+    () => list.childElementCount > 0
+  );
+
+  Assert.equal(list.childElementCount, 1, "Should have one attachment");
+  Assert.equal(
+    list.children[0].getAttribute("url"),
+    "https://example.com/",
+    "Should pass url to attachment"
+  );
+  Assert.equal(
+    list.children[0].getAttribute("label"),
+    "https://example.com/",
+    "Should pass url as label"
+  );
+  Assert.equal(
+    list.children[0].getAttribute("icon"),
+    "moz-icon://dummy.html",
+    "Should show an icon for the attachment"
+  );
+
+  resetDialog();
+
+  dialog.setCalendarEvent(calendarEvent);
+
+  await dialog.show();
+  subviewManager.showSubview("calendarAttachmentsSubview");
+
+  await BrowserTestUtils.waitForMutationCondition(
+    list,
+    {
+      subtree: true,
+      childList: true,
+    },
+    () => list.childElementCount == 0
+  );
+
+  Assert.equal(list.childElementCount, 0, "Should have no attachments");
+});
+
+add_task(async function test_dialogAttachmentsRow() {
+  const subviewManager = dialog.querySelector(
+    "calendar-dialog-subview-manager"
+  );
+  const row = dialog.querySelector("#attachmentsRow");
+  const calEvent = await createEvent({
+    attachments: ["https://example.com/", "https://example.org/"],
+    calendar,
+  });
+  dialog.setCalendarEvent(calEvent);
+  await dialog.show();
+  await BrowserTestUtils.waitForAttributeRemoval("hidden", row);
+
+  const rowAttributes = document.l10n.getAttributes(
+    row.querySelector(".row-label")
+  );
+
+  Assert.deepEqual(
+    rowAttributes,
+    {
+      id: "calendar-dialog-attachments-summary-label",
+      args: {
+        count: 2,
+      },
+    },
+    "Should update the l10n attributes of the row label"
+  );
+
+  const subviewChanged = BrowserTestUtils.waitForEvent(
+    dialog,
+    "subviewchanged",
+    true
+  );
+  EventUtils.synthesizeMouseAtCenter(
+    dialog.querySelector("#expandAttachments"),
+    {},
+    browser.contentWindow
+  );
+  await subviewChanged;
+
+  Assert.ok(
+    !subviewManager.isDefaultSubviewVisible(),
+    "Should have switched to a different subview on click"
+  );
+  Assert.ok(
+    BrowserTestUtils.isVisible(
+      dialog.querySelector("#calendarAttachmentsSubview")
+    ),
+    "Attachments subview should be visible"
+  );
+
+  const rowHidden = BrowserTestUtils.waitForAttribute("hidden", row);
+
+  resetDialog();
+
+  info("Waiting for attachment row to be hidden...");
+  await rowHidden;
+});
+
+add_task(async function testAttendeesRowVisibility() {
+  calendar.setProperty(
+    "organizerId",
+    cal.email.prependMailTo("john@example.com")
+  );
+
+  const calendarEventData = {
+    location: "foobar",
+    name: "Physical location",
+    description: "Foo",
+    categories: ["TEST"],
+    calendar,
+    attendees: [
+      {
+        commonName: "",
+        id: "mailto:john@example.com",
+        role: "REQ-PARTICIPANT",
+        participationStatus: "ACCEPTED",
+        isOrganizer: false,
+      },
+    ],
+    isEvent: () => true,
+  };
+  let calEvent = await createEvent(calendarEventData);
+  dialog.setCalendarEvent(calEvent);
+  await dialog.show();
+
+  const attendeesRow = dialog.querySelector("calendar-dialog-attendees-row");
+
+  await TestUtils.waitForCondition(
+    () => BrowserTestUtils.isVisible(attendeesRow),
+    "Attendees row should be visible"
+  );
+
+  resetDialog();
+
+  calendarEventData.attendees = [];
+  calEvent = await createEvent(calendarEventData);
+  dialog.setCalendarEvent(calEvent);
+  await dialog.show();
+
+  await TestUtils.waitForCondition(
+    () => BrowserTestUtils.isHidden(attendeesRow),
+    "Attendees row should be hidden"
+  );
+
+  // Clean up.
+  calendar.setProperty("organizerId", "");
+  resetDialog();
+});
+
+add_task(async function testAttendeesRowData() {
+  calendar.setProperty(
+    "organizerId",
+    cal.email.prependMailTo("john@example.com")
+  );
+
+  const calendarEventData = {
+    location: "foobar",
+    name: "Physical location",
+    description: "Foo",
+    categories: ["TEST"],
+    calendar,
+    attendees: [
+      {
+        commonName: "",
+        id: "mailto:john@example.com",
+        role: "OPT-PARTICIPANT",
+        participationStatus: "ACCEPTED",
+        isOrganizer: false,
+      },
+    ],
+    isEvent: () => true,
+  };
+  const calEvent = await createEvent(calendarEventData);
+  dialog.setCalendarEvent(calEvent);
+  await dialog.show();
+
+  const attendeesRow = dialog.querySelector("calendar-dialog-attendees-row");
+
+  await TestUtils.waitForCondition(
+    () => BrowserTestUtils.isVisible(attendeesRow),
+    "Attendees row should be visible"
+  );
+
+  Assert.ok(
+    BrowserTestUtils.isHidden(attendeesRow.querySelector(".attendee-name")),
+    "The attendee name should be hidden"
+  );
+  Assert.equal(
+    attendeesRow.querySelector(".attendee-email").textContent,
+    "john@example.com",
+    "Should show the correct email"
+  );
+
+  // Clean up.
+  calendar.setProperty("organizerId", "");
+  resetDialog();
+});
+
+add_task(async function testAttendeesRowExpandButton() {
+  calendar.setProperty(
+    "organizerId",
+    cal.email.prependMailTo("john@example.com")
+  );
+
+  const calendarEventData = {
+    location: "foobar",
+    name: "Physical location",
+    description: "Foo",
+    categories: ["TEST"],
+    calendar,
+    attendees: [
+      {
+        commonName: "",
+        id: "mailto:john@example.com",
+        role: "OPT-PARTICIPANT",
+        participationStatus: "ACCEPTED",
+        isOrganizer: false,
+      },
+      {
+        commonName: "",
+        id: "mailto:john2@example.com",
+        role: "OPT-PARTICIPANT",
+        participationStatus: "ACCEPTED",
+        isOrganizer: false,
+      },
+      {
+        commonName: "",
+        id: "mailto:john3@example.com",
+        role: "OPT-PARTICIPANT",
+        participationStatus: "ACCEPTED",
+        isOrganizer: false,
+      },
+      {
+        commonName: "",
+        id: "mailto:john4@example.com",
+        role: "OPT-PARTICIPANT",
+        participationStatus: "ACCEPTED",
+        isOrganizer: false,
+      },
+    ],
+    isEvent: () => true,
+  };
+  const calEvent = await createEvent(calendarEventData);
+  dialog.setCalendarEvent(calEvent);
+  await dialog.show();
+
+  const attendeesRow = dialog.querySelector(
+    `calendar-dialog-attendees-row:not([type="full"])`
+  );
+
+  await TestUtils.waitForCondition(
+    () => BrowserTestUtils.isVisible(attendeesRow),
+    "Attendees row should be visible"
+  );
+
+  Assert.ok(
+    BrowserTestUtils.isVisible(dialog.querySelector("#expandAttendees")),
+    "Expand attendees button should be visible"
+  );
+
+  EventUtils.synthesizeMouseAtCenter(
+    dialog.querySelector("#expandAttendees"),
+    {},
+    browser.contentWindow
+  );
+
+  await TestUtils.waitForCondition(
+    () => BrowserTestUtils.isHidden(attendeesRow),
+    "Inline attendees row should be hidden"
+  );
+
+  Assert.ok(
+    BrowserTestUtils.isVisible(
+      dialog.querySelector(`calendar-dialog-attendees-row[type="full"]`)
+    ),
+    "Attendees row subview should be visible"
+  );
+
+  // Clean up.
+  calendar.setProperty("organizerId", "");
+  resetDialog();
+});
+
+add_task(async function testAttendeesRowExpandButtonHiddenTooFewAttendees() {
+  calendar.setProperty(
+    "organizerId",
+    cal.email.prependMailTo("john@example.com")
+  );
+
+  const calendarEventData = {
+    location: "foobar",
+    name: "Physical location",
+    description: "Foo",
+    categories: ["TEST"],
+    calendar,
+    attendees: [
+      {
+        commonName: "",
+        id: "mailto:john@example.com",
+        role: "OPT-PARTICIPANT",
+        participationStatus: "ACCEPTED",
+        isOrganizer: false,
+      },
+      {
+        commonName: "",
+        id: "mailto:john2@example.com",
+        role: "OPT-PARTICIPANT",
+        participationStatus: "ACCEPTED",
+        isOrganizer: false,
+      },
+    ],
+    isEvent: () => true,
+  };
+  const calEvent = await createEvent(calendarEventData);
+  dialog.setCalendarEvent(calEvent);
+  await dialog.show();
+
+  const attendeesRow = dialog.querySelector("calendar-dialog-attendees-row");
+
+  await TestUtils.waitForCondition(
+    () => BrowserTestUtils.isVisible(attendeesRow),
+    "Attendees row should be visible"
+  );
+
+  Assert.ok(
+    BrowserTestUtils.isHidden(dialog.querySelector("#expandAttendees")),
+    "Expand attendees button should be hidden"
+  );
+});
+
+add_task(async function test_attendeeResponseStatus() {
+  // We set the calendar organizer as the same email as the attendee below.
+  calendar.setProperty(
+    "organizerId",
+    cal.email.prependMailTo("john@example.com")
+  );
+
+  const acceptanceWidget = dialog.querySelector("calendar-dialog-acceptance");
+  let statusPromise = BrowserTestUtils.waitForAttribute(
+    "status",
+    acceptanceWidget
+  );
+
+  const attendees = [
+    {
+      commonName: "",
+      id: "mailto:john@example.com",
+      role: "CHAIR",
+      participationStatus: "ACCEPTED",
+      isOrganizer: true,
+    },
+  ];
+  const calendarEventData = {
+    name: "Physical location",
+    calendar,
+    attendees,
+    isEvent: () => true,
+  };
+
+  let calEvent = await createEvent(calendarEventData);
+  dialog.setCalendarEvent(calEvent);
+  dialog.show();
+  await statusPromise;
+
+  // Acceptance widget should have a status attribute now.
+  Assert.equal(
+    acceptanceWidget.getAttribute("status"),
+    "ACCEPTED",
+    "Acceptance widget should have ACCEPTED as status attribute value"
+  );
+  Assert.equal(
+    acceptanceWidget.shadowRoot.querySelector("input:checked").value,
+    "ACCEPTED",
+    "Going should be checked in the acceptance widget"
+  );
+
+  attendees[0].participationStatus = "NEEDS-ACTION";
+  calendarEventData.attendees = attendees;
+
+  statusPromise = BrowserTestUtils.waitForAttribute("status", acceptanceWidget);
+
+  calEvent = await createEvent(calendarEventData);
+  dialog.setCalendarEvent(calEvent);
+  dialog.show();
+  await statusPromise;
+
+  Assert.equal(
+    acceptanceWidget.getAttribute("status"),
+    "NEEDS-ACTION",
+    "Acceptance widget should have NEEDS-ACTION as status attribute value"
+  );
+  Assert.ok(
+    !acceptanceWidget.shadowRoot.querySelector("input:checked"),
+    "There shouldn't be any response checked in the acceptance widget"
+  );
+
+  // Clean up.
+  calendar.setProperty("organizerId", "");
+  resetDialog();
+});
+
+add_task(async function test_userAttendanceResponse() {
+  // We set the calendar organizer as the same email as the attendee below.
+  calendar.setProperty(
+    "organizerId",
+    cal.email.prependMailTo("john@example.com")
+  );
+
+  const acceptanceWidget = dialog.querySelector("calendar-dialog-acceptance");
+  let statusPromise = BrowserTestUtils.waitForAttribute(
+    "status",
+    acceptanceWidget
+  );
+
+  const calendarEventData = {
+    name: "Physical location",
+    calendar,
+    attendees: [
+      {
+        commonName: "",
+        id: "mailto:john@example.com",
+        role: "CHAIR",
+        participationStatus: "ACCEPTED",
+        isOrganizer: true,
+      },
+    ],
+    isEvent: () => true,
+  };
+
+  const calEvent = await createEvent(calendarEventData);
+  dialog.setCalendarEvent(calEvent);
+  dialog.show();
+  await statusPromise;
+
+  // Acceptance widget should have "going" checked.
+  Assert.equal(
+    acceptanceWidget.shadowRoot.querySelector("input:checked").value,
+    "ACCEPTED",
+    "Going should be checked in the acceptance widget"
+  );
+
+  // Clicking "maybe" should fire setEventResponse and update the status attribute of
+  // the acceptance widget.
+  const setEventReponseEvent = BrowserTestUtils.waitForEvent(
+    acceptanceWidget,
+    "setEventResponse"
+  );
+  statusPromise = BrowserTestUtils.waitForAttribute("status", acceptanceWidget);
+  await new Promise(resolve => setTimeout(resolve));
+  EventUtils.synthesizeMouseAtCenter(
+    acceptanceWidget.shadowRoot.querySelector("#maybe"),
+    {},
+    browser.contentWindow
+  );
+  await setEventReponseEvent;
+  await statusPromise;
+  Assert.equal(
+    acceptanceWidget.getAttribute("status"),
+    "TENTATIVE",
+    "Acceptance widget should have TENTATIVE as status attribute value"
+  );
+  Assert.equal(
+    acceptanceWidget.shadowRoot.querySelector("input:checked").value,
+    "TENTATIVE",
+    "Maybe should be checked in the acceptance widget"
+  );
+
+  // Clean up.
+  calendar.setProperty("organizerId", "");
+  resetDialog();
+});
+
+add_task(async function test_calendarDialogMenu() {
+  const title = dialog.querySelector(".calendar-dialog-title");
+  const menu = dialog.querySelector("menupopup");
+
+  dialog.setCalendarEvent(calendarEvent);
+  await dialog.show();
+
+  await BrowserTestUtils.waitForMutationCondition(
+    title,
+    {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    },
+    () => title.textContent == calendarEvent.title
+  );
+
+  Assert.ok(
+    BrowserTestUtils.isHidden(menu),
+    "The menupopup should initially be hidden"
+  );
+
+  EventUtils.synthesizeMouseAtCenter(
+    dialog.querySelector(".menu-button"),
+    {},
+    browser.contentWindow
+  );
+
+  await BrowserTestUtils.waitForPopupEvent(menu, "shown");
+
+  Assert.ok(
+    BrowserTestUtils.isVisible(menu),
+    "The menupopup should visible after clicking menu button"
+  );
+
+  menu.hidePopup();
+  await BrowserTestUtils.waitForPopupEvent(menu, "hidden");
+
+  // Clean up.
+  calendar.setProperty("organizerId", "");
   resetDialog();
 });

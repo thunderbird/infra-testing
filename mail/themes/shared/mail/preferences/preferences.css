@@ -3,8 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 @import url("chrome://messenger/skin/shared/preferences/subdialog.css");
-@import url("chrome://messenger/skin/colors.css");
-@import url("chrome://messenger/skin/icons.css");
 
 @namespace html url("http://www.w3.org/1999/xhtml");
 
@@ -57,8 +55,8 @@ html|moz-input-search {
 }
 
 #pref-category-box {
-  background-color: var(--in-content-categories-background);
-  border-inline-end: 1px solid var(--in-content-categories-border);
+  background-color: var(--sidebar-background);
+  border-inline-end: none;
   inline-size: 18em;
 }
 
@@ -225,7 +223,7 @@ menulist::part(dropmarker-icon) {
 
 .sticky-container {
   position: sticky;
-  background-color: var(--background-color-canvas);
+  background-color: var(--layout-background-0);
   inset-block-start: 0;
   z-index: 1;
   /* The sticky-container should have the capability to cover all spotlight area. */
@@ -330,21 +328,8 @@ tabpanel > hbox > description {
 }
 
 @media (max-width: 830px) {
-  #pref-category-box,
   #categories {
     inline-size: auto;
-  }
-
-  #categories > .category {
-    padding-inline: 12px;
-  }
-
-  .sidebar-footer-link {
-    margin-inline: 12px;
-  }
-
-  #preferencesContainer {
-    padding-inline: 15px;
   }
 }
 
@@ -356,7 +341,7 @@ html|input:is([type="email"], [type="tel"], [type="text"], [type="password"], [t
 html|input[type="number"] {
   margin-inline-start: 4px;
   padding: 1px;
-  min-block-size: calc(var(--button-height) - 4px);
+  min-block-size: var(--button-height);
 
   /* sizes: chars + 8px padding + 1px borders + spin buttons 25+2+10px  */
   &.size2 {
@@ -378,35 +363,17 @@ html|input[type="number"] {
 
   &::-moz-number-spin-up,
   &::-moz-number-spin-down {
-    appearance: none;
     min-inline-size: 25px;
+    min-block-size: calc(var(--button-height) * 0.5 - 4px);
     border: 1px solid var(--border-color);
     background-color: var(--button-background-color);
-    background-position: center;
-    background-repeat: no-repeat;
     color: var(--button-text-color);
-    -moz-context-properties: stroke;
-    stroke: currentColor;
   }
 
   &::-moz-number-spin-up:hover,
   &::-moz-number-spin-down:hover {
-    background-color: var(--button-background-color-hover);
+    background-color: var(--button-hover-background-color);
     color: var(--button-text-color-hover);
-  }
-
-  &::-moz-number-spin-up {
-    min-block-size: calc(var(--button-height) * 0.5 - 3px);
-    border-block-end-width: 1px;
-    border-block-end-style: solid;
-    border-radius: 1px 1px 0 0;
-    background-image: url("chrome://messenger/skin/icons/new/nav-up-sm.svg");
-  }
-
-  &::-moz-number-spin-down {
-    min-block-size: calc(var(--button-height) * 0.5 - 4px);
-    border-radius: 0 0 1px 1px;
-    background-image: url("chrome://messenger/skin/icons/new/nav-down-sm.svg");
   }
 }
 
@@ -441,8 +408,11 @@ tab {
 
 #filter {
   flex: 1;
-  margin-inline: 0;
   --input-text-max-width: none;
+
+  #CookiesDialog & {
+    margin-inline-start: 8px;
+  }
 }
 
 /* XXX This style is for bug 740213 and should be removed once that
@@ -468,13 +438,13 @@ checkbox {
 }
 
 treechildren::-moz-tree-row(selected) {
-  background-color: var(--color-accent-primary-selected) !important;
+  background-color: var(--selected-item-color) !important;
   border-color: transparent;
   outline-color: transparent;
 }
 
 treechildren::-moz-tree-cell-text(selected) {
-  color: var(--text-color-accent-primary-selected);
+  color: var(--selected-item-text-color);
 }
 
 .align-no-label {
@@ -543,7 +513,7 @@ treechildren::-moz-tree-cell-text(selected) {
 
 .updateSettingCrossUserWarningContainer {
   background: var(--background-color-box-info);
-  border: 1px solid var(--in-content-box-info-border);
+  border: 1px solid var(--border-color-box-info);
   border-radius: 5px;
   padding: 2px 8px 8px;
   margin-block-end: 17px;
@@ -652,26 +622,22 @@ treechildren::-moz-tree-cell-text(selected) {
  * toolkit element overrides
  */
 
-#preferencesContainer richlistbox {
+richlistbox:not(#categories) {
   appearance: none;
   background-color: var(--background-color-box);
-  color: var(--text-color);
+  color: var(--color-text-base);
 
   & richlistitem {
     padding: 0.3em;
+    padding-inline-start: 12px;
     margin: 0;
     border: none;
     border-radius: 0;
     background-image: none;
-  }
-}
 
-#containerBox richlistbox,
-#identitiesList richlistbox,
-#preferencesContainer richlistbox {
-  & richlistitem {
     &:hover {
-      background-color: var(--in-content-item-hover);
+      color: var(--text-color-list-item-hover);
+      background-color: var(--background-color-list-item-hover);
     }
 
     &[selected="true"] {
@@ -682,8 +648,8 @@ treechildren::-moz-tree-cell-text(selected) {
 
   &:focus {
     & > richlistitem[selected="true"] {
-      background-color: var(--color-accent-primary-selected);
-      color: var(--text-color-accent-primary-selected) !important;
+      background-color: var(--selected-item-color);
+      color: var(--selected-item-text-color) !important;
     }
   }
 }
@@ -1194,19 +1160,7 @@ calendar-notifications-setting {
 
 .align-baseline {
   align-items: baseline;
-}
-
-.label-experiment {
-  font-size: 0.85rem;
-  font-weight: 700;
-  line-height: 1;
-  text-transform: uppercase;
-  display: inline-block;
-  padding: 3px;
-  background-color: var(--color-warning-default);
-  color: var(--color-yellow-90);
-  border-radius: 3px;
-  margin-inline-start: 12px;
+  gap: calc(4 * var(--space-step));
 }
 
 /* QR Export for Mobile */
@@ -1333,15 +1287,15 @@ calendar-notifications-setting {
   font-size: 0.7rem;
   text-transform: uppercase;
   border-radius: 3px;
-  background: var(--color-primary-default);
-  color: var(--color-surface-base);
+  background: var(--button-primary-background-color);
+  color: var(--button-primary-text-color);
   padding: 4px 9px;
-  border: 1px solid var(--color-primary-hover);
+  border: 1px solid var(--button-primary-border-color);
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
   font-weight: 700;
 
   &:hover {
-    background: var(--color-primary-hover);
+    background: var(--button-primary-hover-background-color);
   }
 }
 
@@ -1392,6 +1346,97 @@ qr-code-wizard {
 }
 
 /* Appearance Tab */
+
+#accentColor {
+  flex: 1;
+
+  &::part(icon) {
+    block-size: 12px;
+    inline-size: 12px;
+    border-radius: 6px;
+    background-color: AccentColor;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+  }
+
+  &[value="thunderbird"]::part(icon) {
+    background-color: light-dark(var(--color-blue-60), var(--color-accent-blue-dark));
+  }
+
+  &[value="purple"]::part(icon) {
+    background-color: light-dark(var(--color-purple-80), var(--color-accent-purple-light));
+  }
+
+  &[value="orange"]::part(icon) {
+    background-color: light-dark(var(--color-accent-orange-light), var(--color-accent-orange-dark));
+  }
+
+  &[value="pink"]::part(icon) {
+    background-color: light-dark(var(--color-accent-pink-light), var(--color-accent-pink-dark));
+  }
+
+  &[value="ink"]::part(icon) {
+    background-color: light-dark(var(--color-accent-ink-light), var(--color-accent-ink-dark));
+  }
+
+  &[value="teal"]::part(icon) {
+    background-color: light-dark(var(--color-accent-teal-light), var(--color-accent-teal-dark));
+  }
+
+  @media (prefers-contrast) {
+    &::part(icon) {
+      background-color: SelectedItem !important;
+    }
+  }
+
+  menuitem {
+    &::before {
+      display: inline-block;
+      content: "";
+      inline-size: 12px;
+      block-size: 12px;
+      border-radius: 6px;
+      margin-inline-end: 6px;
+      padding-inline: 0;
+      background-color: AccentColor;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+      visibility: visible;
+    }
+
+    &.accent-color-thunderbird::before {
+      background-color: light-dark(var(--color-blue-60), var(--color-accent-blue-dark));
+    }
+
+    &.accent-color-purple::before {
+      background-color: light-dark(var(--color-purple-80), var(--color-accent-purple-light));
+    }
+
+    &.accent-color-orange::before {
+      background-color: light-dark(var(--color-accent-orange-light), var(--color-accent-orange-dark));
+    }
+
+    &.accent-color-pink::before {
+      background-color: light-dark(var(--color-accent-pink-light), var(--color-accent-pink-dark));
+    }
+
+    &.accent-color-ink::before {
+      background-color: light-dark(var(--color-accent-ink-light), var(--color-accent-ink-dark));
+    }
+
+    &.accent-color-teal::before {
+      background-color: light-dark(var(--color-accent-teal-light), var(--color-accent-teal-dark));
+    }
+
+    @media (-moz-platform: macos) {
+      padding-inline-start: 6px;
+    }
+  }
+}
+
+@media not (prefers-contrast) {
+  #accentColorDisabledDescription {
+    display: none;
+  }
+}
 
 .pane-appearance-sorting-options {
   display: grid;
@@ -1503,12 +1548,12 @@ qr-code-wizard {
     }
 
     &[selected="true"] {
-      border-color: AccentColor;
-      outline: 1px solid AccentColor;
+      border-color: var(--selected-item-color);
+      outline: 1px solid var(--selected-item-color);
 
       .radio-icon {
-        fill: AccentColor;
-        stroke: AccentColor;
+        fill: var(--selected-item-color);
+        stroke: var(--selected-item-color);
       }
     }
   }
@@ -1569,7 +1614,7 @@ qr-code-wizard {
   }
 
   &.selected {
-    border-color: AccentColor;
+    border-color: var(--selected-item-color);
 
     @media not (forced-colors) {
       background-color: var(--section-highlight-background-color);
@@ -1609,7 +1654,7 @@ qr-code-wizard {
   min-inline-size: 20px;
   max-block-size: 20px;
   max-inline-size: 20px;
-  list-style-image: url("chrome://global/skin/icons/arrow-down-12.svg");
+  list-style-image: var(--icon-nav-down-sm);
   background-color: transparent;
   padding: 3px;
 }
@@ -1619,7 +1664,7 @@ qr-code-wizard {
 }
 
 .arrowhead.up {
-  list-style-image: url("chrome://global/skin/icons/arrow-up-12.svg");
+  list-style-image: var(--icon-nav-up-sm);
 }
 
 .doh-label {

@@ -3,16 +3,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use ews::{
-    ItemShape, Operation, OperationResponse,
+    FlagStatus, ItemShape, Operation, OperationResponse, PathToElement,
     server_version::ExchangeServerVersion,
     sync_folder_items::{self, SyncFolderItems},
 };
 use protocol_shared::client::DoOperation;
-use protocol_shared::safe_xpcom::SafeEwsMessageSyncListener;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use protocol_shared::safe_xpcom::SafeExchangeMessageSyncListener;
+use std::sync::Arc;
+
+use crate::headerblock;
+use xpcom::{RefPtr, interfaces::IHeaderBlock};
 
 use super::{
     BaseFolderId, BaseShape, ServerType, XpComEwsClient, XpComEwsError,
@@ -20,7 +20,7 @@ use super::{
 };
 
 struct DoSyncMessagesForFolder<'a> {
-    pub listener: &'a SafeEwsMessageSyncListener,
+    pub listener: &'a SafeExchangeMessageSyncListener,
     pub folder_id: String,
     pub sync_state_token: Option<String>,
 }
@@ -30,7 +30,7 @@ impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError>
 {
     const NAME: &'static str = SyncFolderItems::NAME;
     type Okay = ();
-    type Listener = SafeEwsMessageSyncListener;
+    type Listener = SafeExchangeMessageSyncListener;
 
     async fn do_operation(
         &mut self,
@@ -40,63 +40,6 @@ impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError>
         // ensure that all changes are returned, as EWS caps the number of
         // results. Loop until we have no more changes.
         loop {
-            let op = SyncFolderItems {
-                item_shape: ItemShape {
-                    // Microsoft's guidance is that the sync call should only
-                    // fetch IDs for server load reasons.
-                    // See <https://learn.microsoft.com/en-us/exchange/client-developer/exchange-web-services/how-to-synchronize-items-by-using-ews-in-exchange>
-                    base_shape: BaseShape::IdOnly,
-                    ..Default::default()
-                },
-                sync_folder_id: BaseFolderId::FolderId {
-                    id: self.folder_id.clone(),
-                    change_key: None,
-                },
-                sync_state: self.sync_state_token.clone(),
-                ignore: None,
-                max_changes_returned: 100,
-                sync_scope: None,
-            };
-
-            let response_messages = client
-                .enqueue_and_send(op, Default::default())
-                .await?
-                .into_response_messages();
-
-            let response_class = single_response_or_error(response_messages)?;
-            let message = process_response_message_class(SyncFolderItems::NAME, response_class)?;
-
-            // We only fetch unique messages, as we ignore the `ChangeKey` and
-            // simply fetch the latest version.
-            let message_ids_to_fetch: HashSet<_> = message
-                .changes
-                .inner
-                .iter()
-                .filter_map(|change| {
-                    let message = match change {
-                        sync_folder_items::Change::Create { item } => item.inner_message(),
-                        sync_folder_items::Change::Update { item } => item.inner_message(),
-
-                        // We don't fetch items for anything other than messages,
-                        // since we don't have support for other items, and we don't
-                        // need to fetch for other types of changes since the ID is
-                        // sufficient to do the necessary work.
-                        _ => return None,
-                    };
-
-                    let result = message
-                        .item_id
-                        .as_ref()
-                        .map(|item_id| item_id.id.clone())
-                        // If there is no item ID in a response from Exchange,
-                        // something has gone badly wrong. We'll end processing
-                        // here.
-                        .ok_or(XpComEwsError::MissingIdInResponse);
-
-                    Some(result)
-                })
-                .collect::<Result<_, _>>()?;
-
             let mut fields_to_fetch = vec![
                 "message:IsRead",
                 "message:InternetMessageId",
@@ -120,19 +63,45 @@ impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError>
                 fields_to_fetch.push("item:Flag");
             }
 
-            let messages_by_id: HashMap<_, _> = client
-                .get_items(message_ids_to_fetch, &fields_to_fetch, false)
-                .await?
-                .into_iter()
-                .map(|item| {
-                    let message = item.into_inner_message();
-                    message
-                        .item_id
-                        .clone()
-                        .ok_or_else(|| XpComEwsError::MissingIdInResponse)
-                        .map(|item_id| (item_id.id.to_owned(), message))
+            let additional_properties: Vec<_> = fields_to_fetch
+                .iter()
+                .map(|&field| PathToElement::FieldURI {
+                    field_URI: String::from(field),
                 })
-                .collect::<Result<_, _>>()?;
+                .collect();
+
+            let op = SyncFolderItems {
+                item_shape: ItemShape {
+                    // Microsoft's guidance is that the sync call should only
+                    // fetch IDs for server load reasons.  See
+                    // <https://learn.microsoft.com/en-us/exchange/client-developer/exchange-web-services/how-to-synchronize-items-by-using-ews-in-exchange>
+                    // However, Microsoft's suggested approach requires 10x as
+                    // many requests over requesting all fields at once, so
+                    // despite individual requests being faster, overall
+                    // performance is 2-3x worse. Therefore, we request the
+                    // message fields we need to support CRUD operations in a
+                    // single request.
+                    base_shape: BaseShape::IdOnly,
+                    additional_properties: Some(additional_properties),
+                    ..Default::default()
+                },
+                sync_folder_id: BaseFolderId::FolderId {
+                    id: self.folder_id.clone(),
+                    change_key: None,
+                },
+                sync_state: self.sync_state_token.clone(),
+                ignore: None,
+                max_changes_returned: 256,
+                sync_scope: None,
+            };
+
+            let response_messages = client
+                .enqueue_and_send(op, Default::default())
+                .await?
+                .into_response_messages();
+
+            let response_class = single_response_or_error(response_messages)?;
+            let message = process_response_message_class(SyncFolderItems::NAME, response_class)?;
 
             // Iterate over each change we got from the server. We expect that
             // the server has ordered these changes in chronological order. This
@@ -153,32 +122,35 @@ impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError>
 
                         log::info!("Processing Create change with ID {item_id}");
 
-                        let msg = messages_by_id.get(item_id).ok_or_else(|| {
-                            XpComEwsError::Processing {
-                                message: format!("Unable to fetch message with ID {item_id}"),
-                            }
-                        })?;
+                        let msg = item.inner_message();
 
-                        // Have the database create a new header instance for
-                        // us. We don't create it ourselves so that the database
-                        // can fill out any fields it wants beforehand. The
-                        // header we get back will have its EWS ID already set.
-                        let result = self.listener.on_message_created(item_id);
+                        // Collect the headers into an IHeaderBlock object to pass
+                        // out to the C++ side.
+                        let headers: RefPtr<IHeaderBlock> = headerblock::extract_headers(msg)
+                            .query_interface::<IHeaderBlock>()
+                            .ok_or(nserror::NS_ERROR_FAILURE)?;
 
-                        if let Err(nserror::NS_ERROR_ILLEGAL_VALUE) = result {
-                            // `NS_ERROR_ILLEGAL_VALUE` means a header already
-                            // exists for this item ID. We assume here that a
-                            // previous sync encountered an error partway
-                            // through and skip this item.
-                            log::warn!(
-                                "Message with ID {item_id} already exists in database, skipping"
-                            );
-                            continue;
-                        }
+                        // Collect any non-header metadata we can get.
+                        let message_size = msg.size.unwrap_or_default() as u32;
+                        let is_read = msg.is_read.unwrap_or_default();
+                        let is_flagged = msg
+                            .flag
+                            .as_ref()
+                            .map(|f| matches!(f.flag_status, Some(FlagStatus::Flagged)))
+                            .unwrap_or_default();
+                        let preview = match &msg.preview {
+                            Some(p) => p.as_str(),
+                            None => "",
+                        };
 
-                        let header =
-                            result?.populate_from_message_headers(crate::headers::Message(msg))?;
-                        self.listener.on_detached_hdr_populated(header)?;
+                        self.listener.on_message_created(
+                            item_id,
+                            headers,
+                            message_size,
+                            is_read,
+                            is_flagged,
+                            preview,
+                        )?;
                     }
 
                     sync_folder_items::Change::Update { item } => {
@@ -191,57 +163,54 @@ impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError>
 
                         log::info!("Processing Update change with ID {item_id}");
 
-                        let msg = messages_by_id.get(item_id).ok_or_else(|| {
-                            log::error!("Unable to fetch message with ID {item_id}");
-                            XpComEwsError::Processing {
-                                message: format!("Unable to fetch message with ID {item_id}"),
-                            }
-                        })?;
+                        let msg = item.inner_message();
 
                         log::debug!("Updating message with item ID {item_id}");
-                        let mut result = self.listener.on_message_updated(item_id);
-                        log::debug!("Got header for message ID {item_id}");
+                        // Collect the headers into an IHeaderBlock object to pass
+                        // out to the C++ side.
+                        let headers: RefPtr<IHeaderBlock> = headerblock::extract_headers(msg)
+                            .query_interface::<IHeaderBlock>()
+                            .ok_or(nserror::NS_ERROR_FAILURE)?;
 
-                        let mut hdr_is_detached = false;
-                        if let Err(nserror::NS_ERROR_NOT_AVAILABLE) = result {
-                            // Something has gone wrong, probably in a previous
-                            // sync, and we've missed a new item. So let's try
-                            // to gracefully recover from this and create a new
-                            // detached entry.
+                        // Collect any non-header metadata we can get.
+                        let message_size = msg.size.unwrap_or_default() as u32;
+                        let is_read = msg.is_read.unwrap_or_default();
+                        let is_flagged = msg
+                            .flag
+                            .as_ref()
+                            .map(|f| matches!(f.flag_status, Some(FlagStatus::Flagged)))
+                            .unwrap_or_default();
+                        let preview = match &msg.preview {
+                            Some(p) => p.as_str(),
+                            None => "",
+                        };
+
+                        let result = self.listener.on_message_updated(
+                            item_id,
+                            headers.clone(),
+                            message_size,
+                            is_read,
+                            is_flagged,
+                            preview,
+                        );
+                        if let Err(rv) = result {
+                            if rv != nserror::NS_MSG_MESSAGE_NOT_FOUND {
+                                return Ok(result?);
+                            }
+                            // We're trying to update a message that isn't in the DB.
+                            // Let's fall back to creating it instead.
                             log::warn!(
-                                "Cannot find existing item to update with ID {item_id}, creating it instead"
+                                "Tried to update a message not in the DB. Creating as new message instead. ewsId={item_id}"
                             );
-
-                            result = self.listener.on_message_created(item_id);
-
-                            hdr_is_detached = true;
+                            self.listener.on_message_created(
+                                item_id,
+                                headers,
+                                message_size,
+                                is_read,
+                                is_flagged,
+                                preview,
+                            )?;
                         }
-
-                        // At some point we might want to restrict what
-                        // properties we want to support updating (e.g. do we
-                        // want to support changing the message ID, considering
-                        // the message might be a draft?). At the time of
-                        // writing, it's still unclear which property should
-                        // *always* be read-only, which ones have their
-                        // readability depend on the context, and which ones can
-                        // always be updated, so we copy the remote state onto
-                        // the database entry and commit.
-                        let header =
-                            result?.populate_from_message_headers(crate::headers::Message(msg))?;
-                        log::debug!("Populated headers for item ID {item_id}");
-
-                        // Persist the database entry. If it's a new one
-                        // (because we've missed the creation event), then we
-                        // need to do this as if we're dealing with the
-                        // still-detached entry from a `Created` change (which
-                        // we kind of are).
-                        if hdr_is_detached {
-                            self.listener.on_detached_hdr_populated(header)?;
-                        } else {
-                            self.listener.on_existing_hdr_changed()?;
-                        }
-
-                        log::debug!("Completed update for item ID {item_id}");
                     }
 
                     sync_folder_items::Change::Delete { item_id } => {
@@ -286,7 +255,7 @@ impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError>
 impl<ServerT: ServerType> XpComEwsClient<ServerT> {
     pub(crate) async fn sync_messages_for_folder(
         self: Arc<XpComEwsClient<ServerT>>,
-        listener: SafeEwsMessageSyncListener,
+        listener: SafeExchangeMessageSyncListener,
         folder_id: String,
         sync_state_token: Option<String>,
     ) {

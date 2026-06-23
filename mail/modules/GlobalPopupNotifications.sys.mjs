@@ -134,7 +134,7 @@ export function PopupNotifications(tabbrowser, panel, iconBox, options = {}) {
   this._shouldSuppress = options.shouldSuppress || (() => false);
   this._suppress = this._shouldSuppress();
 
-  this.window = tabbrowser.ownerGlobal;
+  this.window = tabbrowser.documentGlobal;
   this.panel = panel;
   this.tabbrowser = tabbrowser;
   this.iconBox = iconBox;
@@ -422,11 +422,10 @@ PopupNotifications.prototype = {
 
     if (isActiveWindow) {
       // Autofocus if the notification requests focus.
-      if (options && !options.dismissed && options.autofocus) {
-        this.panel.removeAttribute("noautofocus");
-      } else {
-        this.panel.setAttribute("noautofocus", "true");
-      }
+      this.panel.toggleAttribute(
+        "noautofocus",
+        !(options && !options.dismissed && options.autofocus)
+      );
 
       // show panel now
       this._update(
@@ -877,11 +876,10 @@ PopupNotifications.prototype = {
       }, this);
 
       // Make sure we update the noautohide attribute on the panel, in case it changed.
-      if (notificationsToShow.some(n => n.options.persistent)) {
-        this.panel.setAttribute("noautohide", "true");
-      } else {
-        this.panel.removeAttribute("noautohide");
-      }
+      this.panel.toggleAttribute(
+        "noautohide",
+        notificationsToShow.some(n => n.options.persistent)
+      );
 
       // Let tests know that the panel was updated and what notifications it was
       // updated with so that tests can wait for the correct notifications to be
@@ -898,12 +896,10 @@ PopupNotifications.prototype = {
     // safe to call even if the panel is already hidden.)
     this._hidePanel().then(() => {
       this._currentAnchorElement = anchorElement;
-
-      if (notificationsToShow.some(n => n.options.persistent)) {
-        this.panel.setAttribute("noautohide", "true");
-      } else {
-        this.panel.removeAttribute("noautohide");
-      }
+      this.panel.toggleAttribute(
+        "noautohide",
+        notificationsToShow.some(n => n.options.persistent)
+      );
 
       let target = this.panel;
       if (target.parentNode) {
@@ -1221,7 +1217,7 @@ PopupNotifications.prototype = {
     // to update our notification map.
 
     let ourNotifications = this._getNotificationsForBrowser(ourBrowser);
-    const other = otherBrowser.ownerGlobal.PopupNotifications;
+    const other = otherBrowser.documentGlobal.PopupNotifications;
     if (!other) {
       if (ourNotifications.length) {
         console.error(
@@ -1292,7 +1288,7 @@ PopupNotifications.prototype = {
     // if the notification specified it wants to autofocus on first show.
     // When the panel is closed, we have to restore the attribute to its default
     // value, so we don't autofocus it if it's subsequently opened from a different code path.
-    this.panel.setAttribute("noautofocus", "true");
+    this.panel.toggleAttribute("noautofocus", true);
 
     // Handle the case where the panel was closed programmatically.
     if (this._ignoreDismissal) {

@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /*
  * Test suite for getting smtp urls via the protocol handler.
  */
@@ -14,12 +13,12 @@ var protocols = [
   {
     protocol: "smtp",
     urlSpec: "smtp://user@localhost/",
-    defaultPort: Ci.nsISmtpUrl.DEFAULT_SMTP_PORT,
+    defaultPort: 25,
   },
   {
     protocol: "smtps",
     urlSpec: "smtps://user@localhost/",
-    defaultPort: Ci.nsISmtpUrl.DEFAULT_SMTPS_PORT,
+    defaultPort: 465,
   },
 ];
 
@@ -46,7 +45,7 @@ function run_test() {
     // Check we get a URI when we ask for one
     var uri = Services.io.newURI(protocols[part].urlSpec);
 
-    uri.QueryInterface(Ci.nsISmtpUrl);
+    uri.QueryInterface(Ci.nsIMsgMailNewsUrl);
 
     Assert.equal(uri.spec, protocols[part].urlSpec);
 

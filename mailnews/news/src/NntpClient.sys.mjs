@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 import { CommonUtils } from "resource://services-common/utils.sys.mjs";
 import { MailServices } from "resource:///modules/MailServices.sys.mjs";
@@ -41,6 +42,12 @@ ChromeUtils.defineLazyGetter(lazy, "messengerBundle", () =>
   Services.strings.createBundle(
     "chrome://messenger/locale/messenger.properties"
   )
+);
+XPCOMUtils.defineLazyServiceGetter(
+  lazy,
+  "authPromptService",
+  "@mozilla.org/messenger/msgAuthPrompt;1",
+  Ci.nsIAuthPrompt
 );
 
 /**
@@ -105,7 +112,7 @@ export class NntpClient {
     } else {
       // Start a new connection.
       this._authenticated = false;
-      const hostname = this._server.hostName.toLowerCase();
+      const hostname = this._server.hostname.toLowerCase();
       const useSecureTransport = this._server.isSecure;
       this._logger.debug(
         `Connecting to ${useSecureTransport ? "snews" : "news"}://${hostname}:${
@@ -137,7 +144,7 @@ export class NntpClient {
     this.runningUri = runningUri;
     if (!this.runningUri) {
       this.runningUri = Services.io
-        .newURI(`news://${this._server.hostName}:${this._server.port}`)
+        .newURI(`news://${this._server.hostname}:${this._server.port}`)
         .QueryInterface(Ci.nsIMsgMailNewsUrl);
     }
     if (msgWindow) {
@@ -153,6 +160,10 @@ export class NntpClient {
    */
   _onOpen = () => {
     this._logger.debug("Connected");
+    Services.obs.notifyObservers(
+      this.runningUri,
+      "server-connection-succeeded"
+    );
     const timeout = this._server.connectionTimeout;
     if (timeout > 0) {
       this._socket.transport.setTimeout(
@@ -260,7 +271,7 @@ export class NntpClient {
    *
    * @param {TCPSocketErrorEvent} event - The error event.
    */
-  _onError = event => {
+  _onError = async event => {
     if (event.errorCode == Cr.NS_ERROR_NET_TIMEOUT && !this.runningUri) {
       // This should be the scheduled timeout, just close the connection
       // without indicating any error.
@@ -299,15 +310,16 @@ export class NntpClient {
         uri = "about:neterror?e=netInterrupt";
         break;
     }
-    if (errorName && uri) {
+    if (errorName && this.runningUri && uri) {
       // If there's a message window on the URI, then we should alert the user.
       // Otherwise (i.e. if the getter for `msgWindow` raised
       // `NS_ERROR_NULL_POINTER`), this is a background operation and we should
       // tell the mail session to only call the listeners but not alert.
-      let silent = false;
+      let silent = true;
       try {
-        this.runningUri.msgWindow;
-        silent = false;
+        if (this.runningUri.msgWindow) {
+          silent = false;
+        }
       } catch (ex) {
         if (
           !(ex instanceof Ci.nsIException) &&
@@ -319,26 +331,63 @@ export class NntpClient {
 
       MailServices.mailSession.alertUser(
         lazy.messengerBundle.formatStringFromName(errorName, [
-          this._server.hostName,
+          this._server.hostname,
         ]),
         this.runningUri,
         silent
       );
 
       // If we were going to display an article, instead show an error page.
-      if (this.runningUri) {
-        this.runningUri.seeOtherURI = uri;
-      }
+      this.runningUri.seeOtherURI = uri;
     }
 
-    this._msgWindow?.statusFeedback?.showStatusString("");
+    MailServices.feedback.reportStatus("");
+
+    // `_onClose` should not run before `_onError` finishes, so it will wait
+    // for this promise.
+    const { promise, resolve } = Promise.withResolvers();
+    this._promiseErrorHandled = promise;
+
+    const secInfo =
+      await event.target.transport?.tlsSocketControl?.asyncGetSecurityInfo();
+    if (secInfo && this.runningUri) {
+      this._logger.error(`SecurityError info: ${secInfo.errorCodeString}`);
+      if (secInfo.handshakeCertificates.length) {
+        const chain = secInfo.handshakeCertificates.map(
+          c => c.commonName + "; serial# " + c.serialNumber
+        );
+        this._logger.error(`SecurityError cert chain: ${chain.join(" <- ")}`);
+      }
+      this.runningUri.failedSecInfo = secInfo;
+      const nssErrorsService = Cc[
+        "@mozilla.org/nss_errors_service;1"
+      ].getService(Ci.nsINSSErrorsService);
+      try {
+        if (
+          nssErrorsService.getErrorClass(event.errorCode) ==
+          Ci.nsINSSErrorsService.ERROR_CLASS_BAD_CERT
+        ) {
+          MailServices.mailSession.alertCertError(secInfo, this.runningUri);
+        }
+      } catch (e) {
+        // Not an NSS error.
+      }
+    }
     this.quit(event.errorCode);
+    this._actionDone(event.errorCode);
+
+    // Let `_onClose` continue.
+    resolve();
   };
 
   /**
    * The close event handler.
    */
-  _onClose = () => {
+  _onClose = async () => {
+    // Wait for `_onError` to finish.
+    await this._promiseErrorHandled;
+    delete this._promiseErrorHandled;
+
     this._logger.debug("Connection closed.");
   };
 
@@ -553,6 +602,8 @@ export class NntpClient {
 
   /**
    * Send `QUIT` request to the server.
+   *
+   * @param {nsresult} status
    */
   quit(status = Cr.NS_OK) {
     this._sendCommand("QUIT");
@@ -592,6 +643,8 @@ export class NntpClient {
 
   /**
    * Send `MODE READER` request to the server.
+   *
+   * @param {Function} nextAction
    */
   _actionModeReader(nextAction) {
     if (this._inReadingMode) {
@@ -667,6 +720,8 @@ export class NntpClient {
 
   /**
    * Consume the status line of LISTGROUP response.
+   *
+   * @param {NntpResponse} res - LISTGROUP response received from the server.
    */
   _actionListgroupResponse = res => {
     this._nextAction = this._actionListgroupDataResponse;
@@ -694,6 +749,8 @@ export class NntpClient {
 
   /**
    * Send `XOVER` request to the server.
+   *
+   * @param {NntpResponse} res - The server response.
    */
   _actionXOver = res => {
     const [count, low, high] = res.statusText.split(" ");
@@ -916,19 +973,14 @@ export class NntpClient {
    *
    * @param {boolean} [forcePrompt=false] - Whether to force showing an auth prompt.
    */
-  _actionAuthUser(forcePrompt = false) {
+  async _actionAuthUser(forcePrompt = false) {
     if (!this._newsFolder) {
       this._newsFolder = this._server.rootFolder.QueryInterface(
         Ci.nsIMsgNewsFolder
       );
     }
     if (!this._newsFolder.groupUsername) {
-      const gotPassword = this._newsFolder.getAuthenticationCredentials(
-        this._msgWindow,
-        true,
-        forcePrompt
-      );
-      if (!gotPassword) {
+      if (!(await this.#getAuthenticationCredentials(forcePrompt))) {
         this._actionDone(Cr.NS_ERROR_ABORT);
         return;
       }
@@ -936,6 +988,79 @@ export class NntpClient {
     this._sendCommand(`AUTHINFO user ${this._newsFolder.groupUsername}`, true);
     this._nextAction = this._actionAuthResult;
     this._authenticator.username = this._newsFolder.groupUsername;
+  }
+
+  /**
+   * @param {boolean} mustPrompt
+   */
+  async #getAuthenticationCredentials(mustPrompt) {
+    const folder = this._newsFolder;
+
+    let validCredentials;
+    const signonUrl = folder.urlForSignon;
+
+    // If we don't have a username or password, try to load it via the login
+    // manager. Do this even if mustPrompt is true, to prefill the dialog.
+    if (!folder.groupUsername || !folder.groupPassword) {
+      const logins = await Services.logins.searchLoginsAsync({
+        origin: signonUrl,
+        httpRealm: signonUrl,
+      });
+
+      if (logins.length > 0) {
+        folder.groupUsername = logins[0].username;
+        folder.groupPassword = logins[0].password;
+        validCredentials = true;
+      }
+    }
+
+    // Show the prompt if we need to.
+    if (mustPrompt || !folder.groupUsername || !folder.groupPassword) {
+      const serverName = folder.server.prettyName;
+
+      const promptTitle = await lazy.l10n.formatValue(
+        "enter-news-credentials-title",
+        {}
+      );
+      let promptText;
+      if (folder.server.QueryInterface(Ci.nsINntpIncomingServer).singleSignon) {
+        promptText = await lazy.l10n.formatValue(
+          "enter-news-server-credentials",
+          {
+            server: serverName,
+          }
+        );
+      } else {
+        promptText = await lazy.l10n.formatValue(
+          "enter-news-group-credentials",
+          {
+            newsgroup: folder.localizedName,
+            server: serverName,
+          }
+        );
+      }
+
+      // Fill the signon url for the dialog.
+      const signonURL = folder.urlForSignon;
+      const username = { value: folder.groupUsername };
+      const password = { value: folder.groupPassword };
+
+      validCredentials = lazy.authPromptService.promptUsernameAndPassword(
+        promptTitle,
+        promptText,
+        signonURL,
+        Ci.nsIAuthPrompt.SAVE_PASSWORD_PERMANENTLY,
+        username,
+        password
+      );
+
+      // Only use the username/password if the user didn't cancel.
+      folder.groupUsername = validCredentials ? username.value : "";
+      folder.groupPassword = validCredentials ? password.value : "";
+    }
+
+    validCredentials = folder.groupUsername && folder.groupPassword;
+    return validCredentials;
   }
 
   /**
@@ -951,7 +1076,7 @@ export class NntpClient {
    *
    * @param {NntpResponse} res - Auth response received from the server.
    */
-  _actionAuthResult({ status }) {
+  async _actionAuthResult({ status }) {
     switch (status) {
       case AUTH_ACCEPTED:
         this._authenticated = true;
@@ -969,7 +1094,20 @@ export class NntpClient {
         }
         if (action == 2) {
           // 'New password' button pressed.
-          this._newsFolder.forgetAuthenticationCredentials();
+          const signonUrl = this._newsFolder.urlForSignon;
+
+          // There should only be one login stored for this url, however just in case
+          // there isn't.
+          for (const login of await Services.logins.searchLoginsAsync({
+            origin: signonUrl,
+            httpRealm: signonUrl,
+          })) {
+            await Services.logins.removeLoginAsync(login);
+          }
+
+          // Clear out the saved passwords for anyone else who tries to call.
+          this._newsFolder.groupUsername = "";
+          this._newsFolder.groupPassword = "";
         }
         // Retry.
         this._actionAuthUser();
@@ -1051,9 +1189,9 @@ export class NntpClient {
     };
     const l10nId = statusToId(status);
     const statusMessage = lazy.l10n.formatValueSync(l10nId, {
-      host: this._server.hostName,
+      host: this._server.hostname,
     });
-    this._msgWindow?.statusFeedback?.showStatusString(statusMessage);
+    MailServices.feedback.reportStatus(statusMessage);
   }
 
   /**
@@ -1082,6 +1220,8 @@ export class NntpClient {
 
   /**
    * Close the connection and do necessary cleanup.
+   *
+   * @param {nsresult} [status=Cr.NS_OK]
    */
   _actionDone = (status = Cr.NS_OK) => {
     if (this._done) {
@@ -1105,7 +1245,7 @@ export class NntpClient {
    * @param {object} params - Params to format the string.
    */
   _updateStatus(statusName, params) {
-    this._msgWindow?.statusFeedback?.showStatusString(
+    MailServices.feedback.reportStatus(
       lazy.messengerBundle.formatStringFromName("statusMessage", [
         this._server.prettyName,
         lazy.l10n.formatValueSync(statusName, params),

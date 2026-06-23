@@ -59,7 +59,7 @@ add_task(async function test_pill_selection() {
   EventUtils.synthesizeMouseAtCenter(
     pill3,
     { type: "contextmenu" },
-    pill3.ownerGlobal
+    pill3.documentGlobal
   );
   await popupPromise;
   // The selection should not have changed.
@@ -92,7 +92,7 @@ add_task(async function test_pill_selection() {
   EventUtils.synthesizeMouseAtCenter(
     pill0,
     { type: "contextmenu" },
-    pill0.ownerGlobal
+    pill0.documentGlobal
   );
   await popupPromise2;
 
@@ -141,7 +141,7 @@ add_task(async function test_pill_selection() {
   EventUtils.synthesizeMouseAtCenter(
     pill2,
     { type: "contextmenu" },
-    pill2.ownerGlobal
+    pill2.documentGlobal
   );
   await popupPromise3;
 
@@ -188,7 +188,7 @@ add_task(async function test_pill_context_menu() {
   EventUtils.synthesizeMouseAtCenter(
     pill,
     { type: "contextmenu" },
-    pill.ownerGlobal
+    pill.documentGlobal
   );
   await popupPromise;
   // The selection should not have changed.
@@ -198,7 +198,7 @@ add_task(async function test_pill_context_menu() {
     "The first pill was selected"
   );
 
-  const pillMoved = BrowserTestUtils.waitForCondition(
+  const pillMoved = TestUtils.waitForCondition(
     () =>
       cDoc.querySelectorAll("#ccAddrContainer mail-address-pill").length == 1,
     "Timeout waiting for the pill to be moved to the Cc field"
@@ -211,7 +211,11 @@ add_task(async function test_pill_context_menu() {
     // context menu items on macos.
     movePillCc.click();
   } else {
-    EventUtils.synthesizeMouseAtCenter(movePillCc, {}, movePillCc.ownerGlobal);
+    EventUtils.synthesizeMouseAtCenter(
+      movePillCc,
+      {},
+      movePillCc.documentGlobal
+    );
   }
   await pillMoved;
 
@@ -237,11 +241,11 @@ add_task(async function test_pill_context_menu() {
   EventUtils.synthesizeMouseAtCenter(
     ccPill,
     { type: "contextmenu" },
-    ccPill.ownerGlobal
+    ccPill.documentGlobal
   );
   await popupPromise2;
 
-  const pillMoved2 = BrowserTestUtils.waitForCondition(
+  const pillMoved2 = TestUtils.waitForCondition(
     () =>
       cDoc.querySelectorAll("#bccAddrContainer mail-address-pill").length == 1,
     "Timeout waiting for the pill to be moved to the Bcc field"
@@ -254,7 +258,7 @@ add_task(async function test_pill_context_menu() {
     // context menu items on macos.
     moveAdd.click();
   } else {
-    EventUtils.synthesizeMouseAtCenter(moveAdd, {}, moveAdd.ownerGlobal);
+    EventUtils.synthesizeMouseAtCenter(moveAdd, {}, moveAdd.documentGlobal);
   }
   await pillMoved2;
 

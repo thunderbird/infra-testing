@@ -25,7 +25,8 @@ class DatabaseUtils {
    * be normalized before being inserted into the database. This will prevent
    * mistakes when comparing strings containing non-ASCII characters.
    */
-  static nsCString Normalize(const nsACString& inString);
+  static mozilla::Result<nsCString, nsresult> Normalize(
+      const nsACString& inString);
 };
 
 class TagsMatchFunction final : public mozIStorageFunction {
@@ -82,11 +83,11 @@ class GroupedByDateFunction final : public mozIStorageFunction {
  private:
   ~GroupedByDateFunction() = default;
 
-  PRTime mTomorrow;
-  PRTime mToday;
-  PRTime mYesterday;
-  PRTime mThisWeek;
-  PRTime mLastWeek;
+  PRTime mTomorrow = 0;
+  PRTime mToday = 0;
+  PRTime mYesterday = 0;
+  PRTime mThisWeek = 0;
+  PRTime mLastWeek = 0;
 };
 
 }  // namespace mozilla::mailnews

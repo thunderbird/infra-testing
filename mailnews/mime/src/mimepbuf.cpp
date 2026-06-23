@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -82,7 +81,9 @@ void MimePartBufferReset(MimePartBufferData* data) {
   if (!data) return;
 
   PR_FREEIF(data->part_buffer);
+  data->part_buffer = nullptr;
   data->part_buffer_fp = 0;
+  data->part_buffer_size = 0;
 
   if (data->input_file_stream) {
     data->input_file_stream->Close();
@@ -182,6 +183,7 @@ int MimePartBufferWrite(MimePartBufferData* data, const char* buf,
       }
 
       PR_FREEIF(data->part_buffer);
+      data->part_buffer = nullptr;
       data->part_buffer_fp = 0;
       data->part_buffer_size = 0;
     }

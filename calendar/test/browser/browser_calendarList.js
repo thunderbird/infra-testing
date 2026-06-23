@@ -41,6 +41,7 @@ async function withMockPromptService(response, callback) {
 
 add_task(async () => {
   function checkProperties(index, expected) {
+    info(`checking the properties of the row at index ${index}`);
     const calendarList = document.getElementById("calendar-list");
     const item = calendarList.rows[index];
     const colorImage = item.querySelector(".calendar-color");
@@ -51,6 +52,7 @@ add_task(async () => {
           break;
         case "disabled":
           Assert.equal(item.querySelector(".calendar-displayed").hidden, expectedValue);
+          Assert.equal(item.querySelector(".calendar-enable-button").hidden, !expectedValue);
           break;
         case "displayed":
           Assert.equal(item.querySelector(".calendar-displayed").checked, expectedValue);
@@ -300,6 +302,29 @@ add_task(async () => {
   Assert.equal(document.activeElement, calendarList);
   Assert.equal(calendarList.rows[calendarList.selectedIndex], calendarList.rows[0]);
 
+  // Select a calendar and create an event. The selected calendar should be used.
+
+  calendarList.selectedIndex = 3; // Select the disabled calendar.
+  let { dialogWindow, iframeDocument } = await CalendarTestUtils.editNewEvent(window);
+  Assert.equal(
+    iframeDocument.getElementById("item-calendar").value,
+    "Mochitest 2",
+    "calendar for new event should be the selected calendar in the list"
+  );
+  CalendarTestUtils.items.cancelItemDialog(dialogWindow);
+
+  // Select the disabled calendar and create an event. The first writeable calendar in
+  // the list should be used instead of the disabled calendar.
+
+  calendarList.selectedIndex = 1; // Select the disabled calendar.
+  ({ dialogWindow, iframeDocument } = await CalendarTestUtils.editNewEvent(window));
+  Assert.equal(
+    iframeDocument.getElementById("item-calendar").value,
+    "Mochitest 3",
+    "calendar for new event should be the first writeable calendar in the list"
+  );
+  CalendarTestUtils.items.cancelItemDialog(dialogWindow);
+
   // Test deleting calendars.
 
   // Delete a calendar by unregistering it.
@@ -311,7 +336,7 @@ add_task(async () => {
   // Start to remove a calendar. Cancel the prompt.
   EventUtils.synthesizeMouseAtCenter(calendarList.rows[1], {});
   await withMockPromptService(1, () => {
-    EventUtils.synthesizeKey("VK_DELETE");
+    EventUtils.synthesizeKey("KEY_Delete");
   });
   Assert.equal(cal.manager.getCalendars().length, 3, "three calendars left in the manager");
   Assert.equal(calendarList.rowCount, 3, "three calendars left in the list");
@@ -319,7 +344,7 @@ add_task(async () => {
 
   // Remove a calendar with the keyboard.
   await withMockPromptService(0, () => {
-    EventUtils.synthesizeKey("VK_DELETE");
+    EventUtils.synthesizeKey("KEY_Delete");
   });
   Assert.equal(cal.manager.getCalendars().length, 2, "two calendars left in the manager");
   Assert.equal(calendarList.rowCount, 2, "two calendars left in the list");

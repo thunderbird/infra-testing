@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -14,6 +13,7 @@
 #include "FolderPopulation.h"
 #include "HeaderReader.h"
 #include "LineReader.h"
+#include "MailHeaderParsing.h"
 #include "msgCore.h"  // precompiled header...
 #include "nsMsgLocalFolderHdrs.h"
 #include "nsMsgFolderFlags.h"
@@ -22,15 +22,20 @@
 #include "prmem.h"
 #include "nsIDBFolderInfo.h"
 #include "nsITransactionManager.h"
+#include "nsIMsgTransactionService.h"
 #include "nsParseMailbox.h"
 #include "nsIMsgAccountManager.h"
 #include "nsIMsgWindow.h"
+#include "nsEmbedCID.h"
+#include "nsIPromptService.h"
+#include "nsIWindowMediator.h"
 #include "nsCOMPtr.h"
 #include "nsMsgUtils.h"
 #include "nsLocalUtils.h"
 #include "nsIPop3IncomingServer.h"
 #include "nsILocalMailIncomingServer.h"
 #include "nsIMsgIncomingServer.h"
+#include "nsIFeedbackService.h"
 #include "nsString.h"
 #include "nsIMsgFolderCacheElement.h"
 #include "nsIMsgCopyService.h"
@@ -185,27 +190,19 @@ NS_IMETHODIMP nsMsgLocalMailFolder::ParseFolder(nsIMsgWindow* window,
   RefPtr<StoreIndexer> indexer = new StoreIndexer();
   nsresult rv;
 
-  // Set up for progress updates.
-  // statusFeedback can be left null, in which case we'll skip the progress
-  // reports.
-  nsCOMPtr<nsIMsgStatusFeedback> statusFeedback;
   nsCOMPtr<nsIStringBundle> bundle;
   nsAutoCString folderName;
   GetName(folderName);
-  if (window) {
-    window->GetStatusFeedback(getter_AddRefs(statusFeedback));
-    nsCOMPtr<nsIStringBundleService> stringService =
-        mozilla::components::StringBundle::Service();
-    if (stringService) {
-      nsCOMPtr<nsIStringBundle> filterBundle;
-      stringService->CreateBundle(
-          "chrome://messenger/locale/localMsgs.properties",
-          getter_AddRefs(bundle));
-    }
-    if (!bundle) {
-      statusFeedback = nullptr;
-    }
+  nsCOMPtr<nsIStringBundleService> stringService =
+      mozilla::components::StringBundle::Service();
+
+  if (!stringService) {
+    return NS_ERROR_FAILURE;
   }
+  nsCOMPtr<nsIStringBundle> filterBundle;
+  rv = stringService->CreateBundle(
+      "chrome://messenger/locale/localMsgs.properties", getter_AddRefs(bundle));
+  NS_ENSURE_SUCCESS(rv, rv);
 
   // Start indexing, call FinishUpAfterParseFolder() when done.
   // NOTE: the division of labour between ParseFolder() and the StoreIndexer
@@ -216,26 +213,29 @@ NS_IMETHODIMP nsMsgLocalMailFolder::ParseFolder(nsIMsgWindow* window,
   // right now, but that stuff is also overdue for a refactoring.
 
   // Callback to handle progress updates.
+  nsCOMPtr<nsIFeedbackService> feedback =
+      mozilla::components::Feedback::Service();
   auto progressFn = [=](int64_t current, int64_t expected) {
-    if (statusFeedback && expected > 0) {
+    if (feedback && expected > 0) {
       current = std::min(current, expected);  // Clip to 100%
       int64_t percent = (100 * current) / expected;
-      statusFeedback->ShowProgress((int32_t)percent);
+      feedback->ReportProgress((int32_t)percent);
     }
   };
 
   // Callback to clean up afterwards.
   auto completionFn = [=, self = RefPtr(this)](nsresult status) {
-    if (statusFeedback) {
-      statusFeedback->StopMeteors();
-      nsAutoString msg;
-      nsresult rv = bundle->FormatStringFromName(
-          "localStatusDocumentDone", {NS_ConvertUTF8toUTF16(folderName)}, msg);
-      if (NS_SUCCEEDED(rv)) {
-        statusFeedback->ShowStatusString(msg);
-      }
+    nsAutoString msg;
+    nsresult rv = bundle->FormatStringFromName(
+        "localStatusDocumentDone", {NS_ConvertUTF8toUTF16(folderName)}, msg);
+    NS_ENSURE_SUCCESS(rv, rv);
+    nsCOMPtr<nsIFeedbackService> feedback =
+        mozilla::components::Feedback::Service();
+    if (feedback) {
+      feedback->ReportStatus(NS_ConvertUTF16toUTF8(msg), "stop-meteors"_ns);
     }
     self->FinishUpAfterParseFolder(status);
+    return NS_OK;
   };
 
   // Start the parsing.
@@ -264,13 +264,14 @@ NS_IMETHODIMP nsMsgLocalMailFolder::ParseFolder(nsIMsgWindow* window,
   m_parsingFolder = true;
   mReparseListener = listener;
 
-  if (statusFeedback) {
-    nsAutoString msg;
-    rv = bundle->FormatStringFromName("buildingSummary",
-                                      {NS_ConvertUTF8toUTF16(folderName)}, msg);
-    if (NS_SUCCEEDED(rv)) {
-      statusFeedback->ShowStatusString(msg);
-      statusFeedback->StartMeteors();
+  nsAutoString msg;
+  rv = bundle->FormatStringFromName("buildingSummary",
+                                    {NS_ConvertUTF8toUTF16(folderName)}, msg);
+  if (NS_SUCCEEDED(rv)) {
+    nsCOMPtr<nsIFeedbackService> feedback =
+        mozilla::components::Feedback::Service();
+    if (feedback) {
+      feedback->ReportStatus(NS_ConvertUTF16toUTF8(msg), "start-meteors"_ns);
     }
   }
 
@@ -784,57 +785,61 @@ nsresult nsMsgLocalMailFolder::ConfirmFolderDeletion(nsIMsgWindow* aMsgWindow,
   NS_ENSURE_ARG(aResult);
   NS_ENSURE_ARG(aMsgWindow);
   NS_ENSURE_ARG(aFolder);
-  nsCOMPtr<nsIDocShell> docShell;
-  aMsgWindow->GetRootDocShell(getter_AddRefs(docShell));
-  if (docShell) {
-    if (Preferences::GetBool("mailnews.confirm.moveFoldersToTrash", true)) {
-      nsCOMPtr<nsIStringBundleService> bundleService =
-          mozilla::components::StringBundle::Service();
-      NS_ENSURE_TRUE(bundleService, NS_ERROR_UNEXPECTED);
-      nsCOMPtr<nsIStringBundle> bundle;
-      nsresult rv = bundleService->CreateBundle(
-          "chrome://messenger/locale/localMsgs.properties",
-          getter_AddRefs(bundle));
-      NS_ENSURE_SUCCESS(rv, rv);
+  if (Preferences::GetBool("mailnews.confirm.moveFoldersToTrash", true)) {
+    nsCOMPtr<nsIStringBundleService> bundleService =
+        mozilla::components::StringBundle::Service();
+    NS_ENSURE_TRUE(bundleService, NS_ERROR_UNEXPECTED);
+    nsCOMPtr<nsIStringBundle> bundle;
+    nsresult rv = bundleService->CreateBundle(
+        "chrome://messenger/locale/localMsgs.properties",
+        getter_AddRefs(bundle));
+    NS_ENSURE_SUCCESS(rv, rv);
 
-      nsAutoCString folderName;
-      rv = aFolder->GetName(folderName);
-      NS_ENSURE_SUCCESS(rv, rv);
-      AutoTArray<nsString, 1> formatStrings = {
-          NS_ConvertUTF8toUTF16(folderName)};
+    nsAutoCString folderName;
+    rv = aFolder->GetName(folderName);
+    NS_ENSURE_SUCCESS(rv, rv);
+    AutoTArray<nsString, 1> formatStrings = {NS_ConvertUTF8toUTF16(folderName)};
 
-      nsAutoString deleteFolderDialogTitle;
-      rv = bundle->GetStringFromName("pop3DeleteFolderDialogTitle",
-                                     deleteFolderDialogTitle);
-      NS_ENSURE_SUCCESS(rv, rv);
+    nsAutoString deleteFolderDialogTitle;
+    rv = bundle->GetStringFromName("pop3DeleteFolderDialogTitle",
+                                   deleteFolderDialogTitle);
+    NS_ENSURE_SUCCESS(rv, rv);
 
-      nsAutoString deleteFolderButtonLabel;
-      rv = bundle->GetStringFromName("pop3DeleteFolderButtonLabel",
-                                     deleteFolderButtonLabel);
-      NS_ENSURE_SUCCESS(rv, rv);
+    nsAutoString deleteFolderButtonLabel;
+    rv = bundle->GetStringFromName("pop3DeleteFolderButtonLabel",
+                                   deleteFolderButtonLabel);
+    NS_ENSURE_SUCCESS(rv, rv);
 
-      nsAutoString confirmationStr;
-      rv = bundle->FormatStringFromName("pop3MoveFolderToTrash", formatStrings,
-                                        confirmationStr);
-      NS_ENSURE_SUCCESS(rv, rv);
+    nsAutoString confirmationStr;
+    rv = bundle->FormatStringFromName("pop3MoveFolderToTrash", formatStrings,
+                                      confirmationStr);
+    NS_ENSURE_SUCCESS(rv, rv);
 
-      nsCOMPtr<nsIPrompt> dialog(do_GetInterface(docShell));
-      if (dialog) {
-        int32_t buttonPressed = 0;
-        // Default the dialog to "cancel".
-        const uint32_t buttonFlags =
-            (nsIPrompt::BUTTON_TITLE_IS_STRING * nsIPrompt::BUTTON_POS_0) +
-            (nsIPrompt::BUTTON_TITLE_CANCEL * nsIPrompt::BUTTON_POS_1);
-        bool dummyValue = false;
-        rv = dialog->ConfirmEx(deleteFolderDialogTitle.get(),
+    nsCOMPtr<mozIDOMWindowProxy> domWindow;
+    nsCOMPtr<nsIWindowMediator> winMed =
+        do_GetService(NS_WINDOWMEDIATOR_CONTRACTID, &rv);
+    NS_ENSURE_SUCCESS(rv, rv);
+    winMed->GetMostRecentWindow(nullptr, getter_AddRefs(domWindow));
+
+    nsCOMPtr<nsIPromptService> dlgService(
+        do_GetService(NS_PROMPTSERVICE_CONTRACTID, &rv));
+    NS_ENSURE_SUCCESS(rv, rv);
+
+    int32_t buttonPressed = 0;
+    // Default the dialog to "cancel".
+    const uint32_t buttonFlags =
+        (nsIPrompt::BUTTON_TITLE_IS_STRING * nsIPrompt::BUTTON_POS_0) +
+        (nsIPrompt::BUTTON_TITLE_CANCEL * nsIPrompt::BUTTON_POS_1);
+    bool dummyValue = false;
+    rv = dlgService->ConfirmEx(domWindow, deleteFolderDialogTitle.get(),
                                confirmationStr.get(), buttonFlags,
                                deleteFolderButtonLabel.get(), nullptr, nullptr,
                                nullptr, &dummyValue, &buttonPressed);
-        NS_ENSURE_SUCCESS(rv, rv);
-        *aResult = !buttonPressed;  // "ok" is in position 0
-      }
-    } else
-      *aResult = true;
+    NS_ENSURE_SUCCESS(rv, rv);
+    *aResult = !buttonPressed;  // "ok" is in position 0
+
+  } else {
+    *aResult = true;
   }
   return NS_OK;
 }
@@ -1050,13 +1055,13 @@ NS_IMETHODIMP nsMsgLocalMailFolder::GetSizeOnDisk(int64_t* aSize) {
   if (folderFlags & nsMsgFolderFlags::Virtual) mFolderSize = 0;
 
   if (mFolderSize == kSizeUnknown) {
-    nsCOMPtr<nsIFile> file;
-    rv = GetFilePath(getter_AddRefs(file));
+    nsCOMPtr<nsIMsgPluggableStore> msgStore;
+    rv = GetMsgStore(getter_AddRefs(msgStore));
     NS_ENSURE_SUCCESS(rv, rv);
     // Use a temporary variable so that we keep mFolderSize on kSizeUnknown
-    // if GetFileSize() fails.
+    // if EstimateFolderSize() fails.
     int64_t folderSize;
-    rv = file->GetFileSize(&folderSize);
+    rv = msgStore->EstimateFolderSize(this, &folderSize);
     NS_ENSURE_SUCCESS(rv, rv);
 
     mFolderSize = folderSize;
@@ -1131,7 +1136,8 @@ nsMsgLocalMailFolder::DeleteMessages(
     nsCOMPtr<nsIMsgDatabase> msgDB;
     rv = GetDatabaseWOReparse(getter_AddRefs(msgDB));
     if (NS_SUCCEEDED(rv)) {
-      if (deleteStorage && isMove && GetDeleteFromServerOnMove())
+      if (deleteStorage && isMove &&
+          Preferences::GetBool("mail.pop3.deleteFromServerOnMove"))
         MarkMsgsOnPop3Server(msgHeaders, POP3_DELETE);
 
       nsCOMPtr<nsISupports> msgSupport;
@@ -1165,7 +1171,10 @@ nsMsgLocalMailFolder::DeleteMessages(
   if (msgWindow && !isMove && (deleteStorage || isTrashFolder)) {
     // Clear undo and redo stack.
     nsCOMPtr<nsITransactionManager> txnMgr;
-    msgWindow->GetTransactionManager(getter_AddRefs(txnMgr));
+    nsCOMPtr<nsIMsgTransactionService> txns =
+        mozilla::components::Txns::Service();
+    NS_ENSURE_STATE(txns);
+    txns->GetTransactionManager(getter_AddRefs(txnMgr));
     if (txnMgr) {
       txnMgr->Clear();
     }
@@ -1459,7 +1468,10 @@ nsMsgLocalMailFolder::CopyMessages(nsIMsgFolder* srcFolder,
     NS_ASSERTION(undoTxn, "if store does copy, it needs to add undo action");
     if (msgWindow && undoTxn) {
       nsCOMPtr<nsITransactionManager> txnMgr;
-      msgWindow->GetTransactionManager(getter_AddRefs(txnMgr));
+      nsCOMPtr<nsIMsgTransactionService> txns =
+          mozilla::components::Txns::Service();
+      NS_ENSURE_STATE(txns);
+      txns->GetTransactionManager(getter_AddRefs(txnMgr));
       if (txnMgr) txnMgr->DoTransaction(undoTxn);
     }
     if (isMove) {
@@ -1480,7 +1492,7 @@ nsMsgLocalMailFolder::CopyMessages(nsIMsgFolder* srcFolder,
           // If we're deleting on all moves, we'll mark this message for
           // deletion when we call DeleteMessages on the source folder. So don't
           // mark it for deletion here, in that case.
-          if (!GetDeleteFromServerOnMove()) {
+          if (!Preferences::GetBool("mail.pop3.deleteFromServerOnMove")) {
             localDstFolder->MarkMsgsOnPop3Server(dstHdrs, POP3_DELETE);
           }
         }
@@ -2017,7 +2029,7 @@ nsresult nsMsgLocalMailFolder::InitCopyMsgHdrAndFileStream() {
   // See also test_copyToInvalidDB.js.
   if (mCopyState->m_destDB) {
     rv = mCopyState->m_destDB->CreateNewHdr(
-        nsMsgKey_None, getter_AddRefs(mCopyState->m_newHdr));
+        getter_AddRefs(mCopyState->m_newHdr));
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -2438,8 +2450,10 @@ nsMsgLocalMailFolder::EndCopy(bool aCopySucceeded) {
       if (!mCopyState->m_isMove) {
         if (mCopyState->m_msgWindow && mCopyState->m_undoMsgTxn) {
           nsCOMPtr<nsITransactionManager> txnMgr;
-          mCopyState->m_msgWindow->GetTransactionManager(
-              getter_AddRefs(txnMgr));
+          nsCOMPtr<nsIMsgTransactionService> txns =
+              mozilla::components::Txns::Service();
+          NS_ENSURE_STATE(txns);
+          txns->GetTransactionManager(getter_AddRefs(txnMgr));
           if (txnMgr) {
             RefPtr<nsLocalMoveCopyMsgTxn> txn = mCopyState->m_undoMsgTxn;
             txnMgr->DoTransaction(txn);
@@ -2467,18 +2481,6 @@ nsMsgLocalMailFolder::EndCopy(bool aCopySucceeded) {
     }
   }
   return rv;
-}
-
-static bool gGotGlobalPrefs;
-static bool gDeleteFromServerOnMove;
-
-bool nsMsgLocalMailFolder::GetDeleteFromServerOnMove() {
-  if (!gGotGlobalPrefs) {
-    gDeleteFromServerOnMove =
-        Preferences::GetBool("mail.pop3.deleteFromServerOnMove");
-    gGotGlobalPrefs = true;
-  }
-  return gDeleteFromServerOnMove;
 }
 
 // nsICopyMessageListener.endMove()
@@ -2518,7 +2520,7 @@ nsMsgLocalMailFolder::EndMove(bool moveSucceeded) {
         // if we're deleting on all moves, we'll mark this message for deletion
         // when we call DeleteMessages on the source folder. So don't mark it
         // for deletion here, in that case.
-        if (!GetDeleteFromServerOnMove()) {
+        if (!Preferences::GetBool("mail.pop3.deleteFromServerOnMove")) {
           localSrcFolder->MarkMsgsOnPop3Server(mCopyState->m_messages,
                                                POP3_DELETE);
         }
@@ -2541,7 +2543,10 @@ nsMsgLocalMailFolder::EndMove(bool moveSucceeded) {
     if (NS_SUCCEEDED(rv) && mCopyState->m_msgWindow &&
         mCopyState->m_undoMsgTxn) {
       nsCOMPtr<nsITransactionManager> txnMgr;
-      mCopyState->m_msgWindow->GetTransactionManager(getter_AddRefs(txnMgr));
+      nsCOMPtr<nsIMsgTransactionService> txns =
+          mozilla::components::Txns::Service();
+      NS_ENSURE_STATE(txns);
+      txns->GetTransactionManager(getter_AddRefs(txnMgr));
       if (txnMgr) {
         RefPtr<nsLocalMoveCopyMsgTxn> txn = mCopyState->m_undoMsgTxn;
         txnMgr->DoTransaction(txn);
@@ -3010,21 +3015,6 @@ nsMsgLocalMailFolder::OnStopRunningUrl(nsIURI* aUrl, nsresult aExitCode) {
 nsresult nsMsgLocalMailFolder::DisplayMoveCopyStatusMsg() {
   nsresult rv = NS_OK;
   if (mCopyState) {
-    if (!mCopyState->m_statusFeedback) {
-      // get msgWindow from undo txn
-      nsCOMPtr<nsIMsgWindow> msgWindow;
-      if (mCopyState->m_undoMsgTxn)
-        mCopyState->m_undoMsgTxn->GetMsgWindow(getter_AddRefs(msgWindow));
-      if (!msgWindow) {
-        // Probably a folder move or copy with no undo txn. use top-most window.
-        nsCOMPtr<nsIMsgMailSession> mailSession =
-            mozilla::components::MailSession::Service();
-        mailSession->GetTopmostMsgWindow(getter_AddRefs(msgWindow));
-        if (!msgWindow) return NS_OK;  // not a fatal error but no stat display
-      }
-      msgWindow->GetStatusFeedback(
-          getter_AddRefs(mCopyState->m_statusFeedback));
-    }
     if (!mCopyState->m_stringBundle) {
       nsCOMPtr<nsIStringBundleService> bundleService =
           mozilla::components::StringBundle::Service();
@@ -3034,7 +3024,7 @@ nsresult nsMsgLocalMailFolder::DisplayMoveCopyStatusMsg() {
           getter_AddRefs(mCopyState->m_stringBundle));
       NS_ENSURE_SUCCESS(rv, rv);
     }
-    if (mCopyState->m_statusFeedback && mCopyState->m_stringBundle) {
+    if (mCopyState->m_stringBundle) {
       nsAutoCString folderName;
       GetName(folderName);
       nsString finalString;
@@ -3042,7 +3032,11 @@ nsresult nsMsgLocalMailFolder::DisplayMoveCopyStatusMsg() {
       rv = mCopyState->m_stringBundle->FormatStringFromName(
           (mCopyState->m_isMove) ? "imapMovingMessages" : "imapCopyingMessages",
           {NS_ConvertUTF8toUTF16(folderName)}, finalString);
-      mCopyState->m_statusFeedback->ShowStatusString(finalString);
+      nsCOMPtr<nsIFeedbackService> feedback =
+          mozilla::components::Feedback::Service();
+      if (feedback) {
+        feedback->ReportStatus(NS_ConvertUTF16toUTF8(finalString), ""_ns);
+      }
     }
   }
   return rv;
@@ -3339,7 +3333,7 @@ nsMsgLocalMailFolder::AddMessageBatch(
       if (!mGettingNewMessages) newMailParser->DisableFilters();
 
       nsCOMPtr<nsIMsgDBHdr> newHdr;
-      rv = db->CreateNewHdr(nsMsgKey_None, getter_AddRefs(newHdr));
+      rv = db->CreateNewHdr(getter_AddRefs(newHdr));
       NS_ENSURE_SUCCESS(rv, rv);
 
       nsCOMPtr<nsIOutputStream> outStream;
@@ -3423,7 +3417,7 @@ nsresult nsMsgLocalMailFolder::AddMessageBatch2(
     // Parse headers and add to the DB.
     // (We're using the old nsIMsgDatabase instead of going directly to
     // panorama, as we want to keep working with legacy code for now).
-    RawHdr hdr = ParseMsgHeaders(raw);
+    RawHdr hdr = ParseRawMailHeaders(raw);
     // Malformed message might have a missing "Date:" header.
     // Policy here is to fall back to current time.
     if (hdr.date == 0) {

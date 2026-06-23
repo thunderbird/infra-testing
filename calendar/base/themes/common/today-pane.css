@@ -3,7 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 :root[lwt-tree-brighttext] #today-pane-panel {
-  --toolbarbutton-hover-background: var(
+  --toolbarbutton-background-color-hover: var(
     --lwt-toolbarbutton-hover-background,
     rgba(255, 255, 255, 0.25)
   );
@@ -11,7 +11,7 @@
     --lwt-toolbarbutton-hover-background,
     rgba(255, 255, 255, 0.5)
   );
-  --toolbarbutton-active-background: var(
+  --toolbarbutton-background-color-active: var(
     --lwt-toolbarbutton-active-background,
     rgba(255, 255, 255, 0.4)
   );
@@ -24,7 +24,7 @@
 }
 
 .today-subpane {
-  border-block-end-color: var(--splitter-color);
+  border-block-end-color: var(--sidebar-border);
   border-block-end-style: solid;
   border-block-end-width: 1px;
   padding: 0;
@@ -39,8 +39,8 @@
 }
 
 :root[lwtheme] #today-pane-panel {
-  background-color: var(--toolbar-bgcolor);
-  color: var(--toolbar-color);
+  background-color: var(--toolbar-background-color);
+  color: var(--toolbar-text-color);
 }
 
 #today-pane-panel > * {
@@ -50,7 +50,7 @@
 #today-pane-panel > .sidebar-header {
   appearance: none;
   background-color: var(--layout-background-0);
-  border-block-end: 1px solid var(--splitter-color);
+  border-block-end: 1px solid var(--sidebar-border);
 }
 
 :root[lwt-tree] #today-pane-panel > .sidebar-header {
@@ -120,7 +120,7 @@
 }
 
 :root[lwt-tree] #agenda-panel > modebox {
-  background-color: var(--sidebar-background-color);
+  background-color: var(--sidebar-background);
 }
 
 #today-minimonth-box {
@@ -128,7 +128,7 @@
 }
 
 :root[lwt-tree] #today-minimonth-box {
-  background-color: var(--sidebar-background-color);
+  background-color: var(--sidebar-background);
 }
 
 #weekdayNameLabel {
@@ -191,14 +191,14 @@
   border-radius: var(--button-border-radius);
 
   &:not([disabled]):hover {
-    background-color: var(--toolbarbutton-hover-background);
+    background-color: var(--toolbarbutton-background-color-hover);
     border-color: var(--toolbarbutton-hover-bordercolor);
     box-shadow: var(--toolbarbutton-hover-boxshadow);
     color: inherit;
     outline: none;
 
     &:active {
-      background-color: var(--toolbarbutton-active-background);
+      background-color: var(--toolbarbutton-background-color-active);
       border-color: var(--toolbarbutton-active-bordercolor);
       box-shadow: var(--toolbarbutton-active-boxshadow);
       transition-duration: 10ms;
@@ -261,14 +261,14 @@
   fill-opacity: var(--toolbarbutton-icon-fill-opacity);
 
   &:not([disabled]):hover {
-    background: var(--toolbarbutton-hover-background);
+    background: var(--toolbarbutton-background-color-hover);
     border-color: var(--toolbarbutton-hover-bordercolor);
     box-shadow: var(--toolbarbutton-hover-boxshadow);
     color: inherit;
     outline: none;
 
     &:active {
-      background: var(--toolbarbutton-active-background);
+      background: var(--toolbarbutton-background-color-active);
       border-color: var(--toolbarbutton-active-bordercolor);
       box-shadow: var(--toolbarbutton-active-boxshadow);
       transition-duration: 10ms;
@@ -286,7 +286,7 @@
 }
 
 #today-pane-splitter {
-  border-block-end: 1px solid var(--splitter-color);
+  border-block-end: 1px solid var(--sidebar-border);
   /* splitter grip area */
   block-size: 5px;
   /* make only the splitter border visible */
@@ -326,14 +326,14 @@
   padding: 3px 6px;
   list-style: none;
   background-color: var(--layout-background-1);
-  border-block-start: 1px solid var(--splitter-color);
+  border-block-start: 1px solid var(--sidebar-border);
   --selected-background: var(--selected-item-color);
   --selected-foreground: var(--selected-item-text-color);
 }
 
 :root[lwt-tree] #agenda {
   --selected-background: var(--sidebar-highlight-background-color, hsla(0, 0%, 80%, 0.3));
-  --selected-foreground: var(--sidebar-highlight-text-color, var(--sidebar-text-color));
+  --selected-foreground: var(--sidebar-highlight-text-color, var(--sidebar-color));
 }
 
 :root[lwt-tree-brighttext] #agenda {

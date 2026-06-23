@@ -47,7 +47,7 @@ async function openpgpProcessed() {
   const [subject] = await TestUtils.topicObserved(
     "document-element-inserted",
     document => {
-      return document.ownerGlobal?.location == "about:message";
+      return document.documentGlobal?.location == "about:message";
     }
   );
 
@@ -199,6 +199,34 @@ add_task(async function testOpenVerifiedUnsignedEncrypted() {
 });
 
 /**
+ * Test that we can decrypt a message to a hidden recipient
+ * (recipient key ID is zero in PKESK).
+ */
+add_task(async function testEncryptedToHiddenRecpient() {
+  const msgc = await open_message_from_file(
+    new FileUtils.File(
+      getTestFilePath("data/eml/encrypted-to-alice-as-hidden-recipient.eml")
+    )
+  );
+  const aboutMessage = get_about_message(msgc);
+
+  Assert.ok(
+    getMsgBodyTxt(msgc).includes("hidden recipient encryption"),
+    "expected message text should be in body"
+  );
+  Assert.ok(
+    OpenPGPTestUtils.hasNoSignedIconState(aboutMessage.document),
+    "signed icon should NOT be shown"
+  );
+  Assert.ok(
+    OpenPGPTestUtils.hasEncryptedIconState(aboutMessage.document, "ok"),
+    "encrypted icon should be shown"
+  );
+
+  await BrowserTestUtils.closeWindow(msgc);
+});
+
+/**
  * Test that opening an attached encrypted message has no effect
  * on security status icons of the parent message window.
  */
@@ -231,7 +259,7 @@ add_task(async function testOpenForwardedEncrypted() {
     { clickCount: 1 },
     aboutMessage
   );
-  EventUtils.synthesizeKey("VK_DELETE", {}, aboutMessage);
+  EventUtils.synthesizeKey("KEY_Delete", {}, aboutMessage);
   await TestUtils.waitForTick();
 
   const newWindowPromise = promise_new_window("mail:messageWindow");
@@ -564,7 +592,7 @@ add_task(async function testOuterPgpSigInnerPgpEncryptedInsideMixed() {
   EventUtils.synthesizeMouseAtCenter(
     button,
     { clickCount: 1 },
-    button.ownerGlobal
+    button.documentGlobal
   );
   const win2 = await partsMessageWindowPromise;
   const aboutMessage2 = get_about_message(win2);
@@ -626,7 +654,7 @@ add_task(async function testOpenAndShowAttachedEml() {
   EventUtils.synthesizeMouseAtCenter(
     button,
     { clickCount: 1 },
-    button.ownerGlobal
+    button.documentGlobal
   );
   const win2 = await partsMessageWindowPromise;
   const aboutMessage2 = get_about_message(win2);
@@ -678,7 +706,7 @@ add_task(async function testOpenAndShowAttachedEmlWithFooter() {
   EventUtils.synthesizeMouseAtCenter(
     button,
     { clickCount: 1 },
-    button.ownerGlobal
+    button.documentGlobal
   );
   const win2 = await partsMessageWindowPromise;
   await openpgpprocessed2;
@@ -826,6 +854,32 @@ add_task(async function testOuterPgpSigOpenSignedByUnverifiedEncrypted() {
   Assert.ok(
     OpenPGPTestUtils.hasEncryptedIconState(aboutMessage.document, "ok"),
     "encrypted icon should be shown"
+  );
+  await BrowserTestUtils.closeWindow(msgc);
+});
+
+/**
+ * Test that processing a mailing list digest containing multiple different
+ * signatures does not result in an endless reload loop, see bug 1946168.
+ */
+add_task(async function testMultipleSignatures() {
+  const msgc = await open_message_from_file(
+    new FileUtils.File(getTestFilePath("data/eml/multiple-signatures.eml"))
+  );
+  const aboutMessage = get_about_message(msgc);
+  Assert.ok(
+    getMsgBodyTxt(msgc).includes("Send dovecot mailing list submissions to"),
+    "message text should be in body"
+  );
+  // This is an S/MIME signature status; at the time of writing this test,
+  // the string "mismatch" is used for status "notok".
+  Assert.ok(
+    !OpenPGPTestUtils.hasSignedIconState(aboutMessage.document, "mismatch"),
+    "signed icon should not be displayed"
+  );
+  Assert.ok(
+    !OpenPGPTestUtils.hasEncryptedIconState(aboutMessage.document, "ok"),
+    "encrypted icon should not be displayed"
   );
   await BrowserTestUtils.closeWindow(msgc);
 });

@@ -42,7 +42,7 @@ const tabListener = {
    */
   onLocationChange(browser, webProgress) {
     if (webProgress && webProgress.isTopLevel) {
-      const window = browser.ownerGlobal.top;
+      const window = browser.documentGlobal.top;
       const tabmail = window.document.getElementById("tabmail");
       const nativeTabInfo = tabmail
         ? tabmail.getTabForBrowser(browser)
@@ -217,7 +217,7 @@ this.tabs = class extends ExtensionAPIPersistent {
             await fire.wakeup();
           }
           fire.async(tabTracker.getId(nativeTabInfo), {
-            windowId: windowTracker.getId(nativeTab.ownerGlobal),
+            windowId: windowTracker.getId(nativeTab.documentGlobal),
             fromIndex: event.detail.idx,
             toIndex: tabmail.tabInfo.indexOf(nativeTabInfo),
           });
@@ -339,7 +339,7 @@ this.tabs = class extends ExtensionAPIPersistent {
         if (event.originalTarget.initializingTab) {
           return;
         }
-        if (!extension.canAccessWindow(event.originalTarget.ownerGlobal)) {
+        if (!extension.canAccessWindow(event.originalTarget.documentGlobal)) {
           return;
         }
         */
@@ -365,13 +365,13 @@ this.tabs = class extends ExtensionAPIPersistent {
       const statusListener = ({ browser, status, url }) => {
         const { extension } = this;
         const { tabManager } = extension;
-        const tabId = tabTracker.getBrowserTabId(browser);
-        if (tabId != -1) {
+        const nativeTabInfo = tabTracker.getTabForBrowser(browser);
+        if (nativeTabInfo) {
           const changed = { status };
           if (url) {
             changed.url = url;
           }
-          fireForTab(tabManager.get(tabId), changed);
+          fireForTab(tabManager.getWrapper(nativeTabInfo), changed);
         }
       };
 

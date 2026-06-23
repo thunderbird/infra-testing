@@ -49,7 +49,7 @@ add_task(async () => {
 
   async function clearFilterText() {
     EventUtils.synthesizeMouseAtCenter(document.getElementById("task-text-filter-field"), {});
-    EventUtils.synthesizeKey("VK_ESCAPE");
+    EventUtils.synthesizeKey("KEY_Escape");
     Assert.equal(
       document.getElementById("task-text-filter-field").value,
       "",
@@ -67,16 +67,6 @@ add_task(async () => {
     }
     tree.getBoundingClientRect(); // Try and trigger a reflow...
     tree.invalidate();
-
-    // It seems that under certain conditions notifyOperationComplete() is
-    // called in CalStorageCalender.getItems before all the results have been
-    // retrieved. This results in the "refresh" event being fired prematurely in
-    // calendar-task-tree. After some investigation, the cause of this seems to
-    // be related to multiple calls of executeAsync() in CalStorageItemModel.
-    // getAdditionalDataForItemMap() not finishing before notifyOperationComplete()
-    // is called despite being awaited on.
-    // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
-    await new Promise(r => setTimeout(r, 500));
 
     const actualTasks = [];
     for (let i = 0; i < tree.view.rowCount; i++) {

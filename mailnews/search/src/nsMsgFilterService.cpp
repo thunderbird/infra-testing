@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,6 +6,7 @@
 
 #include "msgCore.h"
 #include "nsMsgFilterService.h"
+#include "IHeaderBlock.h"
 #include "nsMsgFilterList.h"
 #include "nsMsgSearchScopeTerm.h"
 #include "nsIPrompt.h"
@@ -29,6 +29,9 @@
 #include "nsIMsgFilterCustomAction.h"
 #include "nsMsgMessageFlags.h"
 #include "nsIMsgWindow.h"
+#include "nsEmbedCID.h"
+#include "nsIPromptService.h"
+#include "nsIWindowMediator.h"
 #include "nsIMsgSearchCustomTerm.h"
 #include "nsIMsgSearchTerm.h"
 #include "nsIMsgThread.h"
@@ -256,24 +259,17 @@ nsresult nsMsgFilterService::ThrowFilterAlertMsg(const nsACString& fluentID,
   nsresult rv = LocalizeMessage(l10n, fluentID, {}, alertString);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsIMsgWindow> msgWindow = aMsgWindow;
-  if (!msgWindow) {
-    nsCOMPtr<nsIMsgMailSession> mailSession =
-        mozilla::components::MailSession::Service();
-    rv = mailSession->GetTopmostMsgWindow(getter_AddRefs(msgWindow));
-  }
+  nsCOMPtr<mozIDOMWindowProxy> domWindow;
+  nsCOMPtr<nsIWindowMediator> winMed =
+      do_GetService(NS_WINDOWMEDIATOR_CONTRACTID, &rv);
+  NS_ENSURE_SUCCESS(rv, rv);
+  winMed->GetMostRecentWindow(nullptr, getter_AddRefs(domWindow));
 
-  if (NS_SUCCEEDED(rv) && !alertString.IsEmpty() && msgWindow) {
-    nsCOMPtr<nsIDocShell> docShell;
-    msgWindow->GetRootDocShell(getter_AddRefs(docShell));
-    if (docShell) {
-      nsCOMPtr<nsIPrompt> dialog(do_GetInterface(docShell));
-      if (dialog && !alertString.IsEmpty()) {
-        dialog->Alert(nullptr, NS_ConvertUTF8toUTF16(alertString).get());
-      }
-    }
-  }
-  return rv;
+  nsCOMPtr<nsIPromptService> dlgService(
+      do_GetService(NS_PROMPTSERVICE_CONTRACTID, &rv));
+  NS_ENSURE_SUCCESS(rv, rv);
+  return dlgService->Alert(domWindow, nullptr,
+                           NS_ConvertUTF8toUTF16(alertString).get());
 }
 
 // this class is used to run filters after the fact, i.e., after new mail has
@@ -518,7 +514,7 @@ NS_IMETHODIMP nsMsgFilterAfterTheFact::OnStopRunningUrl(nsIURI* aUrl,
   mFinalResult = aExitCode;
   // If m_msgWindow then we are in a context where the user can deal with
   //  errors. Put up a prompt, and exit if user wants.
-  if (m_msgWindow && !ContinueExecutionPrompt()) return OnEndExecution();
+  if (!ContinueExecutionPrompt()) return OnEndExecution();
 
   // folder parse failed, so stop processing this folder.
   return AdvanceToNextFolder();
@@ -1104,6 +1100,7 @@ class nsMsgApplyFiltersToMessages : public nsMsgFilterAfterTheFact {
                               nsIMsgFilterList* aFilterList,
                               const nsTArray<RefPtr<nsIMsgFolder>>& aFolderList,
                               const nsTArray<RefPtr<nsIMsgDBHdr>>& aMsgHdrList,
+                              const nsTArray<RefPtr<IHeaderBlock>>& aRawHeaders,
                               nsMsgFilterTypeType aFilterType,
                               nsIMsgOperationListener* aCallback);
 
@@ -1111,6 +1108,7 @@ class nsMsgApplyFiltersToMessages : public nsMsgFilterAfterTheFact {
   virtual nsresult RunNextFilter();
 
   nsTArray<RefPtr<nsIMsgDBHdr>> m_msgHdrList;
+  nsTArray<RefPtr<IHeaderBlock>> m_rawHeaders;
   nsMsgFilterTypeType m_filterType;
 };
 
@@ -1118,10 +1116,14 @@ nsMsgApplyFiltersToMessages::nsMsgApplyFiltersToMessages(
     nsIMsgWindow* aMsgWindow, nsIMsgFilterList* aFilterList,
     const nsTArray<RefPtr<nsIMsgFolder>>& aFolderList,
     const nsTArray<RefPtr<nsIMsgDBHdr>>& aMsgHdrList,
+    const nsTArray<RefPtr<IHeaderBlock>>& aRawHeaders,
     nsMsgFilterTypeType aFilterType, nsIMsgOperationListener* aCallback)
     : nsMsgFilterAfterTheFact(aMsgWindow, aFilterList, aFolderList, aCallback),
       m_msgHdrList(aMsgHdrList.Clone()),
+      m_rawHeaders(aRawHeaders.Clone()),
       m_filterType(aFilterType) {
+  MOZ_ASSERT(m_rawHeaders.IsEmpty() ||
+             m_rawHeaders.Length() == m_msgHdrList.Length());
   MOZ_LOG(FILTERLOGMODULE, LogLevel::Debug,
           ("(Post) nsMsgApplyFiltersToMessages"));
 }
@@ -1165,10 +1167,38 @@ nsresult nsMsgApplyFiltersToMessages::RunNextFilter() {
     m_curFilter->SetScope(scope);
     OnNewSearch();
 
-    for (auto msgHdr : m_msgHdrList) {
+    for (size_t i = 0; i < m_msgHdrList.Length(); ++i) {
+      auto msgHdr = m_msgHdrList[i];
+
+      // If the raw RFC5322 header block is available, supply it.
+      // NASTY KLUDGE HACK ALERT!
+      // Because of a self-defeating quirk in the matching code, the
+      // headers string is expected to be a NUL-separated list:
+      //  "From: alice@example.com\0To: bob@example.com\0"...
+      // Ugh.
+      // See Bug 1791947.
+      nsCString nulSeparatedHeaders;
+      if (!m_rawHeaders.IsEmpty() && m_rawHeaders[i]) {
+        uint32_t numHeaders;
+        rv = m_rawHeaders[i]->GetNumHeaders(&numHeaders);
+        if (NS_SUCCEEDED(rv)) {
+          for (uint32_t hdrIdx = 0; hdrIdx < numHeaders; ++hdrIdx) {
+            nsCString name;
+            rv = m_rawHeaders[i]->Name(hdrIdx, name);
+            if (NS_SUCCEEDED(rv)) {
+              nsCString value;
+              rv = m_rawHeaders[i]->Value(hdrIdx, value);
+              if (NS_SUCCEEDED(rv)) {
+                nulSeparatedHeaders.AppendFmt("{}: {}", name, value);
+                nulSeparatedHeaders.Append('\0');
+              }
+            }
+          }
+        }
+      }
       bool matched;
       rv = m_curFilter->MatchHdr(msgHdr, m_curFolder, m_curFolderDB,
-                                 EmptyCString(), &matched);
+                                 nulSeparatedHeaders, &matched);
       if (NS_SUCCEEDED(rv) && matched) {
         // In order to work with nsMsgFilterAfterTheFact::ApplyFilter we
         // initialize nsMsgFilterAfterTheFact's information with a search hit
@@ -1209,11 +1239,18 @@ nsresult nsMsgApplyFiltersToMessages::RunNextFilter() {
 
 NS_IMETHODIMP nsMsgFilterService::ApplyFilters(
     nsMsgFilterTypeType aFilterType,
-    const nsTArray<RefPtr<nsIMsgDBHdr>>& aMsgHdrList, nsIMsgFolder* aFolder,
+    const nsTArray<RefPtr<nsIMsgDBHdr>>& aMsgHdrList,
+    const nsTArray<RefPtr<IHeaderBlock>>& aRawHeaders, nsIMsgFolder* aFolder,
     nsIMsgWindow* aMsgWindow, nsIMsgOperationListener* aCallback) {
   MOZ_LOG(FILTERLOGMODULE, LogLevel::Debug,
           ("(Post) nsMsgApplyFiltersToMessages::ApplyFilters"));
   NS_ENSURE_ARG_POINTER(aFolder);
+
+  if (!aRawHeaders.IsEmpty()) {
+    if (aRawHeaders.Length() != aMsgHdrList.Length()) {
+      return NS_ERROR_INVALID_ARG;
+    }
+  }
 
   nsCOMPtr<nsIMsgFilterList> filterList;
   aFolder->GetFilterList(aMsgWindow, getter_AddRefs(filterList));
@@ -1240,7 +1277,8 @@ NS_IMETHODIMP nsMsgFilterService::ApplyFilters(
   // ApplyFiltersToHdr finds one or more filters that hit.
   RefPtr<nsMsgApplyFiltersToMessages> filterExecutor =
       new nsMsgApplyFiltersToMessages(aMsgWindow, filterList, {aFolder},
-                                      aMsgHdrList, aFilterType, aCallback);
+                                      aMsgHdrList, aRawHeaders, aFilterType,
+                                      aCallback);
   return filterExecutor->AdvanceToNextFolder();
 }
 
@@ -1276,7 +1314,7 @@ NS_IMETHODIMP nsMsgFilterAfterTheFact::OnStopCopy(nsresult aStatus) {
            static_cast<uint32_t>(aStatus)));
 
   mFinalResult = aStatus;
-  if (m_msgWindow && !ContinueExecutionPrompt()) return OnEndExecution();
+  if (!ContinueExecutionPrompt()) return OnEndExecution();
 
   // Copy failed, so run the next filter
   return RunNextFilter();
@@ -1297,18 +1335,18 @@ bool nsMsgFilterAfterTheFact::ContinueExecutionPrompt() {
       {{"filterName"_ns, NS_ConvertUTF16toUTF8(filterName)}}, confirmText);
   if (NS_FAILED(rv)) return false;
 
+  nsCOMPtr<mozIDOMWindowProxy> domWindow;
+  nsCOMPtr<nsIWindowMediator> winMed =
+      do_GetService(NS_WINDOWMEDIATOR_CONTRACTID, &rv);
+  NS_ENSURE_SUCCESS(rv, false);
+  winMed->GetMostRecentWindow(nullptr, getter_AddRefs(domWindow));
+
+  nsCOMPtr<nsIPromptService> dlgService(
+      do_GetService(NS_PROMPTSERVICE_CONTRACTID, &rv));
+  NS_ENSURE_SUCCESS(rv, false);
   bool returnVal = false;
-  if (m_msgWindow) {
-    nsCOMPtr<nsIDocShell> docShell;
-    m_msgWindow->GetRootDocShell(getter_AddRefs(docShell));
-    if (docShell) {
-      nsCOMPtr<nsIPrompt> dialog(do_GetInterface(docShell));
-      if (dialog && confirmText.Length()) {
-        dialog->Confirm(nullptr, NS_ConvertUTF8toUTF16(confirmText).get(),
-                        &returnVal);
-      }
-    }
-  }
+  dlgService->Confirm(domWindow, nullptr,
+                      NS_ConvertUTF8toUTF16(confirmText).get(), &returnVal);
   if (!returnVal) {
     MOZ_LOG(FILTERLOGMODULE, LogLevel::Warning,
             ("(Post) User aborted further filter execution on prompt"));

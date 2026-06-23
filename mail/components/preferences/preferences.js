@@ -51,6 +51,7 @@ ChromeUtils.defineLazyGetter(this, "gSubDialog", function () {
       styleSheets: [
         "chrome://messenger/skin/preferences/dialog.css",
         "chrome://messenger/skin/preferences/preferences.css",
+        "chrome://messenger/skin/variables.css",
       ],
       consumeOutsideClicks: false,
       resizeCallback: ({ title, frame }) => {
@@ -77,7 +78,7 @@ ChromeUtils.defineLazyGetter(this, "gSubDialog", function () {
 
         // Resize the dialog to fit the content with edited font size.
         requestAnimationFrame(() => {
-          const dialogs = frame.ownerGlobal.gSubDialog._dialogs;
+          const dialogs = frame.documentGlobal.gSubDialog._dialogs;
           const dialog = dialogs.find(
             d => d._frame.contentDocument == frame.contentDocument
           );

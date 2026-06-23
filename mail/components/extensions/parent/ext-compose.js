@@ -18,7 +18,7 @@ var parserUtils = Cc["@mozilla.org/parserutils;1"].getService(
   Ci.nsIParserUtils
 );
 
-var { getFolder } = ChromeUtils.importESModule(
+var { findIdentity, getFolder } = ChromeUtils.importESModule(
   "resource:///modules/ExtensionAccounts.sys.mjs"
 );
 
@@ -150,12 +150,7 @@ async function openComposeWindow(relatedMessageId, type, details, extension) {
         );
       }
 
-      identity = MailServices.accounts.allIdentities.find(
-        i => i.key == details.identityId
-      );
-      if (!identity) {
-        throw new ExtensionError(`Identity not found: ${details.identityId}`);
-      }
+      identity = findIdentity(details.identityId);
     }
   }
 
@@ -195,7 +190,7 @@ async function openComposeWindow(relatedMessageId, type, details, extension) {
 
     const composeWindowPromise = new Promise(resolve => {
       function listener(event) {
-        const composeWindow = event.target.ownerGlobal;
+        const composeWindow = event.target;
         // Skip if this window has been processed already. This already helps
         // a lot to assign the opened windows in the correct order to the
         // OpenCompomposeWindow calls.
@@ -642,17 +637,13 @@ async function setComposeDetails(composeWindow, details, extension) {
       );
     }
 
-    const identity = MailServices.accounts.allIdentities.find(
-      i => i.key == details.identityId
-    );
-    if (!identity) {
-      throw new ExtensionError(`Identity not found: ${details.identityId}`);
-    }
+    // findIdentity throws if no identity has this key.
+    const identity = findIdentity(details.identityId);
     const identityElement =
       composeWindow.document.getElementById("msgIdentity");
     identityElement.selectedItem = [
       ...identityElement.childNodes[0].childNodes,
-    ].find(e => e.getAttribute("identitykey") === details.identityId);
+    ].find(e => e.getAttribute("identitykey") === identity.key);
     composeWindow.LoadIdentity(false);
   }
   for (const field of ["to", "cc", "bcc", "replyTo", "followupTo"]) {
@@ -1512,15 +1503,16 @@ var composeAttachmentTracker = new (class extends EventEmitter {
 // Listen for attachments being removed and, after firing events to any
 // listeners, forget about them to avoid leaking.
 windowTracker.addListener("attachments-removed", event => {
+  const composeWindow = getComposeWindowFromEvent(event);
   for (const attachment of event.detail) {
     const attachmentId = composeAttachmentTracker.getId(
       attachment,
-      event.target.ownerGlobal
+      composeWindow
     );
     composeAttachmentTracker.emit(
       "attachment-removed",
       attachmentId,
-      event.target.ownerGlobal
+      composeWindow
     );
   }
   for (const attachment of event.detail) {
@@ -1530,6 +1522,10 @@ windowTracker.addListener("attachments-removed", event => {
 windowTracker.addCloseListener(
   composeAttachmentTracker.forgetAttachments.bind(composeAttachmentTracker)
 );
+
+function getComposeWindowFromEvent(event) {
+  return event.target.documentGlobal ?? event.target;
+}
 
 var composeWindowTracker = new Set();
 windowTracker.addCloseListener(window => composeWindowTracker.delete(window));
@@ -1661,12 +1657,13 @@ this.compose = class extends ExtensionAPIPersistent {
         if (fire.wakeup) {
           await fire.wakeup();
         }
+        const composeWindow = getComposeWindowFromEvent(event);
         for (let attachment of event.detail) {
           attachment = composeAttachmentTracker.convert(
             attachment,
-            event.target.ownerGlobal
+            composeWindow
           );
-          fire.async(tabManager.convert(event.target.ownerGlobal), attachment);
+          fire.async(tabManager.convert(composeWindow), attachment);
         }
       }
       windowTracker.addListener("attachments-added", listener);
@@ -1705,8 +1702,9 @@ this.compose = class extends ExtensionAPIPersistent {
         if (fire.wakeup) {
           await fire.wakeup();
         }
+        const composeWindow = getComposeWindowFromEvent(event);
         fire.async(
-          tabManager.convert(event.target.ownerGlobal),
+          tabManager.convert(composeWindow),
           event.target.getCurrentIdentityKey()
         );
       }
@@ -1727,8 +1725,9 @@ this.compose = class extends ExtensionAPIPersistent {
         if (fire.wakeup) {
           await fire.wakeup();
         }
+        const composeWindow = getComposeWindowFromEvent(event);
         fire.async(
-          tabManager.convert(event.target.ownerGlobal),
+          tabManager.convert(composeWindow),
           composeStates.convert(event.detail)
         );
       }
@@ -1750,8 +1749,9 @@ this.compose = class extends ExtensionAPIPersistent {
           await fire.wakeup();
         }
         const activeDictionaries = event.detail.split(",");
+        const composeWindow = getComposeWindowFromEvent(event);
         fire.async(
-          tabManager.convert(event.target.ownerGlobal),
+          tabManager.convert(composeWindow),
           Cc["@mozilla.org/spellchecker/engine;1"]
             .getService(Ci.mozISpellCheckingEngine)
             .getDictionaryList()

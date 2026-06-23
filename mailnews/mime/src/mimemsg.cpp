@@ -1,9 +1,9 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mimemsg.h"
+#include "modmimee.h"
 #include "mimehdrs.h"
 #include "mimemoz2.h"
 #include "nsMailHeaders.h"
@@ -29,6 +29,7 @@ MimeDefClass(MimeMessage, MimeMessageClass, mimeMessageClass, &MIME_SUPERCLASS);
 
 static int MimeMessage_initialize(MimeObject*);
 static void MimeMessage_finalize(MimeObject*);
+static int MimeMessage_parse_buffer(const char*, int32_t, MimeClosure);
 static int MimeMessage_add_child(MimeObject*, MimeObject*);
 static int MimeMessage_parse_begin(MimeObject*);
 static int MimeMessage_parse_line(const char*, int32_t, MimeObject*);
@@ -47,8 +48,6 @@ extern void MimeHeaders_do_unix_display_hook_hack(MimeHeaders*);
 static int MimeMessage_debug_print(MimeObject*, PRFileDesc*, int32_t depth);
 #endif
 
-extern MimeObjectClass mimeMultipartClass;
-
 static int MimeMessageClassInitialize(MimeObjectClass* oclass) {
   MimeContainerClass* cclass = (MimeContainerClass*)oclass;
 
@@ -56,6 +55,7 @@ static int MimeMessageClassInitialize(MimeObjectClass* oclass) {
   oclass->initialize = MimeMessage_initialize;
   oclass->finalize = MimeMessage_finalize;
   oclass->parse_begin = MimeMessage_parse_begin;
+  oclass->parse_buffer = MimeMessage_parse_buffer;
   oclass->parse_line = MimeMessage_parse_line;
   oclass->parse_eof = MimeMessage_parse_eof;
   cclass->add_child = MimeMessage_add_child;
@@ -71,15 +71,30 @@ static int MimeMessage_initialize(MimeObject* object) {
   msg->grabSubject = false;
   msg->bodyLength = 0;
   msg->sizeSoFar = 0;
+  msg->decoder_data = nullptr;
 
   return ((MimeObjectClass*)&MIME_SUPERCLASS)->initialize(object);
 }
 
 static void MimeMessage_finalize(MimeObject* object) {
   MimeMessage* msg = (MimeMessage*)object;
+  if (msg->decoder_data) {
+    MimeDecoderDestroy(msg->decoder_data, true);
+    msg->decoder_data = nullptr;
+  }
   if (msg->hdrs) MimeHeaders_free(msg->hdrs);
   msg->hdrs = 0;
   ((MimeObjectClass*)&MIME_SUPERCLASS)->finalize(object);
+}
+
+// Route bytes through the CTE decoder when present; without this, encoded
+// message/rfc822 parts reach parse_line as raw base64 and fail to parse.
+static int MimeMessage_parse_buffer(const char* buf, int32_t size,
+                                    MimeClosure closure) {
+  MimeMessage* msg = (MimeMessage*)closure.AsMimeObject();
+  if (msg->decoder_data)
+    return MimeDecoderWrite(msg->decoder_data, buf, size, nullptr);
+  return ((MimeObjectClass*)&MIME_SUPERCLASS)->parse_buffer(buf, size, closure);
 }
 
 static int MimeMessage_parse_begin(MimeObject* obj) {
@@ -94,7 +109,30 @@ static int MimeMessage_parse_begin(MimeObject* obj) {
 
   /* Messages have separators before the headers, except for the outermost
    message. */
-  return MimeObject_write_separator(obj);
+  int sep = MimeObject_write_separator(obj);
+  if (sep < 0) return sep;
+
+  // Some senders encode message/rfc822 parts with base64 or QP; set up a
+  // decoder. Lifecycle: initialized here, fed by MimeMessage_parse_buffer,
+  // destroyed in MimeMessage_parse_eof and MimeMessage_finalize.
+  if (obj->encoding &&
+      // Skip in raw/save-as mode so saved bytes keep their original encoding.
+      !(obj->options->format_out == nsMimeOutput::nsMimeMessageRaw &&
+        obj->parent && obj->parent->output_p &&
+        (!obj->options->part_to_load || !*obj->options->part_to_load))) {
+    // We want to avoid feeding already decoded output back through the decoder.
+    const auto cb = mimeObjectClass.parse_buffer;
+    const auto cl = MimeClosure(MimeClosure::isMimeObject, obj);
+    if (!PL_strcasecmp(obj->encoding, ENCODING_BASE64)) {
+      msg->decoder_data = MimeB64DecoderInit(cb, cl);
+      if (!msg->decoder_data) return MIME_OUT_OF_MEMORY;
+    } else if (!PL_strcasecmp(obj->encoding, ENCODING_QUOTED_PRINTABLE)) {
+      msg->decoder_data = MimeQPDecoderInit(cb, cl, obj);
+      if (!msg->decoder_data) return MIME_OUT_OF_MEMORY;
+    }
+  }
+
+  return 0;
 }
 
 static int MimeMessage_parse_line(const char* aLine, int32_t aLength,
@@ -405,7 +443,8 @@ static int MimeMessage_close_headers(MimeObject* obj) {
       obj->options && obj->options->decompose_file_p && ct)
     obj->options->is_multipart_msg = PL_strcasestr(ct, "multipart/") != NULL;
 
-  body = mime_create(ct, msg->hdrs, obj->options);
+  body = mime_create(ct, msg->hdrs, obj->options, false,
+                     mime_child_part_depth(obj));
 
   PR_FREEIF(ct);
   if (!body) return MIME_OUT_OF_MEMORY;
@@ -478,6 +517,11 @@ static int MimeMessage_parse_eof(MimeObject* obj, bool abort_p) {
   bool outer_p;
   MimeMessage* msg = (MimeMessage*)obj;
   if (obj->closed_p) return 0;
+
+  if (msg->decoder_data) {
+    MimeDecoderDestroy(msg->decoder_data, abort_p);
+    msg->decoder_data = nullptr;
+  }
 
   /* Run parent method first, to flush out any buffered data. */
   status = ((MimeObjectClass*)&MIME_SUPERCLASS)->parse_eof(obj, abort_p);
@@ -847,3 +891,5 @@ static int MimeMessage_debug_print(MimeObject* obj, PRFileDesc* stream,
   return 0;
 }
 #endif
+
+#undef MIME_SUPERCLASS

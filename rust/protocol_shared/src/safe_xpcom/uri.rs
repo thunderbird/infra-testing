@@ -4,7 +4,7 @@
 
 use nserror::nsresult;
 use nsstring::{nsACString, nsCString};
-use std::{fmt, ptr};
+use std::ptr;
 use xpcom::{
     RefPtr, get_service, getter_addrefs,
     interfaces::{nsIIOService, nsIURI},
@@ -25,8 +25,9 @@ impl SafeUri {
         let uri: nsCString = uri.into();
 
         // SAFETY: uri is a valid nsCString, the other two arguments are optional.
-        let uri =
-            getter_addrefs(|p| unsafe { io_service.NewURI(&*uri, ptr::null(), ptr::null(), p) })?;
+        let uri = getter_addrefs(|p| unsafe {
+            io_service.NewURI(&raw const *uri, ptr::null(), ptr::null(), p)
+        })?;
         Ok(Self(uri))
     }
 }
@@ -37,13 +38,15 @@ impl From<SafeUri> for RefPtr<nsIURI> {
     }
 }
 
-impl fmt::Display for SafeUri {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl TryFrom<SafeUri> for String {
+    type Error = nsresult;
+
+    fn try_from(uri: SafeUri) -> Result<Self, nsresult> {
         let mut out_param = nsCString::new();
-        let out: *mut nsACString = (&mut *out_param) as *mut nsACString;
+        let out: *mut nsACString = &raw mut *out_param;
 
         // SAFETY: out is a pointer to a valid nsCString
-        unsafe { self.0.GetSpec(out) };
-        write!(f, "{}", out_param)
+        unsafe { uri.0.GetSpec(out).to_result()? };
+        Ok(format!("{out_param}"))
     }
 }

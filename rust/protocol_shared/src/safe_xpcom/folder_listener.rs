@@ -5,21 +5,21 @@
 use fxhash::FxHashMap;
 use nserror::nsresult;
 use nsstring::nsCString;
-use xpcom::interfaces::{IEwsFolderListener, nsMsgFolderFlagType, nsMsgFolderFlags};
+use xpcom::interfaces::{IExchangeFolderListener, nsMsgFolderFlagType, nsMsgFolderFlags};
 
 use crate::safe_xpcom::{SafeListener, SafeListenerWrapper};
 
 /// See [`SafeListenerWrapper`].
-pub type SafeEwsFolderListener = SafeListenerWrapper<IEwsFolderListener>;
+pub type SafeExchangeFolderListener = SafeListenerWrapper<IExchangeFolderListener>;
 
-impl SafeEwsFolderListener {
-    /// Convert types and forward to [`IEwsFolderListener::OnNewRootFolder`]
+impl SafeExchangeFolderListener {
+    /// Convert types and forward to [`IExchangeFolderListener::OnNewRootFolder`]
     pub fn on_new_root_folder(&self, root_folder_id: String) -> Result<(), nsresult> {
         let folder_id = nsCString::from(root_folder_id);
-        unsafe { self.0.OnNewRootFolder(&*folder_id) }.to_result()
+        unsafe { self.0.OnNewRootFolder(&raw const *folder_id) }.to_result()
     }
 
-    /// Convert types and forward to [`IEwsFolderListener::OnFolderCreated`]
+    /// Convert types and forward to [`IExchangeFolderListener::OnFolderCreated`]
     pub fn on_folder_created(
         &self,
         folder_id: Option<String>,
@@ -47,13 +47,17 @@ impl SafeEwsFolderListener {
         // SAFETY: We have converted all of the inputs into the appropriate
         // types to cross the Rust/C++ boundary.
         unsafe {
-            self.0
-                .OnFolderCreated(&*id, &*parent_folder_id, &*display_name, flags)
+            self.0.OnFolderCreated(
+                &raw const *id,
+                &raw const *parent_folder_id,
+                &raw const *display_name,
+                flags,
+            )
         }
         .to_result()
     }
 
-    /// Convert types and forward to [`IEwsFolderListener::OnFolderUpdated`]
+    /// Convert types and forward to [`IExchangeFolderListener::OnFolderUpdated`]
     pub fn on_folder_updated(
         &self,
         folder_id: Option<String>,
@@ -70,37 +74,44 @@ impl SafeEwsFolderListener {
 
         // SAFETY: We have converted all of the inputs into the appropriate types
         // to cross the Rust/C++ boundary.
-        unsafe { self.0.OnFolderUpdated(&*id, &*parent_id, &*display_name) }.to_result()
+        unsafe {
+            self.0.OnFolderUpdated(
+                &raw const *id,
+                &raw const *parent_id,
+                &raw const *display_name,
+            )
+        }
+        .to_result()
     }
 
-    /// Convert types and forward to [`IEwsFolderListener::OnFolderDeleted`]
+    /// Convert types and forward to [`IExchangeFolderListener::OnFolderDeleted`]
     pub fn on_folder_deleted(&self, id: String) -> Result<(), nsresult> {
         let id = nsCString::from(id);
         // SAFETY: We have converted all of the inputs into the appropriate types
         // to cross the Rust/C++ boundary.
-        unsafe { self.0.OnFolderDeleted(&*id) }.to_result()
+        unsafe { self.0.OnFolderDeleted(&raw const *id) }.to_result()
     }
 
-    /// Convert types and forward to [`IEwsFolderListener::OnSyncStateTokenChanged`]
+    /// Convert types and forward to [`IExchangeFolderListener::OnSyncStateTokenChanged`]
     pub fn on_sync_state_token_changed(&self, sync_state_token: &str) -> Result<(), nsresult> {
         let sync_state = nsCString::from(sync_state_token);
         // SAFETY: We have converted all of the inputs into the appropriate types
         // to cross the Rust/C++ boundary.
-        unsafe { self.0.OnSyncStateTokenChanged(&*sync_state) }.to_result()
+        unsafe { self.0.OnSyncStateTokenChanged(&raw const *sync_state) }.to_result()
     }
 }
 
-impl SafeListener for SafeEwsFolderListener {
+impl SafeListener for SafeExchangeFolderListener {
     type OnSuccessArg = ();
     type OnFailureArg = ();
 
-    /// Forward to [`IEwsFolderListener::OnSuccess`].
+    /// Forward to [`IExchangeFolderListener::OnSuccess`].
     fn on_success(&self, _arg: ()) -> Result<(), nsresult> {
         unsafe { self.0.OnSuccess() }.to_result()
     }
 }
 
-/// Gets the Thunderbird flag corresponding to an EWS distinguished ID.
+/// Gets the Thunderbird flag corresponding to an Exchange distinguished ID.
 fn distinguished_id_to_flag(id: &&str) -> nsMsgFolderFlagType {
     // The type signature here is a little weird due to being passed directly to
     // `map()`.

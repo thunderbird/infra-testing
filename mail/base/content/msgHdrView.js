@@ -657,7 +657,7 @@ var messageProgressListener = {
    * message loading has finished.
    */
   onDOMContentLoaded(event) {
-    const { docShell } = event.target.ownerGlobal;
+    const { docShell } = event.target.documentGlobal;
     if (!docShell.isTopLevelContentDocShell) {
       return;
     }
@@ -691,7 +691,9 @@ var messageProgressListener = {
 
     if (gFolder) {
       gMessageNotificationBar.setJunkMsg(gMessage);
-      HandleMDNResponse(channel.mimeHeaders);
+      if (channel.mimeHeaders) {
+        HandleMDNResponse(channel.mimeHeaders);
+      }
     }
 
     this.onEndMsgDownload(channel.URI);
@@ -1047,9 +1049,17 @@ var messageProgressListener = {
     // the find command. This means the new message will get highlighted and
     // we'll scroll to the first word in the message that matches the find text.
     const findBar = document.getElementById("findToolbar");
-    if (!findBar.hidden) {
-      findBar.onFindAgainCommand(false);
+    if (findBar && !findBar.hidden) {
+      // Yield to the event loop to allow the async Finder teardown from the
+      // previous message to complete before starting a new search.
+      setTimeout(() => {
+        // Double check the user didn't close it during the yield
+        if (!findBar.hidden) {
+          findBar.onFindAgainCommand(false);
+        }
+      });
     }
+
     // Run the phishing detector on the message if it hasn't been marked as not
     // a scam already.
     if (
@@ -2073,6 +2083,13 @@ function updateSaveAllAttachmentsButton() {
  * Update the attachments display info after a particular attachment's
  * existence has been verified.
  *
+ * Note: this function must not modify `currentAttachments[index]`. The `index`
+ * returned by `attachmentList.getIndexOfItem()` is an index into the DOM
+ * attachment list, not into the `currentAttachments` array. The two are rebuilt
+ * asynchronously and may transiently be out of sync, so indexing
+ * `currentAttachments` by it is unsafe (it can point past the end and throw).
+ * Instead, operate on `attachmentInfo` only.
+ *
  * @param {AttachmentInfo} attachmentInfo
  * @param {boolean} isFetching
  */
@@ -2109,7 +2126,6 @@ function updateAttachmentsDisplay(attachmentInfo, isFetching) {
       return;
     }
 
-    currentAttachments[index].size = attachmentInfo.size;
     const tooltiptextExternalNotFound = attachmentName.getAttribute(
       "tooltiptextexternalnotfound"
     );
@@ -2499,19 +2515,36 @@ const attachmentNameDNDObserver = {
 };
 
 function onShowOtherActionsPopup() {
-  // Enable/disable the Open Conversation button.
-  const glodaEnabled = Services.prefs.getBoolPref(
-    "mailnews.database.global.indexer.enabled"
+  const hasTabmail = !!top.document.getElementById("tabmail");
+  const redirectSeparator = document.getElementById(
+    "otherActionsRedirectSeparator"
   );
-
   const openConversation = document.getElementById(
     "otherActionsOpenConversation"
   );
-  // Check because this menuitem element is not present in messageWindow.xhtml.
-  if (openConversation) {
-    openConversation.disabled = !(
-      glodaEnabled && Gloda.isMessageIndexed(gMessage)
+  const openInNewWindow = document.getElementById(
+    "otherActionsOpenInNewWindow"
+  );
+  const openInNewTab = document.getElementById("otherActionsOpenInNewTab");
+
+  if (hasTabmail) {
+    // This action is only available if the conversation is indexed.
+    const glodaEnabled = Services.prefs.getBoolPref(
+      "mailnews.database.global.indexer.enabled"
     );
+    openConversation.hidden =
+      !glodaEnabled || !Gloda.isMessageIndexed(gMessage);
+
+    // These actions are only available in the about:3pane preview pane.
+    const inAbout3Pane = parent.location.href == "about:3pane";
+    openInNewTab.hidden = !inAbout3Pane;
+    openInNewWindow.hidden = !inAbout3Pane;
+  } else {
+    // These actions are not available in the standalone window.
+    redirectSeparator.hidden = true;
+    openConversation.hidden = true;
+    openInNewWindow.hidden = true;
+    openInNewTab.hidden = true;
   }
 
   const isDummyMessage = !gViewWrapper.isSynthetic && !gMessage.folder;
@@ -3127,7 +3160,7 @@ const gMessageHeader = {
     const messageId = element.id;
     const subject = {
       menu: popup,
-      tab: popup.ownerGlobal,
+      tab: popup.documentGlobal,
       onHeaderPaneLink: true,
       linkText: messageId,
       linkUrl: `mid:${messageId.substring(1, messageId.length - 1)}`,
@@ -3394,9 +3427,6 @@ function MarkSelectedMessagesRead(markRead) {
       ? Ci.nsMsgViewCommandType.markMessagesRead
       : Ci.nsMsgViewCommandType.markMessagesUnread
   );
-  if (markRead) {
-    reportMsgRead({ isNewRead: true });
-  }
 }
 
 function MarkSelectedMessagesFlagged(markFlagged) {
@@ -3659,7 +3689,7 @@ function updateHeaderToolbarButtons() {
   archiveButton.disabled = !MessageArchiver.canArchive([gMessage]);
   const junkScore = gMessage.getStringProperty("junkscore");
   let hideJunk = junkScore == Ci.nsIJunkMailPlugin.IS_SPAM_SCORE;
-  if (!commandController._getViewCommandStatus(Ci.nsMsgViewCommandType.junk)) {
+  if (!gDBView.getCommandStatus(Ci.nsMsgViewCommandType.junk)) {
     hideJunk = true;
   }
   junkButton.disabled = hideJunk;
@@ -4017,6 +4047,16 @@ var gMessageNotificationBar = {
         aMsgHeader.mime2DecodedAuthor
       ) || aMsgHeader.author;
 
+    const parentActiveElement = parent.document.activeElement;
+    let lastActiveElement;
+    document.addEventListener("focusin", event => {
+      lastActiveElement = event.relatedTarget;
+    });
+    const focusLastActive = () => {
+      const lastActive = lastActiveElement || parentActiveElement;
+      lastActive.focus();
+    };
+
     // If the return receipt doesn't go to the sender address, note that in the
     // notification.
     const mdnBarMsg =
@@ -4036,6 +4076,7 @@ var gMessageNotificationBar = {
         popup: null,
         callback() {
           SendMDNResponse();
+          focusLastActive();
           return false; // close notification
         },
       },
@@ -4045,12 +4086,13 @@ var gMessageNotificationBar = {
         popup: null,
         callback() {
           IgnoreMDNResponse();
+          focusLastActive();
           return false; // close notification
         },
       },
     ];
 
-    await this.msgNotificationBar.appendNotification(
+    const notification = await this.msgNotificationBar.appendNotification(
       "mdnRequested",
       {
         label: mdnBarMsg,
@@ -4058,6 +4100,9 @@ var gMessageNotificationBar = {
       },
       buttons
     );
+    notification.shadowRoot
+      .querySelector(".close")
+      .addEventListener("click", focusLastActive);
   },
 
   async setDraftEditMessage() {
@@ -4206,7 +4251,7 @@ function allowRemoteContentForAll(aListNode) {
  * Displays fine-grained, per-site preferences for remote content.
  */
 function editRemoteContentSettings() {
-  top.openOptionsDialog("panePrivacy", "privacyCategory");
+  top.openPreferencesTab("panePrivacy", "privacyCategory");
 }
 
 /**
@@ -4223,7 +4268,7 @@ function IgnorePhishingWarning() {
  * Open the preferences dialog to allow disabling the scam feature.
  */
 function OpenPhishingSettings() {
-  top.openOptionsDialog("panePrivacy", "privacySecurityCategory");
+  top.openPreferencesTab("panePrivacy", "privacySecurityCategory");
 }
 
 function setMsgHdrPropertyAndReload(aProperty, aValue) {
@@ -4243,7 +4288,6 @@ function setMsgHdrPropertyAndReload(aProperty, aValue) {
 function MarkMessageAsRead(msgHdr) {
   ClearPendingReadTimer();
   msgHdr.folder.markMessagesRead([msgHdr], true);
-  reportMsgRead({ isNewRead: true });
 }
 
 function ClearPendingReadTimer() {
@@ -4380,93 +4424,48 @@ function IgnoreMDNResponse() {
   gMessageNotificationBar.mdnGenerator.userDeclined();
 }
 
-// A Map() to help collecting statistics of emails.
-var gMsgProbe = new Map();
+let gLastSmimeTelemetryUri = null;
+window.addEventListener("MsgLoading", () => {
+  gLastSmimeTelemetryUri = null;
+});
 
-/**
- * Process and clear the collected telemetry data.
- */
-function flushPendingTelemetryData() {
-  // Clear any pending action.
-  window.clearTimeout(gMsgProbe.get("timeoutId"));
-
-  const security = gMsgProbe.get("security");
-
-  // Only process telemetry for encrypted and/or signed messages.
-  if (security) {
-    let skipped = true;
-
-    // Skip telemetry data for messages which are not new.
-    if (gMsgProbe.has("isNewRead")) {
-      const is_signed = gMsgProbe.has("is_signed");
-      const is_encrypted = gMsgProbe.has("is_encrypted");
-      Glean.mail.mailsReadSecure.record({ security, is_signed, is_encrypted });
-      skipped = false;
-    }
-
-    // Let tests and other consumers know when the data has been processed or
-    // skipped.
-    window.dispatchEvent(
-      new CustomEvent("MsgSecurityTelemetryProcessed", {
-        bubbles: true,
-        detail: {
-          skipped,
-        },
-      })
-    );
+// Collect S/MIME telemetry when S/MIME processing completes.
+// smimeprocessed can be dispatched more than once per message.
+// See scheduleSmimeProcessed() in msgHdrViewSMIMEOverlay.js.
+window.addEventListener("smimeprocessed", () => {
+  const isSigned = !!gSignatureStatusForURI;
+  const isEncrypted = !!gEncryptionStatusForURI;
+  if (!isSigned && !isEncrypted) {
+    return;
   }
-
-  // Reset collected data.
-  gMsgProbe.clear();
-}
-
-/**
- * Update gMsgProbe and schedule submission of collected telemetry if necessary.
- */
-function reportMsgRead({ isNewRead = false, key = null }) {
-  // Usually telemetry data is processed after a short delay to ensure all data
-  // has been captured and the full telemetry information is available (security,
-  // is_signed and is_encrypted). Forcfully process any pending telemetry data,
-  // if a different message is loaded.
-  let pendingMsgURI = gMsgProbe.get("messageURI");
-  if (pendingMsgURI && pendingMsgURI != gMessageURI) {
-    flushPendingTelemetryData();
-    pendingMsgURI = undefined;
+  const uri = gSignatureStatusForURI ?? gEncryptionStatusForURI;
+  // Only the first smimeprocessed event for a URL will be reported.
+  if (gLastSmimeTelemetryUri === uri) {
+    return;
   }
+  gLastSmimeTelemetryUri = uri;
+  Glean.mail.secureMailLoaded.record({
+    security: "S/MIME",
+    is_signed: isSigned,
+    is_encrypted: isEncrypted,
+  });
+  window.dispatchEvent(new CustomEvent("SecureMailLoaded", { bubbles: true }));
+});
 
-  // Update probe data.
-  if (!pendingMsgURI) {
-    gMsgProbe.set("messageURI", gMessageURI);
+// Collect OpenPGP telemetry after the message is fully processed.
+// openpgpprocessed fires after MsgLoaded, once all decrypt/verify is done.
+document.addEventListener("openpgpprocessed", () => {
+  const isSigned = !!Enigmail.hdrView.msgSignedStateString;
+  const isEncrypted = !!Enigmail.hdrView.msgEncryptedStateString;
+  if (!isSigned && !isEncrypted) {
+    return;
   }
-  if (isNewRead) {
-    gMsgProbe.set("isNewRead", true);
-  }
-  if (key) {
-    // The key is one of:
-    // - 'signed-smime'
-    // - 'signed-openpgp'
-    // - 'encrypted-smime'
-    // - 'encrypted-openpgp'
-    if (key.startsWith("signed-")) {
-      gMsgProbe.set("is_signed", true);
-    }
-    if (key.startsWith("encrypted-")) {
-      gMsgProbe.set("is_encrypted", true);
-    }
-    gMsgProbe.set("security", key.endsWith("-openpgp") ? "OpenPGP" : "S/MIME");
-
-    // This seems to be an encrypted and/or signed message. Schedule to process
-    // the collected telemetry data.
-    window.clearTimeout(gMsgProbe.get("timeoutId"));
-    gMsgProbe.set(
-      "timeoutId",
-      window.setTimeout(flushPendingTelemetryData, 500)
-    );
-  }
-}
-
-window.addEventListener("secureMsgLoaded", event => {
-  reportMsgRead({ key: event.detail.key });
+  Glean.mail.secureMailLoaded.record({
+    security: "OpenPGP",
+    is_signed: isSigned,
+    is_encrypted: isEncrypted,
+  });
+  window.dispatchEvent(new CustomEvent("SecureMailLoaded", { bubbles: true }));
 });
 
 /**

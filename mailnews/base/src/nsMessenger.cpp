@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -58,6 +57,7 @@
 // undo
 #include "nsITransaction.h"
 #include "nsMsgTxn.h"
+#include "nsIMsgTransactionService.h"
 
 // Save As
 #include "nsIStringBundle.h"
@@ -148,7 +148,10 @@ NS_IMPL_ISUPPORTS(nsMessenger, nsIMessenger, nsISupportsWeakReference)
 NS_IMETHODIMP nsMessenger::SetWindow(mozIDOMWindowProxy* aWin,
                                      nsIMsgWindow* aMsgWindow) {
   if (aWin) {
-    aMsgWindow->GetTransactionManager(getter_AddRefs(mTxnMgr));
+    nsCOMPtr<nsIMsgTransactionService> txns =
+        mozilla::components::Txns::Service();
+    NS_ENSURE_STATE(txns);
+    txns->GetTransactionManager(getter_AddRefs(mTxnMgr));
     mMsgWindow = aMsgWindow;
     mWindow = aWin;
 
@@ -248,7 +251,7 @@ nsresult nsMessenger::PromptIfFileExists(nsIFile* file) {
 
   nsCOMPtr<nsPIDOMWindowOuter> win = nsPIDOMWindowOuter::From(mWindow);
   filePicker->Init(win->GetBrowsingContext(), saveAttachmentStr,
-                   nsIFilePicker::modeSave);
+                   nsIFilePicker::modeSave, nullptr);
   filePicker->SetDefaultString(path);
   filePicker->AppendFilters(nsIFilePicker::filterAll);
 
@@ -497,7 +500,7 @@ nsresult nsMessenger::GetSaveAsFile(const nsAString& aMsgFilename,
   GetString(u"SaveMailAs"_ns, saveMailAsStr);
   nsCOMPtr<nsPIDOMWindowOuter> win = nsPIDOMWindowOuter::From(mWindow);
   filePicker->Init(win->GetBrowsingContext(), saveMailAsStr,
-                   nsIFilePicker::modeSave);
+                   nsIFilePicker::modeSave, nullptr);
 
   // if we have a non-null filename use it, otherwise use default save message
   // one
@@ -612,7 +615,7 @@ nsresult nsMessenger::GetSaveToDir(nsIFile** aSaveDir) {
   GetString(u"ChooseFolder"_ns, chooseFolderStr);
   nsCOMPtr<nsPIDOMWindowOuter> win = nsPIDOMWindowOuter::From(mWindow);
   filePicker->Init(win->GetBrowsingContext(), chooseFolderStr,
-                   nsIFilePicker::modeGetFolder);
+                   nsIFilePicker::modeGetFolder, nullptr);
 
   nsCOMPtr<nsIFile> lastSaveDir;
   rv = GetLastSaveDirectory(getter_AddRefs(lastSaveDir));

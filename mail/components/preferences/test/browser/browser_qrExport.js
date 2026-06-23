@@ -70,10 +70,9 @@ add_setup(async function () {
   ({ prefsWindow, prefsDocument } = await openNewPrefsTab("paneQrExport"));
   tabmail = document.getElementById("tabmail");
 
-  const tokendb = Cc["@mozilla.org/security/pk11tokendb;1"].getService(
-    Ci.nsIPK11TokenDB
+  token = Cc["@mozilla.org/security/internalkeytoken;1"].createInstance(
+    Ci.nsIPKCS11Token
   );
-  token = tokendb.getInternalKeyToken();
 
   registerCleanupFunction(() => {
     for (const imapAccount of imapAccounts) {
@@ -774,27 +773,11 @@ async function setPrimaryPassword(oldPassword = "", newPassword = "") {
     token.hasPassword,
     "Should provide old password if there is already a password"
   );
-  if (oldPassword) {
-    Assert.ok(
-      token.checkPassword(oldPassword),
-      "Old password should be correct"
-    );
-  }
-  if (!oldPassword) {
-    token.initPassword(newPassword);
-  } else {
-    token.changePassword(oldPassword, newPassword);
-  }
+  token.changePassword(oldPassword, newPassword);
 
   Assert.equal(
     token.hasPassword,
     Boolean(newPassword),
     "Should set password if one was provided"
   );
-  if (newPassword) {
-    Assert.ok(
-      token.checkPassword(newPassword),
-      "Password should be set to new password"
-    );
-  }
 }

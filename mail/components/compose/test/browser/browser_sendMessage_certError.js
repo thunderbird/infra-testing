@@ -56,6 +56,11 @@ add_setup(async function () {
   registerCleanupFunction(async function () {
     MailServices.accounts.removeAccount(smtpAccount, false);
     MailServices.accounts.removeAccount(ewsAccount, false);
+
+    await removeLoginInfo("ews://mitm.test.test", "user", "password");
+    await removeLoginInfo("ews://expired.test.test", "user", "password");
+    await removeLoginInfo("ews://notyetvalid.test.test", "user", "password");
+    await removeLoginInfo("ews://selfsigned.test.test", "user", "password");
   });
 });
 
@@ -144,8 +149,7 @@ add_task(async function testSelfSignedEWS() {
  * @param {string} hostname - The hostname to attempt connection to.
  * @param {string} expectedDialogText - This text should appear in the dialog.
  * @param {string} expectedErrorCategory - See nsITransportSecurityInfo.errorCodeString.
- * @param {nsIX509Cert} [expectedCert] - If given, a certificate exception
- *   should be added for this certificate.
+ * @param {"selfsigned"|"expired"|"notyetvalid"|"selfsigned"|"valid"} expectedCert - Expected type of cerficate.
  */
 async function subtest(
   serverDef,
@@ -154,6 +158,7 @@ async function subtest(
   expectedErrorCategory,
   expectedCert
 ) {
+  info(`Performing subtest for type=${serverDef.type}`);
   Services.fog.testResetFOG();
   const smtpServer = await ServerTestUtils.createServer(serverDef);
 
@@ -169,7 +174,7 @@ async function subtest(
     identity = smtpIdentity;
     port = 465;
   } else if (serverDef.type == "ews") {
-    outgoingServer.QueryInterface(Ci.nsIEwsServer);
+    outgoingServer.QueryInterface(Ci.IExchangeOutgoingServer);
     outgoingServer.initialize(`https://${hostname}/EWS/Exchange.asmx`);
     identity = ewsIdentity;
     port = 443;
@@ -181,60 +186,69 @@ async function subtest(
 
   const { composeWindow, subject } = await newComposeWindow(identity);
 
-  const dialogPromise = BrowserTestUtils.promiseAlertDialogOpen("accept").then(
-    () =>
-      BrowserTestUtils.promiseAlertDialogOpen(
-        undefined,
-        "chrome://pippki/content/exceptionDialog.xhtml",
-        {
-          async callback(win) {
-            const location =
-              win.document.getElementById("locationTextBox").value;
-            if (port == 443) {
-              Assert.equal(
-                location,
-                hostname,
-                "the exception dialog should show the hostname of the server"
-              );
-            } else {
-              Assert.equal(
-                location,
-                `${hostname}:465`,
-                "the exception dialog should show the hostname and port of the server"
-              );
-            }
-            const text = win.document.getElementById(
-              "statusLongDescription"
-            ).textContent;
-            Assert.stringContains(
-              text,
-              expectedDialogText,
-              "the exception dialog should state the problem"
-            );
-
-            const viewButton = win.document.getElementById("viewCertButton");
-            const tabmail = document.getElementById("tabmail");
-            const tabPromise = BrowserTestUtils.waitForEvent(
-              tabmail.tabContainer,
-              "TabOpen"
-            );
-            viewButton.click();
-            const {
-              detail: { tabInfo },
-            } = await tabPromise;
-            await BrowserTestUtils.browserLoaded(tabInfo.browser, false, url =>
-              url.startsWith("about:certificate?cert=")
-            );
-            tabmail.closeTab(tabInfo);
-
-            EventUtils.synthesizeMouseAtCenter(
-              win.document.querySelector("dialog").getButton("extra1"),
-              {},
-              win
-            );
-          },
+  const commonDialogPromise = BrowserTestUtils.promiseAlertDialog(
+    undefined,
+    "chrome://global/content/commonDialog.xhtml",
+    {
+      async callback(win) {
+        info(`${win.location} now open`);
+        await new Promise(resolve => win.requestAnimationFrame(resolve));
+        await new Promise(win.requestIdleCallback);
+        win.document.querySelector("dialog").acceptDialog();
+      },
+    }
+  );
+  const exceptionDialogPromise = BrowserTestUtils.promiseAlertDialog(
+    undefined,
+    "chrome://pippki/content/exceptionDialog.xhtml",
+    {
+      async callback(win) {
+        info(`${win.location} now open`);
+        const location = win.document.getElementById("locationTextBox").value;
+        if (port == 443) {
+          Assert.equal(
+            location,
+            hostname,
+            "the exception dialog should show the hostname of the server"
+          );
+        } else {
+          Assert.equal(
+            location,
+            `${hostname}:465`,
+            "the exception dialog should show the hostname and port of the server"
+          );
         }
-      )
+        const text = win.document.getElementById(
+          "statusLongDescription"
+        ).textContent;
+        Assert.stringContains(
+          text,
+          expectedDialogText,
+          "the exception dialog should state the problem"
+        );
+
+        const viewButton = win.document.getElementById("viewCertButton");
+        const tabmail = document.getElementById("tabmail");
+        const tabPromise = BrowserTestUtils.waitForEvent(
+          tabmail.tabContainer,
+          "TabOpen"
+        );
+        viewButton.click();
+        const {
+          detail: { tabInfo },
+        } = await tabPromise;
+        await BrowserTestUtils.browserLoaded(tabInfo.browser, false, url =>
+          url.startsWith("about:certificate?cert=")
+        );
+        tabmail.closeTab(tabInfo);
+
+        EventUtils.synthesizeMouseAtCenter(
+          win.document.querySelector("dialog").getButton("extra1"),
+          {},
+          win
+        );
+      },
+    }
   );
 
   composeWindow.document.getElementById("toAddrInput").focus();
@@ -244,39 +258,40 @@ async function subtest(
     composeWindow
   );
 
-  await dialogPromise;
+  await Promise.allSettled([commonDialogPromise, exceptionDialogPromise]);
+  info("The dialogs were shown.");
+
   // Try to solve strange focus issues.
   // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
   await new Promise(resolve => setTimeout(resolve, 500));
   EventUtils.synthesizeKey("KEY_Tab", {}, composeWindow);
   await SimpleTest.promiseFocus(composeWindow);
 
-  if (expectedCert) {
-    // Check the certificate exception was created.
-    const isTemporary = {};
-    Assert.ok(
-      certOverrideService.hasMatchingOverride(
-        hostname,
-        port,
-        {},
-        await getCertificate(expectedCert),
-        isTemporary
-      ),
-      `certificate exception should exist for ${hostname}:${port}`
-    );
-    // The checkbox in the dialog was checked, so this exception is permanent.
-    Assert.ok(!isTemporary.value, "certificate exception should be permanent");
-
-    const telemetryEvents = Glean.mail.certificateExceptionAdded.testGetValue();
-    Assert.equal(telemetryEvents.length, 1);
-    Assert.deepEqual(telemetryEvents[0].extra, {
-      error_category: expectedErrorCategory,
-      protocol: serverDef.type,
+  info("Checking certificate exception gets created");
+  const isTemporary = {};
+  Assert.ok(
+    certOverrideService.hasMatchingOverride(
+      hostname,
       port,
-      ui: "compose-send-listener",
-    });
-  }
+      {},
+      await getCertificate(expectedCert),
+      isTemporary
+    ),
+    `certificate exception should exist for ${hostname}:${port}`
+  );
+  // The checkbox in the dialog was checked, so this exception is permanent.
+  Assert.ok(!isTemporary.value, "certificate exception should be permanent");
 
+  const telemetryEvents = Glean.mail.certificateExceptionAdded.testGetValue();
+  Assert.equal(telemetryEvents.length, 1);
+  Assert.deepEqual(telemetryEvents[0].extra, {
+    error_category: expectedErrorCategory,
+    protocol: serverDef.type,
+    port,
+    ui: "compose-send-listener",
+  });
+
+  info("Will try to send again, now that a certificate exception was added");
   EventUtils.synthesizeMouseAtCenter(
     composeWindow.document.getElementById("button-send"),
     {},

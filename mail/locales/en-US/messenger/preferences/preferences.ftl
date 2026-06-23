@@ -571,6 +571,23 @@ dark-message-mode-toggle-label =
     .accesskey = t
 dark-message-mode-toggle-description = Show a toggle in the message header to quickly disable the dark message mode
 
+general-folder-options-header = Folder Management Options
+
+recent-destinations-legend = Recent Destinations
+recent-destinations-description = Options for listing and sorting folders where messages were recently moved to.
+
+recent-sort-order-label = Sort order:
+    .accesskey = S
+
+recent-sort-order-mru =
+    .label = Most recent
+
+recent-sort-order-alphabetic =
+    .label = Alphabetical
+
+max-recent-label = Maximum number of recent folders:
+    .accesskey = M
+
 account-hub-legend = Account hub
 
 account-hub-checkbox-label =
@@ -578,6 +595,12 @@ account-hub-checkbox-label =
     .accesskey = C
 
 account-hub-checkbox-description = Experimental new mail account creation flow
+
+account-hub-manual-config-checkbox-label =
+    .label = Use the new manual configuration flow in Account Hub
+    .accesskey = c
+
+account-hub-manual-config-checkbox-description = New account hub manual configuration flow
 
 new-calendar-legend = New Calendar Event Dialog
 
@@ -1284,6 +1307,34 @@ qr-export-more-accounts = Export more accounts
 ## Appearance Tab
 
 appearance-category-header = Appearance
+
+accent-color-legend = Accent Color
+
+accent-color-label =
+    .value = Define the color used for primary buttons and highlighted elements:
+
+accent-color-os =
+    .label = Follow operating system
+
+accent-color-thunderbird =
+    .label = Thunderbird blue
+
+accent-color-purple =
+    .label = Purple
+
+accent-color-orange =
+    .label = Orange
+
+accent-color-pink =
+    .label = Pink
+
+accent-color-ink =
+    .label = Ink
+
+accent-color-teal =
+    .label = Teal
+
+accent-color-disabled-description = Accent colors are not supported in High Contrast mode.
 
 default-message-list-legend = Message List
 

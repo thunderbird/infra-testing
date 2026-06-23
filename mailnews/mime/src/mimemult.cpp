@@ -1,26 +1,27 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mimehdrs.h"
-#include "msgCore.h"
 #include "mimemult.h"
-#include "mimemoz2.h"
-#include "mimeeobj.h"
-#include "mimemsig.h"
 
-#include "nsMailHeaders.h"
-#include "prlog.h"
-#include "prmem.h"
-#include "plstr.h"
-#include "prio.h"
-#include "nsMimeStringResources.h"
-#include "nsMimeTypes.h"
 #include <ctype.h>
 
+#include "mimeeobj.h"
+#include "mimehdrs.h"
+#include "mimemoz2.h"
+#include "mimemrel.h"
+#include "mimemsig.h"
+#include "msgCore.h"
+#include "nsMailHeaders.h"
+#include "nsMimeStringResources.h"
+#include "nsMimeTypes.h"
+#include "plstr.h"
+#include "prio.h"
+#include "prlog.h"
+#include "prmem.h"
+
 #ifdef XP_MACOSX
-extern MimeObjectClass mimeMultipartAppleDoubleClass;
+#  include "mimemapl.h"
 #endif
 
 #define MIME_SUPERCLASS mimeContainerClass
@@ -42,8 +43,39 @@ static int MimeMultipart_parse_child_line(MimeObject*, const char*, int32_t,
                                           bool);
 static int MimeMultipart_close_child(MimeObject*);
 
-extern "C" MimeObjectClass mimeMultipartAlternativeClass;
-extern "C" MimeObjectClass mimeMultipartRelatedClass;
+/**
+ * Decomposing true attachments from the MIME stream into a standalone file.
+ *
+ * We avoid it for:
+ * 1. Display containers (Alternative/Related/Signed) where parts are
+ *    components of the message body rather than distinct attachments.
+ * 2. Nested multiparts, which handle their own recursive decomposition.
+ * 3. vCards, which are historically processed as metadata.
+ */
+static bool MimeMultipart_should_decompose_child(MimeObject* obj,
+                                                 MimeObject* child) {
+  // clang-format off
+  if (mime_typep(obj, (MimeObjectClass*)&mimeMultipartAlternativeClass) ||
+      mime_typep(obj, (MimeObjectClass*)&mimeMultipartRelatedClass) ||
+      mime_typep(obj, (MimeObjectClass*)&mimeMultipartSignedClass)) {
+    return false;
+  }
+
+  if (mime_typep(child, (MimeObjectClass*)&mimeMultipartClass)) {
+    return false;
+  }
+
+  if ((mime_typep(child, (MimeObjectClass*)&mimeExternalObjectClass) ||
+       mime_typep(child, (MimeObjectClass*)&mimeSuppressedCryptoClass)) &&
+      (!strcmp(child->content_type, "text/vcard") ||
+       !strcmp(child->content_type, "text/x-vcard"))) {
+    return false;
+  }
+  // clang-format on
+
+  return true;
+}
+
 extern "C" MimeMultipartSignedClass mimeMultipartSignedClass;
 extern "C" MimeObjectClass mimeInlineTextVCardClass;
 extern "C" MimeExternalObjectClass mimeExternalObjectClass;
@@ -415,7 +447,7 @@ static int MimeMultipart_create_child(MimeObject* obj) {
    */
 
   body = mime_create(((ct && *ct) ? ct : (dct ? dct : TEXT_PLAIN)), mult->hdrs,
-                     obj->options, false, obj);
+                     obj->options, false, mime_child_part_depth(obj), obj);
   PR_FREEIF(ct);
   if (!body) return MIME_OUT_OF_MEMORY;
   status = ((MimeContainerClass*)obj->clazz)->add_child(obj, body);
@@ -426,21 +458,7 @@ static int MimeMultipart_create_child(MimeObject* obj) {
 
   if (obj->options && obj->options->decompose_file_p &&
       obj->options->is_multipart_msg && obj->options->decompose_file_init_fn) {
-    if (!mime_typep(obj, (MimeObjectClass*)&mimeMultipartRelatedClass) &&
-        !mime_typep(obj, (MimeObjectClass*)&mimeMultipartAlternativeClass) &&
-        !mime_typep(obj, (MimeObjectClass*)&mimeMultipartSignedClass) &&
-        /* bug 21869 -- due to the fact that we are not generating the
-           correct mime class object for content-typ multipart/signed part
-           the above check failed. to solve the problem in general and not
-           to cause early termination when parsing message for opening as
-           draft we can simply make sure that the child is not a multipart
-           mime object. this way we could have a proper decomposing message
-           part functions set correctly */
-        !mime_typep(body, (MimeObjectClass*)&mimeMultipartClass) &&
-        !((mime_typep(body, (MimeObjectClass*)&mimeExternalObjectClass) ||
-           mime_typep(body, (MimeObjectClass*)&mimeSuppressedCryptoClass)) &&
-          (!strcmp(body->content_type, "text/vcard") ||
-           !strcmp(body->content_type, "text/x-vcard")))) {
+    if (MimeMultipart_should_decompose_child(obj, body)) {
       status = obj->options->decompose_file_init_fn(
           obj->options->stream_closure, mult->hdrs);
       if (status < 0) return status;
@@ -515,27 +533,11 @@ static int MimeMultipart_close_child(MimeObject* object) {
       if (object->options && object->options->decompose_file_p &&
           object->options->is_multipart_msg &&
           object->options->decompose_file_close_fn) {
-        // clang-format off
-        if (!mime_typep(object, (MimeObjectClass *)&mimeMultipartRelatedClass) &&
-            !mime_typep(object, (MimeObjectClass *)&mimeMultipartAlternativeClass) &&
-            !mime_typep(object, (MimeObjectClass *)&mimeMultipartSignedClass) &&
-            /* bug 21869 -- due to the fact that we are not generating the
-               correct mime class object for content-typ multipart/signed part
-               the above check failed. to solve the problem in general and not
-               to cause early termination when parsing message for opening as
-               draft we can simply make sure that the child is not a multipart
-               mime object. this way we could have a proper decomposing message
-               part functions set correctly */
-            !mime_typep(kid, (MimeObjectClass *)&mimeMultipartClass) &&
-            !((mime_typep(kid, (MimeObjectClass *)&mimeExternalObjectClass) ||
-               mime_typep(kid, (MimeObjectClass *)&mimeSuppressedCryptoClass)) &&
-              (!strcmp(kid->content_type, "text/vcard") ||
-               !strcmp(kid->content_type, "text/x-vcard")))) {
+        if (MimeMultipart_should_decompose_child(object, kid)) {
           status = object->options->decompose_file_close_fn(
               object->options->stream_closure);
           if (status < 0) return status;
         }
-        // clang-format on
       }
     }
   }
@@ -558,23 +560,10 @@ static int MimeMultipart_parse_child_line(MimeObject* obj, const char* line,
   if (obj->options && obj->options->decompose_file_p &&
       obj->options->is_multipart_msg &&
       obj->options->decompose_file_output_fn) {
-    if (!mime_typep(obj, (MimeObjectClass*)&mimeMultipartAlternativeClass) &&
-        !mime_typep(obj, (MimeObjectClass*)&mimeMultipartRelatedClass) &&
-        !mime_typep(obj, (MimeObjectClass*)&mimeMultipartSignedClass) &&
-        /* bug 21869 -- due to the fact that we are not generating the
-           correct mime class object for content-typ multipart/signed part
-           the above check failed. to solve the problem in general and not
-           to cause early termination when parsing message for opening as
-           draft we can simply make sure that the child is not a multipart
-           mime object. this way we could have a proper decomposing message
-           part functions set correctly */
-        !mime_typep(kid, (MimeObjectClass*)&mimeMultipartClass) &&
-        !((mime_typep(kid, (MimeObjectClass*)&mimeExternalObjectClass) ||
-           mime_typep(kid, (MimeObjectClass*)&mimeSuppressedCryptoClass)) &&
-          (!strcmp(kid->content_type, "text/vcard") ||
-           !strcmp(kid->content_type, "text/x-vcard"))))
+    if (MimeMultipart_should_decompose_child(obj, kid)) {
       return obj->options->decompose_file_output_fn(
           line, length, obj->options->stream_closure);
+    }
   }
 
   /* The newline issues here are tricky, since both the newlines before
@@ -634,6 +623,21 @@ static int MimeMultipart_parse_eof(MimeObject* obj, bool abort_p) {
     if (kid) {
       int status = kid->clazz->parse_eof(kid, abort_p);
       if (status < 0) return status;
+      status = kid->clazz->parse_end(kid, abort_p);
+      if (status < 0) return status;
+
+      if (obj->options && obj->options->decompose_file_p &&
+          obj->options->is_multipart_msg &&
+          obj->options->decompose_file_close_fn) {
+        // For malformed messages missing a closing boundary, we must explicitly
+        // flush the last child's decomposition stream at EOF to ensure
+        // attachment integrity.
+        if (MimeMultipart_should_decompose_child(obj, kid)) {
+          status = obj->options->decompose_file_close_fn(
+              obj->options->stream_closure);
+          if (status < 0) return status;
+        }
+      }
     }
   }
 
@@ -677,3 +681,5 @@ static int MimeMultipart_debug_print(MimeObject* obj, PRFileDesc* stream,
   return 0;
 }
 #endif
+
+#undef MIME_SUPERCLASS

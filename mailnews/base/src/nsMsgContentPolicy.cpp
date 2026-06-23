@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,7 +6,6 @@
 
 #include "nsIPermissionManager.h"
 #include "nsIPrefBranch.h"
-#include "nsIMsgWindow.h"
 #include "nsIMsgHdr.h"
 #include "nsIEncryptedSMIMEURIsSrvc.h"
 #include "nsNetUtil.h"
@@ -21,7 +19,6 @@
 #include "nsThreadUtils.h"
 #include "mozilla/mailnews/MimeHeaderParser.h"
 #include "mozilla/dom/HTMLImageElement.h"
-#include "nsINntpUrl.h"
 #include "nsILoadInfo.h"
 #include "nsSandboxFlags.h"
 #include "mozilla/Components.h"
@@ -152,19 +149,6 @@ nsMsgContentPolicy::ShouldLoad(nsIURI* aContentLocation, nsILoadInfo* aLoadInfo,
   *aDecision = nsIContentPolicy::ACCEPT;
 
   NS_ENSURE_ARG_POINTER(aContentLocation);
-
-#ifndef MOZ_THUNDERBIRD
-  // Go find out if we are dealing with mailnews. Anything else
-  // isn't our concern and we accept content.
-  nsCOMPtr<nsIDocShell> rootDocShell;
-  rv = GetRootDocShellForContext(aRequestingContext,
-                                 getter_AddRefs(rootDocShell));
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  // We only want to deal with mailnews
-  if (rootDocShell->GetAppType() != nsIDocShell::APP_TYPE_MAIL) return NS_OK;
-#endif
-
   switch (aContentType) {
       // Plugins (nsIContentPolicy::TYPE_OBJECT) are blocked on document load.
     case ExtContentPolicy::TYPE_DOCUMENT: {
@@ -244,40 +228,47 @@ nsMsgContentPolicy::ShouldLoad(nsIURI* aContentLocation, nsILoadInfo* aLoadInfo,
   // -------------------------+---------------+--------------+------------------
   // http(s)/data, etc.       | (default)     | (default)    | (default)
   // -------------------------+---------------+--------------+------------------
-  nsCOMPtr<nsIMsgMessageUrl> contentURL(do_QueryInterface(aContentLocation));
-  if (contentURL) {
-    nsCOMPtr<nsINntpUrl> contentNntpURL(do_QueryInterface(aContentLocation));
-    if (!contentNntpURL) {
-      // Mail message (mailbox, imap or JsAccount) content requested, for
-      // example a message part, like an image: To load mail message content the
-      // requester must have the same "normalized" principal. This is basically
-      // a "same origin" test, it protects against cross-loading of mail message
-      // content from other mail or news messages.
-      nsCOMPtr<nsIMsgMessageUrl> requestURL(
-          do_QueryInterface(aRequestingLocation));
-      // If the request URL is not also a message URL, then we don't accept.
-      if (requestURL) {
-        nsCString contentPrincipalSpec, requestPrincipalSpec;
-        nsresult rv1 = contentURL->GetNormalizedSpec(contentPrincipalSpec);
-        nsresult rv2 = requestURL->GetNormalizedSpec(requestPrincipalSpec);
-        if (NS_SUCCEEDED(rv1) && NS_SUCCEEDED(rv2) &&
-            contentPrincipalSpec.Equals(requestPrincipalSpec))
-          *aDecision = nsIContentPolicy::ACCEPT;  // (1)
-      }
-      return NS_OK;  // (2) and (3)
-    }
 
-    // News message content requested. Don't accept request coming
-    // from a mail message since it would access the news server.
+  // Check news message content first — news URLs may not implement
+  // nsIMsgMessageUrl, but the scheme check works regardless.
+  nsAutoCString contentScheme;
+  if (NS_SUCCEEDED(aContentLocation->GetScheme(contentScheme)) &&
+      IsNewsScheme(contentScheme)) {
+    // News message content requested (4), (5), (6).
+    // Don't accept request coming from a mail message since it would
+    // access the news server (4).
     nsCOMPtr<nsIMsgMessageUrl> requestURL(
         do_QueryInterface(aRequestingLocation));
     if (requestURL) {
-      nsCOMPtr<nsINntpUrl> requestNntpURL(
-          do_QueryInterface(aRequestingLocation));
-      if (!requestNntpURL) return NS_OK;  // (4)
+      nsAutoCString requestScheme;
+      bool requestIsNews =
+          NS_SUCCEEDED(aRequestingLocation->GetScheme(requestScheme)) &&
+          IsNewsScheme(requestScheme);
+      if (!requestIsNews) return NS_OK;  // (4)
     }
     *aDecision = nsIContentPolicy::ACCEPT;  // (5) and (6)
     return NS_OK;
+  }
+
+  nsCOMPtr<nsIMsgMessageUrl> contentURL(do_QueryInterface(aContentLocation));
+  if (contentURL) {
+    // Mail message (mailbox, imap or JsAccount) content requested, for
+    // example a message part, like an image: To load mail message content the
+    // requester must have the same "normalized" principal. This is basically
+    // a "same origin" test, it protects against cross-loading of mail message
+    // content from other mail or news messages.
+    nsCOMPtr<nsIMsgMessageUrl> requestURL(
+        do_QueryInterface(aRequestingLocation));
+    // If the request URL is not also a message URL, then we don't accept.
+    if (requestURL) {
+      nsCString contentPrincipalSpec, requestPrincipalSpec;
+      nsresult rv1 = contentURL->GetNormalizedSpec(contentPrincipalSpec);
+      nsresult rv2 = requestURL->GetNormalizedSpec(requestPrincipalSpec);
+      if (NS_SUCCEEDED(rv1) && NS_SUCCEEDED(rv2) &&
+          contentPrincipalSpec.Equals(requestPrincipalSpec))
+        *aDecision = nsIContentPolicy::ACCEPT;  // (1)
+    }
+    return NS_OK;  // (2) and (3)
   }
 
   // If exposed protocol not covered by the test above or protocol that has been
@@ -822,25 +813,6 @@ nsresult nsMsgContentPolicy::SetDisableItemsOnMailNewsUrlDocshells(
   }
 
   return NS_OK;
-}
-
-/**
- * Gets the root docshell from a requesting context.
- */
-nsresult nsMsgContentPolicy::GetRootDocShellForContext(
-    nsISupports* aRequestingContext, nsIDocShell** aDocShell) {
-  NS_ENSURE_ARG_POINTER(aRequestingContext);
-  nsresult rv;
-
-  nsIDocShell* shell = NS_CP_GetDocShellFromContext(aRequestingContext);
-  NS_ENSURE_TRUE(shell, NS_ERROR_NULL_POINTER);
-  nsCOMPtr<nsIDocShellTreeItem> docshellTreeItem(shell);
-
-  nsCOMPtr<nsIDocShellTreeItem> rootItem;
-  rv = docshellTreeItem->GetInProcessRootTreeItem(getter_AddRefs(rootItem));
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  return CallQueryInterface(rootItem, aDocShell);
 }
 
 /**

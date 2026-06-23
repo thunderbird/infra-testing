@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -148,7 +147,7 @@ static bool IsArg(const char* arg, const char* s) {
   return false;
 }
 
-MOZ_RUNINIT Bootstrap::UniquePtr gBootstrap;
+constinit Bootstrap::UniquePtr gBootstrap;
 
 static int do_main(int argc, char* argv[], char* envp[]) {
   // Allow thunderbird.exe to launch XULRunner apps via -app <application.ini>

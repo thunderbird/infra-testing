@@ -38,6 +38,7 @@ let initialKeyIdPref = "";
 let gOutbox;
 
 const aboutMessage = get_about_message();
+const unobSigPrefName = "mail.openpgp.clear_signature_format";
 
 async function waitCheckEncryptionStateDone(win) {
   return BrowserTestUtils.waitForEvent(
@@ -51,6 +52,8 @@ async function waitCheckEncryptionStateDone(win) {
  * receiver.
  */
 add_setup(async function () {
+  Services.prefs.setStringPref(unobSigPrefName, "multipart");
+
   bobAcct = MailServices.accounts.createAccount();
   bobAcct.incomingServer = MailServices.accounts.createIncomingServer(
     "bob",
@@ -97,8 +100,8 @@ add_setup(async function () {
 });
 
 /**
- * Tests composition of a message that is signed only shows as signed in the
- * Outbox.
+ * Tests composition of a message that is signed-only shows as signed in the
+ * Outbox, and has header-protection header.
  */
 add_task(async function testSignedMessageComposition() {
   const autocryptPrefName = "mail.identity.default.sendAutocryptHeaders";
@@ -109,15 +112,29 @@ add_task(async function testSignedMessageComposition() {
   const cwc = await open_compose_new_mail();
   const composeWin = cwc;
 
+  // Show Bcc input.
+  EventUtils.synthesizeMouseAtCenter(
+    cwc.document.getElementById("addr_bccShowAddressRowButton"),
+    {},
+    cwc
+  );
+
   await setup_msg_contents(
     cwc,
-    "alice@openpgp.example",
+    "alice@openpgp.example, carol@example.com",
     "Compose Signed Message",
     "This is a signed message composition test."
   );
 
+  await setup_msg_contents(
+    cwc,
+    "blind@example.org",
+    "Compose Signed Message",
+    "This is a signed message composition test.",
+    "bccAddrInput"
+  );
+
   await OpenPGPTestUtils.toggleMessageSigning(composeWin);
-  await OpenPGPTestUtils.toggleMessageKeyAttachment(composeWin);
   await sendMessage(composeWin);
 
   await be_in_folder(gOutbox);
@@ -126,11 +143,31 @@ add_task(async function testSignedMessageComposition() {
   const src = await get_msg_source(msg);
   const lines = src.split("\n");
 
+  // Ensure no Gossip headers are included in signed-only message
+  // with multiple recipients for whom public keys are available.
+  Assert.ok(
+    !src.includes("Autocrypt-Gossip:"),
+    "Signed only email should not send Autocrypt-Gossip"
+  );
+
   Assert.ok(
     lines.some(
       line => line.trim() == "Autocrypt: addr=bob@openpgp.example; keydata="
     ),
     "Correct Autocrypt header found"
+  );
+
+  Assert.ok(
+    lines.some(
+      line => line.includes('; hp="clear"'),
+      "header-protection cipher line should have been found"
+    )
+  );
+
+  Assert.equal(
+    lines.filter(line => line.includes("Bcc: blind@example.org")).length,
+    1,
+    "should not include Bcc in the protected headers (only in real headers)"
   );
 
   Assert.ok(
@@ -150,7 +187,7 @@ add_task(async function testSignedMessageComposition() {
   );
 
   // Delete the message so other tests work.
-  EventUtils.synthesizeKey("VK_DELETE");
+  EventUtils.synthesizeKey("KEY_Delete");
   // Restore pref to original value
   Services.prefs.clearUserPref(autocryptPrefName);
 });
@@ -173,6 +210,7 @@ add_task(async function testSignedMessageWithKeyComposition() {
   );
 
   await OpenPGPTestUtils.toggleMessageSigning(composeWin);
+  await OpenPGPTestUtils.toggleMessageKeyAttachment(composeWin);
   await sendMessage(composeWin);
 
   await be_in_folder(gOutbox);
@@ -205,7 +243,7 @@ add_task(async function testSignedMessageWithKeyComposition() {
   );
 
   // Delete the message so other tests work.
-  EventUtils.synthesizeKey("VK_DELETE");
+  EventUtils.synthesizeKey("KEY_Delete");
 });
 
 /*
@@ -269,7 +307,7 @@ Autocrypt-Gossip: addr=carol@example.com; keydata=
 /**
  * Tests composition of a signed, encrypted message, for two recipients,
  * is shown as signed and encrypted in the Outbox, and has the
- * Autocrypt-Gossip headers.
+ * Autocrypt-Gossip headers, and has header-protection header
  */
 add_task(async function testSignedEncryptedMessageComposition() {
   await be_in_folder(bobAcct.incomingServer.rootFolder);
@@ -294,7 +332,6 @@ add_task(async function testSignedEncryptedMessageComposition() {
   await OpenPGPTestUtils.toggleMessageEncryption(composeWin);
   await checkDonePromise;
 
-  await OpenPGPTestUtils.toggleMessageKeyAttachment(composeWin);
   await sendMessage(composeWin);
 
   await be_in_folder(gOutbox);
@@ -351,8 +388,15 @@ add_task(async function testSignedEncryptedMessageComposition() {
     );
   }
 
+  Assert.ok(
+    lines.some(
+      line => line.includes('; hp="cipher"'),
+      "header-protection cipher line should have been found"
+    )
+  );
+
   // Delete the message so other tests work.
-  EventUtils.synthesizeKey("VK_DELETE");
+  EventUtils.synthesizeKey("KEY_Delete");
 });
 
 /**
@@ -380,6 +424,7 @@ add_task(async function testSignedEncryptedMessageWithKeyComposition() {
   // has completed.
   checkDonePromise = waitCheckEncryptionStateDone(composeWin);
   await OpenPGPTestUtils.toggleMessageEncryption(composeWin);
+  await OpenPGPTestUtils.toggleMessageKeyAttachment(composeWin);
   await checkDonePromise;
 
   await sendMessage(composeWin);
@@ -414,7 +459,7 @@ add_task(async function testSignedEncryptedMessageWithKeyComposition() {
   );
 
   // Delete the message so other tests work.
-  EventUtils.synthesizeKey("VK_DELETE");
+  EventUtils.synthesizeKey("KEY_Delete");
 });
 
 registerCleanupFunction(async function tearDown() {
@@ -422,4 +467,5 @@ registerCleanupFunction(async function tearDown() {
   await OpenPGPTestUtils.removeKeyById("0xfbfcc82a015e7330", true);
   MailServices.accounts.removeIncomingServer(bobAcct.incomingServer, true);
   MailServices.accounts.removeAccount(bobAcct, true);
+  Services.prefs.clearUserPref(unobSigPrefName);
 });

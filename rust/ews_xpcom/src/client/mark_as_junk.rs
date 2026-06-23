@@ -10,7 +10,7 @@ use ews::{
 };
 use nsstring::nsCString;
 use protocol_shared::client::DoOperation;
-use protocol_shared::safe_xpcom::{SafeEwsSimpleOperationListener, SafeListener};
+use protocol_shared::safe_xpcom::{SafeExchangeSimpleOperationListener, SafeListener};
 use thin_vec::ThinVec;
 
 use crate::client::{
@@ -28,7 +28,7 @@ struct DoMarkAsJunk {
 impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError> for DoMarkAsJunk {
     const NAME: &'static str = MarkAsJunk::NAME;
     type Okay = Option<ThinVec<nsCString>>;
-    type Listener = SafeEwsSimpleOperationListener;
+    type Listener = SafeExchangeSimpleOperationListener;
 
     async fn do_operation(
         &mut self,
@@ -78,8 +78,8 @@ impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError> fo
                 requires_resync,
             } = client
                 .copy_move_item_functional::<MoveItem>(
-                    self.legacy_destination_folder_id.to_string(),
-                    self.ews_ids.iter().map(|s| s.to_string()).collect(),
+                    self.legacy_destination_folder_id.clone(),
+                    self.ews_ids.iter().map(ToString::to_string).collect(),
                 )
                 .await?;
 
@@ -102,9 +102,9 @@ impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError> fo
 }
 
 impl<ServerT: ServerType> XpComEwsClient<ServerT> {
-    pub async fn mark_as_junk(
+    pub(crate) async fn mark_as_junk(
         self: Arc<XpComEwsClient<ServerT>>,
-        listener: SafeEwsSimpleOperationListener,
+        listener: SafeExchangeSimpleOperationListener,
         ews_ids: ThinVec<nsCString>,
         is_junk: bool,
         legacy_destination_folder_id: String,

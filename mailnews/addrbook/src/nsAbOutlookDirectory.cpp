@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -27,14 +26,7 @@
 
 using mozilla::Preferences;
 
-#define PRINT_TO_CONSOLE 0
-#if PRINT_TO_CONSOLE
-#  define PRINTF(args) printf args
-#else
 static mozilla::LazyLogModule gAbOutlookDirectoryLog("AbOutlookDirectory");
-#  define PRINTF(args) \
-    MOZ_LOG(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug, args)
-#endif
 
 nsAbOutlookDirectory::nsAbOutlookDirectory(void)
     : nsAbDirProperty(),
@@ -67,12 +59,14 @@ NS_IMETHODIMP nsAbOutlookDirectory::Init(const char* aUri) {
 
   mDirEntry->Assign(entry);
   if (!mapiAddBook->GetPropertyLong(*mDirEntry, PR_OBJECT_TYPE, objectType)) {
-    PRINTF(("Cannot get type.\n"));
+    MOZ_LOG(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+            ("Cannot get type.\n"));
     return NS_ERROR_FAILURE;
   }
   if (!mapiAddBook->GetPropertyUString(*mDirEntry, PR_DISPLAY_NAME_W,
                                        unichars)) {
-    PRINTF(("Cannot get name.\n"));
+    MOZ_LOG(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+            ("Cannot get name.\n"));
     return NS_ERROR_FAILURE;
   }
 
@@ -289,7 +283,8 @@ NS_IMETHODIMP nsAbOutlookDirectory::DeleteCards(
         success = mapiAddBook->DeleteEntry(*mDirEntry, cardEntry);
       }
       if (!success) {
-        PRINTF(("Cannot delete card %s.\n", cardEntryString.get()));
+        MOZ_LOG_FMT(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+                    "Cannot delete card {}.\n", cardEntryString.get());
       } else {
         if (m_IsMailList) {
           // It appears that removing a card from a mailing list makes
@@ -307,7 +302,8 @@ NS_IMETHODIMP nsAbOutlookDirectory::DeleteCards(
         card->SetDirectoryUID(EmptyCString());
       }
     } else {
-      PRINTF(("Card doesn't belong in this directory.\n"));
+      MOZ_LOG(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+              ("Card doesn't belong in this directory.\n"));
     }
   }
   return NS_OK;
@@ -331,7 +327,8 @@ NS_IMETHODIMP nsAbOutlookDirectory::DeleteDirectory(
 
     directoryEntry.Assign(dirEntryString);
     if (!mapiAddBook->DeleteEntry(*mDirEntry, directoryEntry)) {
-      PRINTF(("Cannot delete directory %s.\n", dirEntryString.get()));
+      MOZ_LOG_FMT(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+                  "Cannot delete directory {}.\n", dirEntryString.get());
     } else {
       uint32_t pos;
       if (m_AddressList &&
@@ -363,7 +360,8 @@ NS_IMETHODIMP nsAbOutlookDirectory::DeleteDirectory(
       NS_ENSURE_SUCCESS(retCode, retCode);
     }
   } else {
-    PRINTF(("Directory doesn't belong to this folder.\n"));
+    MOZ_LOG(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+            ("Directory doesn't belong to this folder.\n"));
   }
   return retCode;
 }
@@ -830,7 +828,8 @@ nsresult nsAbOutlookDirectory::GetCards(nsIMutableArray* aCards,
   LPSRestriction restriction = (LPSRestriction)aRestriction;
 
   if (!mapiAddBook->GetCards(*mDirEntry, restriction, cardEntries)) {
-    PRINTF(("Cannot get cards.\n"));
+    MOZ_LOG(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+            ("Cannot get cards.\n"));
     return NS_ERROR_FAILURE;
   }
 
@@ -885,7 +884,8 @@ nsresult nsAbOutlookDirectory::GetNodes(nsIMutableArray* aNodes) {
   if (!mapiAddBook->IsOK()) return NS_ERROR_FAILURE;
 
   if (!mapiAddBook->GetNodes(*mDirEntry, nodeEntries)) {
-    PRINTF(("Cannot get nodes.\n"));
+    MOZ_LOG(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+            ("Cannot get nodes.\n"));
     return NS_ERROR_FAILURE;
   }
 
@@ -1018,10 +1018,6 @@ nsresult nsAbOutlookDirectory::NotifyCardPropertyChanges(nsIAbCard* aOld,
   w.EndObject();
   w.End();
 
-#if PRINT_TO_CONSOLE
-  printf("%s", jsonString.StringCRef().get());
-#endif
-
   if (somethingChanged) {
     nsCOMPtr<nsIObserverService> observerService =
         mozilla::services::GetObserverService();
@@ -1044,8 +1040,9 @@ static void UnicodeToWord(const char16_t* aUnicode, WORD& aWord) {
   if (NS_FAILED(errorCode)) {
     nsAutoCString name;
     mozilla::GetErrorName(errorCode, name);
-    PRINTF(("Error conversion string %S: %s.\n", (wchar_t*)(unichar.get()),
-            name.get()));
+    MOZ_LOG(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+            ("Error conversion string %S: %s.\n", (wchar_t*)(unichar.get()),
+             name.get()));
   }
 }
 
@@ -1163,7 +1160,8 @@ nsresult nsAbOutlookDirectory::ModifyCardInternal(nsIAbCard* aModifiedCard,
   if (!mapiAddBook->SetPropertiesUString(dirEntry, cardEntry,
                                          OutlookCardMAPIProps, index_LastProp,
                                          properties)) {
-    PRINTF(("Cannot set general properties.\n"));
+    MOZ_LOG(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+            ("Cannot set general properties.\n"));
   }
 
   delete[] properties;
@@ -1176,7 +1174,8 @@ nsresult nsAbOutlookDirectory::ModifyCardInternal(nsIAbCard* aModifiedCard,
   aModifiedCard->GetPrimaryEmail(unichar);
   if (!mapiAddBook->SetPropertyUString(cardEntry, PR_EMAIL_ADDRESS_W,
                                        unichar.get())) {
-    PRINTF(("Cannot set primary email.\n"));
+    MOZ_LOG(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+            ("Cannot set primary email.\n"));
   }
   aModifiedCard->GetPropertyAsAString(kHomeAddressProperty, unichar);
   aModifiedCard->GetPropertyAsAString(kHomeAddress2Property, unichar2);
@@ -1187,7 +1186,8 @@ nsresult nsAbOutlookDirectory::ModifyCardInternal(nsIAbCard* aModifiedCard,
   utility.Append(unichar2.get());
   if (!mapiAddBook->SetPropertyUString(cardEntry, PR_HOME_ADDRESS_STREET_W,
                                        utility.get())) {
-    PRINTF(("Cannot set home address.\n"));
+    MOZ_LOG(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+            ("Cannot set home address.\n"));
   }
 
   unichar.Truncate();
@@ -1201,7 +1201,8 @@ nsresult nsAbOutlookDirectory::ModifyCardInternal(nsIAbCard* aModifiedCard,
   utility.Append(unichar2.get());
   if (!mapiAddBook->SetPropertyUString(cardEntry, PR_BUSINESS_ADDRESS_STREET_W,
                                        utility.get())) {
-    PRINTF(("Cannot set work address.\n"));
+    MOZ_LOG(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+            ("Cannot set work address.\n"));
   }
 
   unichar.Truncate();
@@ -1215,7 +1216,8 @@ nsresult nsAbOutlookDirectory::ModifyCardInternal(nsIAbCard* aModifiedCard,
   UnicodeToWord(unichar.get(), day);
   if (!mapiAddBook->SetPropertyDate(dirEntry, cardEntry, true, PR_BIRTHDAY,
                                     year, month, day)) {
-    PRINTF(("Cannot set date.\n"));
+    MOZ_LOG(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+            ("Cannot set date.\n"));
   }
 
   if (!aIsAddition) {
@@ -1393,12 +1395,14 @@ void nsAbOutlookDirectory::AlignListEntryStringAndGetUID(
       return;
     }
     if (mapiAddBook->CompareEntryIDs(aEntryString, listURI)) {
-      PRINTF(("Entry ID for mailing list replaced:\nWas: %s\nNow: %s\n",
-              aEntryString.get(), listURI.get()));
+      MOZ_LOG_FMT(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+                  "Entry ID for mailing list replaced:\nWas: {}\nNow: {}\n",
+                  aEntryString.get(), listURI.get());
       aEntryString = listURI;
       list->GetUID(aOriginalUID);
       return;
     }
   }
-  PRINTF(("Entry ID for mailing list not found.\n"));
+  MOZ_LOG(gAbOutlookDirectoryLog, mozilla::LogLevel::Debug,
+          ("Entry ID for mailing list not found.\n"));
 }

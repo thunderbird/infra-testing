@@ -1,5 +1,3 @@
-/* -*- Mode: indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set sts=2 sw=2 et tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -453,7 +451,7 @@ var gMenuBuilder = {
           _execute_message_display_action: global.messageDisplayActionFor,
         }[item.command];
         if (actionFor) {
-          const win = event.target.ownerGlobal;
+          const win = event.target.documentGlobal;
           actionFor(item.extension).triggerAction(win.top);
           return;
         }
@@ -495,7 +493,7 @@ var gMenuBuilder = {
   },
 
   setMenuItemIcon(element, extension, contextData, icons) {
-    const parentWindow = contextData.menu.ownerGlobal;
+    const parentWindow = contextData.menu.documentGlobal;
 
     const { icon } = IconDetails.getPreferredIcon(
       icons,
@@ -864,7 +862,10 @@ async function addMenuEventInfo(
     }
 
     info.attachments = contextData.selectedComposeAttachments.map(a =>
-      global.composeAttachmentTracker.convert(a, contextData.menu.ownerGlobal)
+      global.composeAttachmentTracker.convert(
+        a,
+        contextData.menu.documentGlobal
+      )
     );
   }
   if (contextData.onHeaderPaneLink && extension.hasPermission("messagesRead")) {
@@ -1176,7 +1177,7 @@ const menuTracker = {
   handleEvent(event) {
     const menu = event.target;
     const trigger = menu.triggerNode;
-    const win = menu.ownerGlobal;
+    const win = menu.documentGlobal;
     switch (menu.id) {
       case "taskPopup": {
         const info = { menu, inToolsMenu: true };
@@ -1219,22 +1220,22 @@ const menuTracker = {
       }
       case "attachmentListContext": {
         const attachmentList =
-          menu.ownerGlobal.document.getElementById("attachmentList");
+          menu.documentGlobal.document.getElementById("attachmentList");
         const allMessageAttachments = [...attachmentList.children].map(
           item => item.attachment
         );
         gMenuBuilder.build({
           menu,
-          tab: menu.ownerGlobal,
+          tab: menu.documentGlobal,
           allMessageAttachments,
         });
         break;
       }
       case "attachmentItemContext": {
         const attachmentList =
-          menu.ownerGlobal.document.getElementById("attachmentList");
+          menu.documentGlobal.document.getElementById("attachmentList");
         const attachmentInfo =
-          menu.ownerGlobal.document.getElementById("attachmentInfo");
+          menu.documentGlobal.document.getElementById("attachmentInfo");
 
         // If we opened the context menu from the attachment info area (the paperclip,
         // "1 attachment" label, filename, or file size, just grab the first (and
@@ -1255,7 +1256,7 @@ const menuTracker = {
 
         gMenuBuilder.build({
           menu,
-          tab: menu.ownerGlobal,
+          tab: menu.documentGlobal,
           selectedMessageAttachments,
         });
         break;
@@ -1270,7 +1271,7 @@ const menuTracker = {
         }
         gMenuBuilder.build({
           menu,
-          tab: menu.ownerGlobal,
+          tab: menu.documentGlobal,
           selectedComposeAttachments,
         });
         break;

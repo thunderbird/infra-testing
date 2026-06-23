@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -23,7 +22,6 @@
 #include "nsIMsgAccountManager.h"
 #include "nsIMsgMailNewsUrl.h"
 #include "nsIMsgMessageService.h"
-#include "nsIMsgStatusFeedback.h"
 #include "nsIObserverService.h"
 #include "nsIPromptService.h"
 #include "nsIProperties.h"
@@ -229,95 +227,6 @@ nsresult nsMsgMailSession::GetTopmostMsgWindow(nsIMsgWindow** aMsgWindow) {
   NS_ENSURE_ARG_POINTER(aMsgWindow);
 
   *aMsgWindow = nullptr;
-
-  uint32_t count = mWindows.Count();
-
-  if (count == 1) {
-    NS_ADDREF(*aMsgWindow = mWindows[0]);
-    return (*aMsgWindow) ? NS_OK : NS_ERROR_FAILURE;
-  } else if (count > 1) {
-    // If multiple message windows then we have lots more work.
-    nsresult rv;
-
-    // The msgWindows array does not hold z-order info. Use mediator to get
-    // the top most window then match that with the msgWindows array.
-    nsCOMPtr<nsIWindowMediator> windowMediator =
-        do_GetService(NS_WINDOWMEDIATOR_CONTRACTID, &rv);
-    NS_ENSURE_SUCCESS(rv, rv);
-
-    nsCOMPtr<nsISimpleEnumerator> windowEnum;
-
-    rv = windowMediator->GetEnumerator(nullptr, getter_AddRefs(windowEnum));
-    NS_ENSURE_SUCCESS(rv, rv);
-
-    nsCOMPtr<nsISupports> windowSupports;
-    nsCOMPtr<nsPIDOMWindowOuter> topMostWindow;
-    nsAutoString windowType;
-    bool more;
-
-    // loop to get the top most with attribute "mail:3pane" or
-    // "mail:messageWindow"
-    windowEnum->HasMoreElements(&more);
-    while (more) {
-      rv = windowEnum->GetNext(getter_AddRefs(windowSupports));
-      NS_ENSURE_SUCCESS(rv, rv);
-      NS_ENSURE_TRUE(windowSupports, NS_ERROR_FAILURE);
-
-      nsCOMPtr<nsPIDOMWindowOuter> window =
-          do_QueryInterface(windowSupports, &rv);
-      NS_ENSURE_SUCCESS(rv, rv);
-      NS_ENSURE_TRUE(window, NS_ERROR_FAILURE);
-
-      mozilla::dom::Document* domDocument = window->GetDoc();
-      NS_ENSURE_TRUE(domDocument, NS_ERROR_FAILURE);
-
-      mozilla::dom::Element* domElement = domDocument->GetDocumentElement();
-      NS_ENSURE_TRUE(domElement, NS_ERROR_FAILURE);
-
-      domElement->GetAttribute(u"windowtype"_ns, windowType);
-      if (windowType.EqualsLiteral("mail:3pane") ||
-          windowType.EqualsLiteral("mail:messageWindow")) {
-        // topMostWindow is the last 3pane/messageWindow found, not necessarily
-        // the top most.
-        topMostWindow = window;
-        RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager();
-        nsCOMPtr<mozIDOMWindowProxy> currentWindow =
-            do_QueryInterface(windowSupports, &rv);
-        NS_ENSURE_SUCCESS(rv, rv);
-        nsCOMPtr<mozIDOMWindowProxy> activeWindow;
-        rv = fm->GetActiveWindow(getter_AddRefs(activeWindow));
-        NS_ENSURE_SUCCESS(rv, rv);
-        if (currentWindow == activeWindow) {
-          // We are sure topMostWindow is really the top most now.
-          break;
-        }
-      }
-
-      windowEnum->HasMoreElements(&more);
-    }
-
-    // identified the top most window
-    if (topMostWindow) {
-      // use this for the match
-      nsIDocShell* topDocShell = topMostWindow->GetDocShell();
-
-      // loop for the msgWindow array to find the match
-      nsCOMPtr<nsIDocShell> docShell;
-
-      while (count) {
-        nsIMsgWindow* msgWindow = mWindows[--count];
-
-        rv = msgWindow->GetRootDocShell(getter_AddRefs(docShell));
-        NS_ENSURE_SUCCESS(rv, rv);
-
-        if (topDocShell == docShell) {
-          NS_IF_ADDREF(*aMsgWindow = msgWindow);
-          break;
-        }
-      }
-    }
-  }
-
   return (*aMsgWindow) ? NS_OK : NS_ERROR_FAILURE;
 }
 
@@ -538,18 +447,13 @@ NS_IMETHODIMP nsMsgShutdownService::Observe(nsISupports* aSubject,
     nsCOMPtr<nsIMsgWindow> topMsgWindow;
     mailSession->GetTopmostMsgWindow(getter_AddRefs(topMsgWindow));
 
-    nsCOMPtr<mozIDOMWindowProxy> internalDomWin;
-    if (topMsgWindow)
-      topMsgWindow->GetDomWindow(getter_AddRefs(internalDomWin));
-
-    if (!internalDomWin) {
-      // First see if there is a window open.
-      nsCOMPtr<nsIWindowMediator> winMed =
-          do_GetService(NS_WINDOWMEDIATOR_CONTRACTID);
-      winMed->GetMostRecentWindow(nullptr, getter_AddRefs(internalDomWin));
-      NS_ENSURE_TRUE(internalDomWin,
-                     NS_ERROR_FAILURE);  // Bail if we don't get a window.
-    }
+    nsCOMPtr<nsIWindowMediator> winMed =
+        do_GetService(NS_WINDOWMEDIATOR_CONTRACTID, &rv);
+    NS_ENSURE_SUCCESS(rv, rv);
+    nsCOMPtr<mozIDOMWindowProxy> domWindow;
+    winMed->GetMostRecentWindow(nullptr, getter_AddRefs(domWindow));
+    NS_ENSURE_TRUE(domWindow,
+                   NS_ERROR_FAILURE);  // Bail if we don't get a window.
 
     if (!mQuitForced) {
       nsCOMPtr<nsISupportsPRBool> stopShutdown = do_QueryInterface(aSubject);
@@ -562,14 +466,9 @@ NS_IMETHODIMP nsMsgShutdownService::Observe(nsISupports* aSubject,
         mQuitMode |= nsIAppStartup::eRestart;
     }
 
-    // This doesn't look great, but the purpose of progress.msgWindow is to
-    // clear msgWindow.statusFeedback when the progress ends.
-    nsCOMPtr<nsIMsgStatusFeedback> feedback = do_QueryInterface(mMsgProgress);
-    topMsgWindow->SetStatusFeedback(feedback);
     mMsgProgress->SetMsgWindow(topMsgWindow);
     mMsgProgress->OpenProgressDialog(
-        internalDomWin, "chrome://messenger/content/shutdownWindow.xhtml",
-        nullptr);
+        domWindow, "chrome://messenger/content/shutdownWindow.xhtml", nullptr);
 
     if (mQuitForced) {
       nsCOMPtr<nsIThread> thread(do_GetCurrentThread());

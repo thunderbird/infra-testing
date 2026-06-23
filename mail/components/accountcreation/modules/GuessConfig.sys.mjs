@@ -8,7 +8,7 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AccountConfig: "resource:///modules/accountcreation/AccountConfig.sys.mjs",
-  Sanitizer: "resource:///modules/accountcreation/Sanitizer.sys.mjs",
+  InputSanitizer: "resource:///modules/accountcreation/InputSanitizer.sys.mjs",
 });
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
@@ -171,9 +171,7 @@ async function guessConfig(
     server.auth =
       thisTry.authMethod || chooseBestAuthMethod(thisTry.authMethods);
     server.authAlternatives = thisTry.authMethods;
-    // TODO
-    // cert is also bad when targetSite is set. (Same below for incoming.)
-    // Fix SSLErrorHandler and security warning dialog in accountSetup.js.
+    // TODO cert is also bad when targetSite is set. (Same below for incoming.)
     server.badCert = thisTry.selfSignedCert;
     server.targetSite = thisTry.targetSite;
     gAccountSetupLogger.info(
@@ -405,7 +403,7 @@ class HostDetector {
     if (!hostIsPrecise) {
       hostIsPrecise = false;
     }
-    const protocol = lazy.Sanitizer.translate(
+    const protocol = lazy.InputSanitizer.translate(
       type,
       { imap: IMAP, pop3: POP, smtp: SMTP },
       UNKNOWN

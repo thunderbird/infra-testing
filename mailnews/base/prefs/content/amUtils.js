@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -198,9 +197,9 @@ function openPrefsFromAccountManager(
     return;
   }
 
-  // If openOptionsDialog() exists, we are in Thunderbird.
-  if (typeof win.openOptionsDialog == "function") {
-    win.openOptionsDialog(aTBPaneId, aTBScrollPaneTo, aTBOtherArgs);
+  // If openPreferencesTab() exists, we are in Thunderbird.
+  if (typeof win.openPreferencesTab == "function") {
+    win.openPreferencesTab(aTBPaneId, aTBScrollPaneTo, aTBOtherArgs);
   }
   // If goPreferences() exists, we are in Seamonkey.
   if (typeof win.goPreferences == "function") {

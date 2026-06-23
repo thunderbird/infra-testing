@@ -18,7 +18,7 @@
   scrolling="false"
 >
   <head>
-    <title data-l10n-id="calendar-creation-wizard-title"></title>
+    <title data-l10n-id="calendar-creation-dialog-title"></title>
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src chrome:; script-src chrome: 'unsafe-inline' moz-src:; style-src chrome: 'unsafe-inline'"
@@ -127,7 +127,7 @@
               </html:th>
               <html:td>
                 <menulist id="email-identity-menulist" oncommand="onChangeIdentity(event)">
-                  <menupopup id="email-identity-menupopup" native="false" />
+                  <menupopup id="email-identity-menupopup" />
                 </menulist>
               </html:td>
             </html:tr>
@@ -250,7 +250,7 @@
             flex="1"
             onselect="selectProvider(this.selectedItem.value)"
           >
-            <menupopup id="network-selectcalendar-providertype-menupopup" native="false" />
+            <menupopup id="network-selectcalendar-providertype-menupopup" />
           </menulist>
         </hbox>
         <richlistbox

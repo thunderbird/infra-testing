@@ -1,4 +1,3 @@
-# vim: set filetype=python:
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -9,11 +8,13 @@ EXPORTS += [
     "FolderLookupService.h",
     "HeaderReader.h",
     "LineReader.h",
+    "MailHeaderParsing.h",
+    "mailnews_string_glue.h",
+    "MailStream.h",
     "MboxMsgInputStream.h",
     "MboxMsgOutputStream.h",
     "msgCore.h",
     "MsgOperationListener.h",
-    "MsgPasswordAuthModule.h",
     "nsImapMoveCoalescer.h",
     "nsMailAuthModule.h",
     "nsMailChannel.h",
@@ -38,23 +39,23 @@ EXPORTS += [
     "UrlListener.h",
 ]
 
-SOURCES += [
+UNIFIED_SOURCES += [
     "CopyMessageStreamListener.cpp",
     "FolderCompactor.cpp",
     "FolderLookupService.cpp",
+    "MailHeaderParsing.cpp",
     "MailNewsDLF.cpp",
     "MailnewsLoadContextInfo.cpp",
+    "MailStream.cpp",
     "MboxMsgInputStream.cpp",
     "MboxMsgOutputStream.cpp",
     "MsgOperationListener.cpp",
-    "MsgPasswordAuthModule.cpp",
     "nsCidProtocolHandler.cpp",
     "nsImapMoveCoalescer.cpp",
     "nsMailAuthModule.cpp",
     "nsMailChannel.cpp",
     "nsMailDirProvider.cpp",
     "nsMessenger.cpp",
-    "nsMessengerBootstrap.cpp",
     "nsMsgAccount.cpp",
     "nsMsgAccountManager.cpp",
     "nsMsgBiffManager.cpp",
@@ -84,9 +85,9 @@ SOURCES += [
     "nsMsgReadStateTxn.cpp",
     "nsMsgSearchDBView.cpp",
     "nsMsgSpecialViews.cpp",
-    "nsMsgStatusFeedback.cpp",
     "nsMsgTagService.cpp",
     "nsMsgThreadedDBView.cpp",
+    "nsMsgTransactionService.cpp",
     "nsMsgTxn.cpp",
     "nsMsgUtils.cpp",
     "nsMsgWindow.cpp",
@@ -101,17 +102,18 @@ SOURCES += [
 ]
 
 if CONFIG["OS_ARCH"] == "WINNT":
-    SOURCES += [
+    UNIFIED_SOURCES += [
         "nsMessengerWinIntegration.cpp",
-        # This file cannot be built in unified mode because of name clashes with Windows headers.
+    ]
+    SOURCES += [
         "nsUserInfoWin.cpp",
     ]
 elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk":
-    SOURCES += [
+    UNIFIED_SOURCES += [
         "nsUserInfoUnix.cpp",
     ]
 elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
-    SOURCES += [
+    UNIFIED_SOURCES += [
         "nsMessengerOSXIntegration.mm",
         "nsUserInfoMac.mm",
     ]
@@ -119,6 +121,7 @@ elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
 EXTRA_JS_MODULES += [
     "ABQueryUtils.sys.mjs",
     "converterWorker.js",
+    "FeedbackService.sys.mjs",
     "FolderUtils.sys.mjs",
     "hostnameUtils.sys.mjs",
     "JXON.sys.mjs",
@@ -138,6 +141,7 @@ EXTRA_JS_MODULES += [
     "MsgDBCacheManager.sys.mjs",
     "MsgIncomingServer.sys.mjs",
     "MsgKeySet.sys.mjs",
+    "MsgPasswordAuthModule.sys.mjs",
     "MsgProtocolInfo.sys.mjs",
     "OAuth2.sys.mjs",
     "OAuth2Module.sys.mjs",
@@ -145,6 +149,10 @@ EXTRA_JS_MODULES += [
     "TemplateUtils.sys.mjs",
     "VirtualFolderWrapper.sys.mjs",
     "WinUnreadBadge.sys.mjs",
+]
+
+MOZ_SRC_FILES += [
+    "OAuth2PageGenerator.sys.mjs",
 ]
 
 USE_LIBS += [

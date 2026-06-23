@@ -77,9 +77,10 @@ body {
   z-index: 100;
   overflow: hidden;
   padding: 3px;
-  border: 1px solid var(--arrowpanel-border-color);
+  color: var(--color-text-base);
+  border: 1px solid var(--color-surface-border-intense);
   border-radius: 8px;
-  background-color: var(--arrowpanel-background);
+  background-color: var(--color-surface-subtle);
   box-shadow: 0 0 4px hsla(210, 4%, 10%, 0.2);
 
   &[variety="remainder"] .undo {
@@ -101,8 +102,8 @@ body {
   border-radius: 3px;
 
   &:is(:hover, :focus) {
-    background-color: var(--arrowpanel-dimmed);
-    color: var(--panelHoverColor);
+    background-color: var(--selected-item-color);
+    color: var(--selected-item-text-color);
   }
 
   &:focus {
@@ -182,7 +183,7 @@ h3 {
   margin-inline-start: 8px;
 
   &[checked] {
-    background: var(--toolbarbutton-active-background);
+    background: var(--toolbarbutton-background-color-active);
     border-color: var(--toolbarbutton-active-bordercolor);
     box-shadow: var(--toolbarbutton-active-boxshadow);
   }
@@ -449,7 +450,7 @@ facet-boolean[disabled] {
   border: 1px solid var(--button-border-color);
   border-radius: var(--button-border-radius);
   background-color: var(--button-background-color);
-  background-image: url("chrome://global/skin/icons/arrow-down-12.svg");
+  background-image: var(--icon-nav-down-sm);
   background-position: right 4px center;
   background-repeat: no-repeat;
   background-size: auto 12px;

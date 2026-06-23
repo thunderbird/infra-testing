@@ -132,7 +132,6 @@ add_task(async function testSignedMessageComposition2() {
   );
 
   await OpenPGPTestUtils.toggleMessageSigning(composeWin);
-  await OpenPGPTestUtils.toggleMessageKeyAttachment(composeWin);
 
   const passPromptPromise = BrowserTestUtils.promiseAlertDialogOpen();
   const sendMessageCompletePromise = sendMessage(composeWin);
@@ -168,7 +167,7 @@ add_task(async function testSignedMessageComposition2() {
   );
 
   // Delete the message so other tests work.
-  EventUtils.synthesizeKey("VK_DELETE");
+  EventUtils.synthesizeKey("KEY_Delete");
 });
 
 /**
@@ -192,7 +191,6 @@ add_task(async function testSignedMessageComposition3() {
   );
 
   await OpenPGPTestUtils.toggleMessageSigning(composeWin);
-  await OpenPGPTestUtils.toggleMessageKeyAttachment(composeWin);
   await sendMessage(composeWin);
 
   await be_in_folder(gOutbox);
@@ -211,5 +209,5 @@ add_task(async function testSignedMessageComposition3() {
   );
 
   // Delete the message so other tests work.
-  EventUtils.synthesizeKey("VK_DELETE");
+  EventUtils.synthesizeKey("KEY_Delete");
 });

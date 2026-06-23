@@ -21,31 +21,31 @@ mod update_folder;
 use std::{cell::Cell, collections::VecDeque, fmt::Debug, sync::Arc};
 
 use ews::{
-    BaseFolderId, BaseItemId, BaseShape, Folder, FolderId, FolderShape, ItemResponseMessage,
-    ItemShape, Operation, OperationResponse, PathToElement, RealItem,
+    BaseFolderId, BaseItemId, BaseShape, Folder, FolderId, ItemResponseMessage, ItemShape,
+    Operation, OperationResponse, PathToElement, RealItem,
     create_item::CreateItem,
-    get_folder::{GetFolder, GetFolderResponseMessage},
+    get_folder::GetFolderResponseMessage,
     get_item::GetItem,
     response::{ResponseClass, ResponseError},
     soap,
     update_item::{UpdateItem, UpdateItemResponse},
 };
-use mail_parser::MessageParser;
-use mailnews_ui_glue::UserInteractiveServer;
+use http::{Method, Request};
+use log::info;
 use protocol_shared::{
-    authentication::credentials::AuthenticationProvider,
-    safe_xpcom::{SafeEwsMessageCreateListener, StaleMsgDbHeader, UpdatedMsgDbHeader},
+    ServerType,
+    client::ProtocolClient,
+    error::ProtocolError,
+    operation_sender::{OperationRequestOptions, OperationSender, TransportSecFailureBehavior},
 };
 use url::Url;
-use xpcom::{RefCounted, RefPtr};
+use uuid::Uuid;
+use xpcom::RefPtr;
+
+use operation_queue::{OperationQueue, QueuedOperation};
 
 use crate::{
-    error::XpComEwsError,
-    operation_queue::{OperationQueue, QueuedOperation},
-    operation_sender::{
-        OperationRequestOptions, OperationSender, TransportSecFailureBehavior,
-        observable_server::ObservableServer,
-    },
+    error::XpComEwsError, response_parser::EwsResponseProcessor,
     server_version::ServerVersionHandler,
 };
 
@@ -59,19 +59,11 @@ use crate::{
 // Message flags are of type `PT_LONG`, which corresponds to i32 (signed 32-bit
 // integers) according to
 // https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/property-types
+// For meanings, see:
+// https://learn.microsoft.com/en-us/previous-versions/office/developer/office-2007/cc839733(v=office.12)
 const MSGFLAG_READ: i32 = 0x00000001;
 const MSGFLAG_UNMODIFIED: i32 = 0x00000002;
 const MSGFLAG_UNSENT: i32 = 0x00000008;
-
-/// Shorthand for the most common server type constraints.
-pub(crate) trait ServerType:
-    AuthenticationProvider + UserInteractiveServer + ObservableServer + RefCounted
-{
-}
-impl<T> ServerType for T where
-    T: AuthenticationProvider + UserInteractiveServer + ObservableServer + RefCounted
-{
-}
 
 /// The result from an EWS operation, containing either the operation's response
 /// or an error.
@@ -79,31 +71,51 @@ type EwsOperationResult<T> = Result<<T as Operation>::Response, XpComEwsError>;
 
 /// The EWS implementation of the [`QueuedOperation`] trait. It wraps around a
 /// type that implements [`ews::Operation`].
-pub struct QueuedEwsOperation<Op: Operation> {
+pub(crate) struct QueuedEwsOperation<Op: Operation, ServerT: ServerType + 'static> {
+    operation_id: Uuid,
     inner: Op,
     sender: Cell<Option<oneshot::Sender<EwsOperationResult<Op>>>>,
     options: OperationRequestOptions,
+    op_sender: Arc<OperationSender<ServerT>>,
+    version_handler: Arc<ServerVersionHandler>,
 }
 
-impl<Op: Operation> QueuedEwsOperation<Op> {
+impl<Op, ServerT> QueuedEwsOperation<Op, ServerT>
+where
+    Op: Operation,
+    ServerT: ServerType + 'static,
+{
     /// Create a new [`QueuedEwsOperation`] and return it, along a channel
     /// [`Receiver`] that will be used to communicate the operation's result to
     /// the consumer.
     ///
     /// [`Receiver`]: oneshot::Receiver
-    pub fn new(
+    pub(crate) fn new(
         op: Op,
         options: OperationRequestOptions,
+        op_sender: Arc<OperationSender<ServerT>>,
+        version_handler: Arc<ServerVersionHandler>,
     ) -> (Self, oneshot::Receiver<EwsOperationResult<Op>>) {
         let (snd, rcv) = oneshot::channel();
 
+        let operation_id = Uuid::new_v4();
         let op = QueuedEwsOperation {
+            operation_id,
             inner: op,
             sender: Cell::new(Some(snd)),
             options,
+            op_sender,
+            version_handler,
         };
 
         (op, rcv)
+    }
+
+    /// Return the unique ID associated with this operation.
+    ///
+    /// In general, this is useful for tracing an operation through application phases.
+    pub(crate) fn id(&self) -> &Uuid {
+        &self.operation_id
     }
 
     /// Communicates the given [`EwsOperationResult`] to the listener through
@@ -112,7 +124,7 @@ impl<Op: Operation> QueuedEwsOperation<Op> {
         match self.sender.take() {
             Some(sender) => {
                 if let Err(err) = sender.send(res) {
-                    log::error!("error communicating the result of a queued request: {err}")
+                    log::error!("error communicating the result of a queued request: {err}");
                 }
             }
             None => log::error!(
@@ -121,27 +133,48 @@ impl<Op: Operation> QueuedEwsOperation<Op> {
             ),
         }
     }
-}
 
-impl<Op, ServerT> QueuedOperation<ServerT> for QueuedEwsOperation<Op>
-where
-    Op: Operation,
-    ServerT: ServerType + 'static,
-{
-    async fn perform(&self, op_sender: Arc<OperationSender<ServerT>>) {
-        let op_name = <Op as Operation>::NAME;
-        let version = op_sender.server_version();
+    /// Builds a [`Request`] from the current operation.
+    ///
+    /// The resulting request is ready to be sent via
+    /// [`OperationSender::send_request`].
+    fn build_request(&self) -> Result<Request<Vec<u8>>, XpComEwsError> {
+        let version = self.version_handler.get_version();
         let envelope = soap::Envelope {
             headers: vec![soap::Header::RequestServerVersion { version }],
             body: &self.inner,
         };
-        let request_body = match envelope.as_xml_document() {
-            Ok(body) => body,
-            Err(err) => return self.send_result(Err(err.into())),
+        let request_body = envelope.as_xml_document()?;
+
+        let request = Request::builder()
+            .method(Method::POST)
+            .uri(self.op_sender.base_url().as_str())
+            .header("Content-Type", "text/xml; charset=utf-8")
+            .body(request_body)
+            .map_err(ProtocolError::from)?;
+
+        Ok(request)
+    }
+}
+
+impl<Op, ServerT> QueuedOperation for QueuedEwsOperation<Op, ServerT>
+where
+    Op: Operation,
+    ServerT: ServerType + 'static,
+{
+    async fn perform(&self) {
+        let op_name = <Op as Operation>::NAME;
+
+        let request = match self.build_request() {
+            Ok(request) => request,
+            Err(err) => return self.send_result(Err(err)),
         };
 
-        let res = op_sender
-            .make_and_send_request(op_name, &request_body, &self.options)
+        let parser = EwsResponseProcessor::new(self.version_handler.clone());
+
+        let res = self
+            .op_sender
+            .send_request(&self.operation_id, op_name, &request, &self.options, parser)
             .await;
 
         self.send_result(res);
@@ -151,9 +184,14 @@ where
 // `Cell` only implements `Debug` if the inner type also implements `Copy`
 // (which isn't the case here), so we need a custom implementation that leaves
 // it out of the debug output.
-impl<Op: Operation> Debug for QueuedEwsOperation<Op> {
+impl<Op, ServerT> Debug for QueuedEwsOperation<Op, ServerT>
+where
+    Op: Operation,
+    ServerT: ServerType + 'static,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("QueuedEwsOperation")
+            .field("operation_id", &self.operation_id)
             .field("inner", &self.inner)
             .field("options", &self.options)
             .finish()
@@ -162,13 +200,13 @@ impl<Op: Operation> Debug for QueuedEwsOperation<Op> {
 
 pub(crate) struct XpComEwsClient<ServerT: ServerType + 'static> {
     version_handler: Arc<ServerVersionHandler>,
-    queue: Arc<OperationQueue<ServerT>>,
+    queue: OperationQueue,
     op_sender: Arc<OperationSender<ServerT>>,
 }
 
 impl<ServerT: ServerType + 'static> XpComEwsClient<ServerT> {
-    // See the design consideration section from `operation_queue.rs` regarding
-    // the use of `Arc`.
+    // See the documentation for `OperationSender::new()` regarding the use of
+    // `Arc`.
     #[allow(clippy::arc_with_non_send_sync)]
     pub(crate) fn new(
         endpoint: Url,
@@ -177,7 +215,7 @@ impl<ServerT: ServerType + 'static> XpComEwsClient<ServerT> {
         let version_handler = ServerVersionHandler::new(endpoint.clone())?;
         let version_handler = Arc::new(version_handler);
 
-        let op_sender = OperationSender::new(endpoint, server, version_handler.clone())?;
+        let op_sender = OperationSender::new(endpoint, server)?;
         let op_sender = Arc::new(op_sender);
 
         // Start the queue with a few runners. We're picking 5 here as an
@@ -185,20 +223,15 @@ impl<ServerT: ServerType + 'static> XpComEwsClient<ServerT> {
         // than 1). In the future, we could maybe move
         // `maximumConnectionsNumber` from `nsIImapIncomingServer` to
         // `nsIMsgIncomingServer` and use its value here.
-        let queue = OperationQueue::new(op_sender.clone());
-        queue.clone().start(5);
+        let queue =
+            OperationQueue::new(|fut| moz_task::spawn_local("ews_operation_queue", fut).detach());
+        queue.start(5).map_err(ProtocolError::from)?;
 
         Ok(XpComEwsClient {
             version_handler,
             queue,
             op_sender,
         })
-    }
-
-    /// Shuts the client down by performing the relevant operations on its
-    /// fields (e.g. stopping the operation queue).
-    pub(crate) fn shutdown(&self) {
-        self.queue.stop();
     }
 
     /// Checks whether the client is still running (i.e. at least one of the
@@ -215,9 +248,12 @@ impl<ServerT: ServerType + 'static> XpComEwsClient<ServerT> {
 
     /// Returns the [`Url`] currently used as the endpoint to send requests to.
     pub(crate) fn url(&self) -> Url {
-        self.op_sender.url()
+        self.op_sender.base_url()
     }
 
+    /// Pushes an operation to the back of the operation queue and waits for it
+    /// to be performed.
+    ///
     /// `Op` needs a static lifetime, because it needs to be dispatch-able to a
     /// runner at *some* point in the future. In practice, this mainly means the
     /// underlying implementation must have ownership of its own data (or only
@@ -227,9 +263,32 @@ impl<ServerT: ServerType + 'static> XpComEwsClient<ServerT> {
         op: Op,
         options: OperationRequestOptions,
     ) -> Result<Op::Response, XpComEwsError> {
-        let (queued_op, rcv) = QueuedEwsOperation::new(op, options);
-        self.queue.enqueue(Box::new(queued_op)).await?;
-        rcv.await?
+        let (queued_op, rcv) = QueuedEwsOperation::new(
+            op,
+            options,
+            self.op_sender.clone(),
+            self.version_handler.clone(),
+        );
+
+        let operation_id = *queued_op.id();
+
+        info!(
+            "Enqueueing operation {operation_id}: type = {}",
+            <Op as Operation>::NAME
+        );
+
+        self.queue
+            .enqueue(Box::new(queued_op))
+            .await
+            .map_err(ProtocolError::from)?;
+        let result = rcv.await;
+
+        info!(
+            "Queued operation {operation_id} completed: type = {}",
+            <Op as Operation>::NAME
+        );
+
+        result.map_err(ProtocolError::from)?
     }
 
     /// Fetches items from the remote Exchange server.
@@ -299,12 +358,11 @@ impl<ServerT: ServerType + 'static> XpComEwsClient<ServerT> {
                 let items_len = message.items.inner.len();
                 if items_len != 1 {
                     log::warn!(
-                        "GetItemResponseMessage contained {} items, only 1 expected",
-                        items_len
+                        "GetItemResponseMessage contained {items_len} items, only 1 expected"
                     );
                 }
 
-                items.extend(message.items.inner.into_iter());
+                items.extend(message.items.inner);
             }
         }
 
@@ -358,6 +416,21 @@ impl<ServerT: ServerType + 'static> XpComEwsClient<ServerT> {
     }
 }
 
+impl<ServerT: ServerType + 'static> ProtocolClient for XpComEwsClient<ServerT> {
+    fn protocol_identifier(&self) -> String {
+        String::from("ews")
+    }
+
+    async fn shutdown(self: Arc<XpComEwsClient<ServerT>>) {
+        // Tell the queue to stop its workers.
+        self.queue.stop().await;
+
+        // Send the shutdown signal to the operation sender so it can start
+        // cleaning up.
+        self.op_sender.shutdown().await;
+    }
+}
+
 /// Look at the response class of a response message, and do nothing, warn or
 /// return an error accordingly.
 fn process_response_message_class<T>(
@@ -372,7 +445,7 @@ fn process_response_message_class<T>(
             Ok(message)
         }
 
-        ResponseClass::Error(err) => Err(err.to_owned().into()),
+        ResponseClass::Error(err) => Err(err.clone().into()),
     }
 }
 
@@ -402,52 +475,6 @@ fn validate_get_folder_response_message(
             message: String::from("expected folder to be of type Folder"),
         }),
     }
-}
-
-/// Uses the provided `ItemResponseMessage` to create, populate and commit
-/// an `nsIMsgDBHdr` for a newly created message.
-fn create_and_populate_header_from_create_response(
-    response_message: ItemResponseMessage,
-    content: &[u8],
-    listener: &SafeEwsMessageCreateListener,
-) -> Result<UpdatedMsgDbHeader, XpComEwsError> {
-    // If we're saving the message (rather than sending it), we must create a
-    // new database entry for it and associate it with the message's EWS ID.
-    let items = response_message.items.inner;
-    if items.len() != 1 {
-        return Err(XpComEwsError::Processing {
-            message: String::from("expected only one item in CreateItem response"),
-        });
-    }
-
-    let item = &items[0];
-    let message = item.inner_message();
-
-    let ews_id = &message
-        .item_id
-        .as_ref()
-        .ok_or(XpComEwsError::MissingIdInResponse)?
-        .id;
-
-    // Signal that copying the message to the server has succeeded, which will
-    // trigger its content to be streamed to the relevant message store.
-    let hdr: StaleMsgDbHeader = listener.on_remote_create_successful(ews_id)?;
-
-    // Parse the message and use its headers to populate the `nsIMsgDBHdr`
-    // before committing it to the database. We parse the original content
-    // rather than use the `Message` from the `CreateItemResponse` because the
-    // latter only contains the item's ID, and so is missing the required
-    // fields.
-    let message = MessageParser::default()
-        .parse(content)
-        .ok_or(XpComEwsError::Processing {
-            message: String::from("failed to parse message"),
-        })?;
-
-    let hdr = hdr.populate_from_message_headers(message)?;
-    listener.on_hdr_populated(&hdr)?;
-
-    Ok(hdr)
 }
 
 fn validate_response_message_count<T>(

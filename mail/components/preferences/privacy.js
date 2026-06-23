@@ -1,5 +1,4 @@
-/* -*- Mode: JavaScript; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
@@ -423,7 +422,8 @@ var gPrivacyPane = {
       "password-os-auth-dialog-caption"
     );
     const win =
-      osReauthCheckbox.ownerGlobal.docShell.chromeEventHandler.ownerGlobal;
+      osReauthCheckbox.documentGlobal.docShell.chromeEventHandler
+        .documentGlobal;
 
     // Calling OSKeyStore.ensureLoggedIn() instead of LoginHelper.verifyOSAuth()
     // since we want to authenticate user each time this setting is changed.

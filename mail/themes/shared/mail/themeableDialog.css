@@ -66,7 +66,7 @@
 }
 
 :root[lwt-tree] {
-  --richlist-button-background: var(--sidebar-background-color);
+  --richlist-button-background: var(--sidebar-background);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -149,33 +149,6 @@ html|input:is([type="email"], [type="tel"], [type="text"], [type="password"], [t
   opacity: 0.4;
 }
 
-html|input[type="number"] {
-  padding-inline-end: 1px;
-
-  &::-moz-number-spin-up,
-  &::-moz-number-spin-down {
-    appearance: none;
-    inline-size: 16px;
-    background-position: center;
-    background-color: var(--button-background-color);
-    background-repeat: no-repeat;
-    border: 1px solid var(--field-border-color);
-    -moz-context-properties: stroke;
-    stroke: currentColor;
-  }
-
-  &::-moz-number-spin-up {
-    background-image: var(--icon-nav-up-sm);
-    border-block-end-style: none;
-    border-radius: 2px 2px 0 0;
-  }
-
-  &::-moz-number-spin-down {
-    background-image: var(--icon-nav-down-sm);
-    border-radius: 0 0 2px 2px;
-  }
-}
-
 html|input[type="radio"],
 html|input[type="checkbox"] {
   appearance: auto;
@@ -211,9 +184,9 @@ html|input[type="color"] {
   min-block-size: 16px;
   padding: 2px !important;
   margin-inline-end: 4px;
-  --toolbarbutton-hover-background: var(--button-hover-background-color);
+  --toolbarbutton-background-color-hover: var(--button-hover-background-color);
   --toolbarbutton-hover-bordercolor: var(--button-border-color);
-  --toolbarbutton-active-background: var(--button-active-background-color);
+  --toolbarbutton-background-color-active: var(--button-active-background-color);
   --toolbarbutton-active-bordercolor: var(--button-border-color);
 
   &:not(:hover) {
@@ -248,6 +221,7 @@ html|input[type="color"]:not([disabled]):hover:active {
 button[default] {
   background-color: var(--button-primary-background-color);
   color: var(--button-primary-text-color) !important;
+  border-color: var(--button-primary-border-color) !important;
 
   &:focus-visible {
     border-color: var(--primary-focus-border);
@@ -399,13 +373,13 @@ checkbox {
     & button,
     & menulist,
     & select:not([size], [multiple]) {
-      color: var(--sidebar-text-color) !important;
+      color: var(--sidebar-color) !important;
     }
   }
 
   & tree {
     appearance: none;
-    border: 1px solid var(--sidebar-border-color);
+    border: 1px solid var(--sidebar-border);
   }
 
   & .autocomplete-richlistbox {

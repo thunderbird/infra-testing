@@ -1,4 +1,3 @@
-# vim: set filetype=python:
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -9,15 +8,14 @@ XPIDL_SOURCES += [
     "msgIOAuth2Module.idl",
     "msgIPasswordAuthModule.idl",
     "nsICopyMessageListener.idl",
+    "nsIFeedbackService.idl",
     "nsIFolderListener.idl",
     "nsIFolderLookupService.idl",
     "nsIIncomingServerListener.idl",
     "nsIMailAuthModule.idl",
     "nsIMailChannel.idl",
-    "nsIMapiRegistry.idl",
     "nsIMessenger.idl",
     "nsIMessengerOSIntegration.idl",
-    "nsIMessengerWindowService.idl",
     "nsIMsgAccount.idl",
     "nsIMsgAccountManager.idl",
     "nsIMsgAsyncPrompter.idl",
@@ -47,9 +45,9 @@ XPIDL_SOURCES += [
     "nsIMsgProtocolInfo.idl",
     "nsIMsgPurgeService.idl",
     "nsIMsgShutdown.idl",
-    "nsIMsgStatusFeedback.idl",
     "nsIMsgTagService.idl",
     "nsIMsgThread.idl",
+    "nsIMsgTransactionService.idl",
     "nsIMsgTxn.idl",
     "nsIMsgUserFeedbackListener.idl",
     "nsIMsgWindow.idl",

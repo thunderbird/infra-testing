@@ -166,6 +166,12 @@ add_task(async function test_add_identity() {
   EventUtils.synthesizeMouseAtCenter(addButton, {}, gIdentitiesWin);
   const identityWin = await identityEditDialogLoaded;
 
+  Assert.equal(
+    identityWin.document.getElementById("identityCatchAllBox").hidden,
+    false,
+    "catch-all should be shown"
+  );
+
   // Fill in some values, and close. The new identity should now be listed.
   identityWin.document.getElementById("identity.fullName").focus();
   EventUtils.sendString("bob", identityWin);
@@ -259,7 +265,7 @@ async function test_identity_idx(idx) {
     const backupSecretKey = moreButtonMenupopup.querySelector(
       `[data-l10n-id="openpgp-key-backup-key"]`
     );
-    EventUtils.synthesizeMouseAtCenter(backupSecretKey, {}, identityWin);
+    moreButtonMenupopup.activateItem(backupSecretKey);
 
     // The picker opens to select files.
     // Then the "Choose a password to backup your OpenPGP key" dialog opens.

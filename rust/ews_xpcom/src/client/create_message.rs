@@ -4,33 +4,30 @@
 
 use std::sync::Arc;
 
-use base64::prelude::{BASE64_STANDARD, Engine};
+use base64::prelude::*;
 use ews::{
     BaseFolderId, ExtendedFieldURI, ExtendedProperty, Message, MessageDisposition, MimeContent,
     Operation, RealItem, create_item::CreateItem,
 };
 use protocol_shared::client::DoOperation;
-use protocol_shared::safe_xpcom::SafeEwsMessageCreateListener;
+use protocol_shared::safe_xpcom::SafeExchangeMessageCreateListener;
 
 use super::{
     MSGFLAG_READ, MSGFLAG_UNMODIFIED, MSGFLAG_UNSENT, ServerType, XpComEwsClient, XpComEwsError,
-    create_and_populate_header_from_create_response,
 };
 
-struct DoCreateMessage<'a> {
-    pub listener: &'a SafeEwsMessageCreateListener,
+struct DoCreateMessage {
     pub folder_id: String,
     pub is_draft: bool,
     pub is_read: bool,
     pub content: Vec<u8>,
+    new_ews_id: String,
 }
 
-impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError>
-    for DoCreateMessage<'_>
-{
+impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError> for DoCreateMessage {
     const NAME: &'static str = CreateItem::NAME;
     type Okay = ();
-    type Listener = SafeEwsMessageCreateListener;
+    type Listener = SafeExchangeMessageCreateListener;
 
     async fn do_operation(
         &mut self,
@@ -43,6 +40,9 @@ impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError>
                 content: BASE64_STANDARD.encode(&self.content),
             }),
             is_read: Some(self.is_read),
+            // TODO: Should we be setting is_draft here too? i.e.
+            // is_draft: Some(self.is_draft),
+            // See https://bugzilla.mozilla.org/show_bug.cgi?id=2026218
             ..Default::default()
         };
 
@@ -52,10 +52,16 @@ impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError>
         //
         // See
         // https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagmessageflags-canonical-property
+        //
+        // TODO: Should we set MSGFLAG_READ only if is_read is true? See
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=2026218
         let mut mapi_flags = MSGFLAG_READ;
         if self.is_draft {
             mapi_flags |= MSGFLAG_UNSENT;
         } else {
+            // TODO: What behaviour does MSGFLAG_UNMODIFIED actually trigger?
+            // Why is it not set for drafts? See
+            // https://bugzilla.mozilla.org/show_bug.cgi?id=2026218
             mapi_flags |= MSGFLAG_UNMODIFIED;
         }
 
@@ -86,19 +92,26 @@ impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError>
             .make_create_item_request(create_item, Default::default())
             .await?;
 
-        let hdr = create_and_populate_header_from_create_response(
-            response_message,
-            &self.content,
-            self.listener,
-        )?;
+        // Get the ews id of the new message from the response.
+        let item = super::single_response_or_error(response_message.items.inner)?;
+        let message = item.inner_message();
 
-        // Let the listeners know of the local key for the newly created message.
-        self.listener.on_new_message_key(&hdr)?;
+        self.new_ews_id.clone_from(
+            &message
+                .item_id
+                .as_ref()
+                .ok_or(XpComEwsError::MissingIdInResponse)?
+                .id,
+        );
 
+        // NOTE: we rely on the on_success()/on_failure() call to invoke
+        // on_remote_create_finished().
         Ok(())
     }
 
-    fn into_success_arg(self, _ok: Self::Okay) {}
+    fn into_success_arg(self, _ok: Self::Okay) -> String {
+        self.new_ews_id
+    }
     fn into_failure_arg(self) {}
 }
 
@@ -109,20 +122,20 @@ impl<ServerT: ServerType> XpComEwsClient<ServerT> {
     /// All headers are expected to be included in the provided MIME content.
     ///
     /// [`CreateItem` operation]: https://learn.microsoft.com/en-us/exchange/client-developer/web-service-reference/createitem-operation-email-message
-    pub async fn create_message(
+    pub(crate) async fn create_message(
         self: Arc<XpComEwsClient<ServerT>>,
         folder_id: String,
         is_draft: bool,
         is_read: bool,
         content: Vec<u8>,
-        listener: SafeEwsMessageCreateListener,
+        listener: SafeExchangeMessageCreateListener,
     ) {
         let operation = DoCreateMessage {
-            listener: &listener,
             folder_id,
             is_draft,
             is_read,
             content,
+            new_ews_id: String::new(),
         };
         operation.handle_operation(&self, &listener).await;
     }

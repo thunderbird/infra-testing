@@ -1,11 +1,9 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsIStreamListener.idl"
 
-interface nsIMsgStatusFeedback;
 interface nsIMsgIdentity;
 interface nsIMsgSendLaterListener;
 interface nsIMsgFolder;
@@ -22,9 +20,6 @@ interface nsIMsgFolder;
 [scriptable, uuid(fa324a4b-4b87-4e9a-a3c0-af9071a358df)]
 interface nsIMsgSendLater : nsIStreamListener
 {
-  /// Used to obtain status feedback for when messages are sent.
-  attribute nsIMsgStatusFeedback statusFeedback;
-
   /**
    * Sends any unsent messages in the identity's unsent messages folder.
    *

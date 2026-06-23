@@ -1,11 +1,9 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsMsgIncomingServer.h"
 
-#include "MsgPasswordAuthModule.h"
 #include "nscore.h"
 #include "plstr.h"
 #include "prmem.h"
@@ -30,7 +28,6 @@
 #include "nsIWindowWatcher.h"
 #include "nsIMsgHdr.h"
 #include "nsILoginInfo.h"
-#include "nsILoginManager.h"
 #include "nsIMsgAccountManager.h"
 #include "nsIMsgMdnGenerator.h"
 #include "nsMsgUtils.h"
@@ -63,8 +60,10 @@ nsMsgIncomingServer::nsMsgIncomingServer()
       m_biffState(nsIMsgFolder::nsMsgBiffState_Unknown),
       m_serverBusy(false),
       m_canHaveFilters(true),
-      mPerformingBiff(false),
-      mPasswordModule(new MsgPasswordAuthModule{}) {}
+      mPerformingBiff(false) {
+  mPasswordModule =
+      do_CreateInstance("@mozilla.org/mail/password-auth-module;1");
+}
 
 nsresult nsMsgIncomingServer::Init() {
   // We need to know when the password manager changes.
@@ -127,7 +126,7 @@ nsMsgIncomingServer::Observe(nsISupports* aSubject, const char* aTopic,
     if (!otherFullName.IsEmpty()) {
       nsAutoCString thisHostname;
       nsAutoCString thisUsername;
-      GetHostName(thisHostname);
+      GetHostname(thisHostname);
       GetUsername(thisUsername);
       nsAutoCString thisFullName;
       GetType(thisFullName);
@@ -384,7 +383,7 @@ nsMsgIncomingServer::GetServerURI(nsACString& aResult) {
   }
 
   nsCString hostname;
-  rv = GetHostName(hostname);
+  rv = GetHostname(hostname);
   if (NS_SUCCEEDED(rv) && !hostname.IsEmpty()) {
     nsCString escapedHostname;
     MsgEscapeString(hostname, nsINetUtil::ESCAPE_URL_PATH, escapedHostname);
@@ -617,7 +616,7 @@ nsMsgIncomingServer::GetConstructedPrettyName(nsACString& retval) {
   }
 
   nsCString hostname;
-  rv = GetHostName(hostname);
+  rv = GetHostname(hostname);
   NS_ENSURE_SUCCESS(rv, rv);
 
   retval.Append(hostname);
@@ -662,7 +661,7 @@ nsMsgIncomingServer::GetPasswordWithUI(const nsAString& aPromptMessage,
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsAutoCString hostname;
-  rv = GetHostName(hostname);
+  rv = GetHostname(hostname);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsAutoCString username;
@@ -689,7 +688,7 @@ nsresult nsMsgIncomingServer::GetPasswordWithoutUI() {
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsAutoCString hostname;
-  rv = GetHostName(hostname);
+  rv = GetHostname(hostname);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsAutoCString username;
@@ -711,7 +710,7 @@ nsMsgIncomingServer::ForgetPassword() {
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsAutoCString hostname;
-  rv = GetHostName(hostname);
+  rv = GetHostname(hostname);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsAutoCString username;
@@ -762,7 +761,7 @@ nsMsgIncomingServer::GetLocalPath(nsIFile** aLocalPath) {
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCString hostname;
-  rv = GetHostName(hostname);
+  rv = GetHostname(hostname);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // set the leaf name to "dummy", and then call MakeUnique with a suggested
@@ -1016,7 +1015,7 @@ nsMsgIncomingServer::GetEditableFilterList(nsIMsgWindow* aMsgWindow,
 
 // If the hostname contains ':' (like hostname:1431)
 // then parse and set the port number.
-nsresult nsMsgIncomingServer::InternalSetHostName(const nsACString& aHostname,
+nsresult nsMsgIncomingServer::InternalSetHostname(const nsACString& aHostname,
                                                   const char* prefName) {
   nsCString hostname;
   hostname = aHostname;
@@ -1062,14 +1061,14 @@ nsMsgIncomingServer::OnUserOrHostNameChanged(const nsACString& oldName,
   atPos = acctName.FindChar('@');
 
   // get previous username and hostname
-  nsCString userName, hostName;
+  nsCString userName, hostname;
   if (hostnameChanged) {
     rv = GetUsername(userName);
     NS_ENSURE_SUCCESS(rv, rv);
-    hostName.Assign(oldName);
+    hostname.Assign(oldName);
   } else {
     userName.Assign(oldName);
-    rv = GetHostName(hostName);
+    rv = GetHostname(hostname);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -1087,7 +1086,7 @@ nsMsgIncomingServer::OnUserOrHostNameChanged(const nsACString& oldName,
       atPos = 0;
     else
       atPos += 1;
-    if (Substring(acctName, atPos).Equals(hostName)) {
+    if (Substring(acctName, atPos).Equals(hostname)) {
       acctName.Replace(atPos, acctName.Length() - atPos, newName);
     }
   }
@@ -1096,11 +1095,11 @@ nsMsgIncomingServer::OnUserOrHostNameChanged(const nsACString& oldName,
 }
 
 NS_IMETHODIMP
-nsMsgIncomingServer::SetHostName(const nsACString& aHostname) {
+nsMsgIncomingServer::SetHostname(const nsACString& aHostname) {
   nsCString oldName;
-  nsresult rv = GetHostName(oldName);
+  nsresult rv = GetHostname(oldName);
   NS_ENSURE_SUCCESS(rv, rv);
-  rv = InternalSetHostName(aHostname, "hostname");
+  rv = InternalSetHostname(aHostname, "hostname");
 
   if (!oldName.IsEmpty() &&
       !aHostname.Equals(oldName, nsCaseInsensitiveCStringComparator))
@@ -1109,11 +1108,11 @@ nsMsgIncomingServer::SetHostName(const nsACString& aHostname) {
 }
 
 NS_IMETHODIMP
-nsMsgIncomingServer::GetHostName(nsACString& aResult) {
+nsMsgIncomingServer::GetHostname(nsACString& aResult) {
   nsresult rv = GetStringValue("hostname", aResult);
   if (aResult.CountChar(':') == 1) {
-    // gack, we need to reformat the hostname - SetHostName will do that
-    SetHostName(aResult);
+    // gack, we need to reformat the hostname - SetHostname will do that
+    SetHostname(aResult);
     rv = GetStringValue("hostname", aResult);
   }
   return rv;
@@ -1482,12 +1481,15 @@ nsMsgIncomingServer::GetPasswordPromptRequired(bool* aPasswordIsRequired) {
   if (!*aPasswordIsRequired) return NS_OK;
 
   // If the password is empty, check to see if it is stored and to be retrieved
-  if (mPasswordModule->cachedPassword().IsEmpty()) {
+  nsAutoCString value;
+  MOZ_TRY(mPasswordModule->GetCachedPassword(value));
+  if (value.IsEmpty()) {
     rv = GetPasswordWithoutUI();
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  *aPasswordIsRequired = mPasswordModule->cachedPassword().IsEmpty();
+  MOZ_TRY(mPasswordModule->GetCachedPassword(value));
+  *aPasswordIsRequired = value.IsEmpty();
   if (*aPasswordIsRequired) {
     // Set *aPasswordIsRequired false if authMethod is oauth2.
     int32_t authMethod = 0;

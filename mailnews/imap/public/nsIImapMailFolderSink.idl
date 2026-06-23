@@ -1,8 +1,8 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "ImapTypes.idl"
 #include "nsISupports.idl"
 #include "MailNewsTypes2.idl"
 
@@ -47,7 +47,7 @@ interface nsIImapMailFolderSink : nsISupports {
   attribute boolean folderNeedsSubscribing;
   attribute boolean folderNeedsAdded;
   attribute unsigned long aclFlags;
-  attribute long uidValidity;
+  attribute ImapUid uidValidity;
   /**
    * Whether we have asked the server for this folder's quota information.
    * If the server supports quotas, this occurs when the folder is opened.
@@ -80,20 +80,19 @@ interface nsIImapMailFolderSink : nsISupports {
                                in nsIMailboxSpec aSpec);
   /**
    * Used when downloading headers in chunks.
-   * @param aSpec Mailbox spec of folder we're downloading headers for.
    * @returns true if more to download, false otherwise.
    * @returns total count of headers to download (across all chunks)
    * @returns an array of msg keys to download, array size is this chunk's size
    */
   void getMsgHdrsToDownload(out boolean aMore, out long aTotalCount,
-                            out Array<nsMsgKey> aKeys);
+                            out Array<ImapUid> aUids);
   void parseMsgHdrs(in nsIImapProtocol aProtocol, in nsIImapHeaderXferInfo aHdrXferInfo);
   void AbortHeaderParseStream(in nsIImapProtocol aProtocol) ;
 
   void OnlineCopyCompleted(in nsIImapProtocol aProtocol, in ImapOnlineCopyState aCopyState);
   // StartMessage()/EndMessage() only called for message copying.
   void StartMessage(in nsIMsgMailNewsUrl aUrl);
-  void EndMessage(in nsIMsgMailNewsUrl aUrl, in nsMsgKey uidOfMessage);
+  void EndMessage(in nsIMsgMailNewsUrl aUrl, in ImapUid uidOfMessage);
 
   void NotifySearchHit(in nsIMsgMailNewsUrl aUrl, in string hitLine);
 
@@ -107,7 +106,7 @@ interface nsIImapMailFolderSink : nsISupports {
   void headerFetchCompleted(in nsIImapProtocol aProtocol);
   void setBiffStateAndUpdate(in long biffState);
   void progressStatusString(in nsIImapProtocol aProtocol,
-                            in string aMsgId,
+                            in AUTF8String aMsgId,
                             in AUTF8String mailboxName);
   void percentProgress(in nsIImapProtocol aProtocol,
                        in ACString aFmtStringName, in long long aCurrentProgress,
@@ -116,7 +115,6 @@ interface nsIImapMailFolderSink : nsISupports {
   void clearFolderRights();
   void setCopyResponseUid(in string msgIdString,
                                 in nsIImapUrl aUrl);
-  void setAppendMsgUid(in nsMsgKey newKey,
-                             in nsIImapUrl aUrl);
+  void setAppendMsgUid(in ImapUid uid, in nsIImapUrl url);
   ACString getMessageId(in nsIImapUrl aUrl);
 };

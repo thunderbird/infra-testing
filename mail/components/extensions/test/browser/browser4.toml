@@ -98,6 +98,12 @@ support-files = [
 ]
 tags = ["contextmenu"]
 
+["browser_ext_menus_getTargetElement.js"]
+support-files = [
+  "data/content.html",
+]
+tags = ["contextmenu"]
+
 ["browser_ext_menus_message_header_pane.js"]
 
 ["browser_ext_menus_message_one_attachment.js"]

@@ -1,26 +1,31 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsImapUtils.h"
+
+#include <fmt/format.h>
+
+#include "MailNewsTypes.h"
 #include "nsCOMPtr.h"
+#include "nsDebug.h"
+#include "nsError.h"
 #include "prsystem.h"
 #include "prprf.h"
 
-#include "nsMsgUtils.h"
+#include "nsIImapFlagAndUidState.h"
 #include "nsImapFlagAndUidState.h"
 #include "nsImapNamespace.h"
-#include "nsIImapFlagAndUidState.h"
+#include "nsString.h"
 
-nsresult nsImapURI2FullName(const char* rootURI, const char* hostName,
+nsresult nsImapURI2FullName(const char* rootURI, const char* hostname,
                             const char* uriStr, char** name) {
   nsAutoCString uri(uriStr);
   nsAutoCString fullName;
   if (uri.Find(rootURI) != 0) return NS_ERROR_FAILURE;
   fullName = Substring(uri, strlen(rootURI));
   uri = fullName;
-  int32_t hostStart = uri.Find(hostName);
+  int32_t hostStart = uri.Find(hostname);
   if (hostStart <= 0) return NS_ERROR_FAILURE;
   fullName = Substring(uri, hostStart);
   uri = fullName;
@@ -132,7 +137,7 @@ nsImapMailboxSpec::nsImapMailboxSpec() {
 
 nsImapMailboxSpec::~nsImapMailboxSpec() {}
 
-NS_IMPL_GETSET(nsImapMailboxSpec, Folder_UIDVALIDITY, int32_t,
+NS_IMPL_GETSET(nsImapMailboxSpec, Folder_UIDVALIDITY, ImapUid,
                mFolder_UIDVALIDITY)
 NS_IMPL_GETSET(nsImapMailboxSpec, HighestModSeq, uint64_t, mHighestModSeq)
 NS_IMPL_GETSET(nsImapMailboxSpec, NumMessages, int32_t, mNumOfMessages)
@@ -140,7 +145,7 @@ NS_IMPL_GETSET(nsImapMailboxSpec, NumUnseenMessages, int32_t,
                mNumOfUnseenMessages)
 NS_IMPL_GETSET(nsImapMailboxSpec, NumRecentMessages, int32_t,
                mNumOfRecentMessages)
-NS_IMPL_GETSET(nsImapMailboxSpec, NextUID, int32_t, mNextUID)
+NS_IMPL_GETSET(nsImapMailboxSpec, NextUID, ImapUid, mNextUID)
 NS_IMPL_GETSET(nsImapMailboxSpec, HierarchyDelimiter, char, mHierarchySeparator)
 NS_IMPL_GETSET(nsImapMailboxSpec, FolderSelected, bool, mFolderSelected)
 NS_IMPL_GETSET(nsImapMailboxSpec, DiscoveredFromLsub, bool, mDiscoveredFromLsub)
@@ -175,12 +180,12 @@ NS_IMETHODIMP nsImapMailboxSpec::SetUnicharPathName(
   return NS_OK;
 }
 
-NS_IMETHODIMP nsImapMailboxSpec::GetHostName(nsACString& aHostName) {
+NS_IMETHODIMP nsImapMailboxSpec::GetHostname(nsACString& aHostName) {
   aHostName = mHostName;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsImapMailboxSpec::SetHostName(const nsACString& aHostName) {
+NS_IMETHODIMP nsImapMailboxSpec::SetHostname(const nsACString& aHostName) {
   mHostName = aHostName;
   return NS_OK;
 }
@@ -225,14 +230,13 @@ nsImapMailboxSpec& nsImapMailboxSpec::operator=(
   return *this;
 }
 
-// use the flagState to determine if the gaps in the msgUids correspond to gaps
-// in the mailbox, in which case we can still use ranges. If flagState is null,
-// we won't do this.
-void AllocateImapUidString(const uint32_t* msgUids, uint32_t& msgCount,
+// This function could do with some rethinking.
+// See https://bugzilla.mozilla.org/show_bug.cgi?id=2031552
+void AllocateImapUidString(const ImapUid* msgUids, uint32_t& msgCount,
                            nsImapFlagAndUidState* flagState,
                            nsCString& returnString) {
-  uint32_t startSequence = (msgCount > 0) ? msgUids[0] : 0xFFFFFFFF;
-  uint32_t curSequenceEnd = startSequence;
+  ImapUid startSequence = (msgCount > 0) ? msgUids[0] : 0xFFFFFFFF;
+  ImapUid curSequenceEnd = startSequence;
   uint32_t total = msgCount;
   int32_t curFlagStateIndex = -1;
 
@@ -240,16 +244,16 @@ void AllocateImapUidString(const uint32_t* msgUids, uint32_t& msgCount,
   if (flagState && flagState->GetPartialUIDFetch()) flagState = nullptr;
 
   for (uint32_t keyIndex = 0; keyIndex < total; keyIndex++) {
-    uint32_t curKey = msgUids[keyIndex];
-    uint32_t nextKey =
+    ImapUid curUid = msgUids[keyIndex];
+    ImapUid nextUid =
         (keyIndex + 1 < total) ? msgUids[keyIndex + 1] : 0xFFFFFFFF;
-    bool lastKey = (nextKey == 0xFFFFFFFF);
+    bool lastKey = (nextUid == 0xFFFFFFFF);
 
-    if (lastKey) curSequenceEnd = curKey;
+    if (lastKey) curSequenceEnd = curUid;
 
     if (!lastKey) {
-      if (nextKey == curSequenceEnd + 1) {
-        curSequenceEnd = nextKey;
+      if (nextUid == curSequenceEnd + 1) {
+        curSequenceEnd = nextUid;
         curFlagStateIndex++;
         continue;
       }
@@ -263,16 +267,16 @@ void AllocateImapUidString(const uint32_t* msgUids, uint32_t& msgCount,
             // The start of this sequence is missing from flag state, so move
             // on to the next key.
             curFlagStateIndex = -1;
-            curSequenceEnd = startSequence = nextKey;
+            curSequenceEnd = startSequence = nextUid;
             continue;
           }
         }
         curFlagStateIndex++;
-        uint32_t nextUidInFlagState;
+        ImapUid nextUidInFlagState;
         nsresult rv =
             flagState->GetUidOfMessage(curFlagStateIndex, &nextUidInFlagState);
-        if (NS_SUCCEEDED(rv) && nextUidInFlagState == nextKey) {
-          curSequenceEnd = nextKey;
+        if (NS_SUCCEEDED(rv) && nextUidInFlagState == nextUid) {
+          curSequenceEnd = nextUid;
           continue;
         }
       }
@@ -281,11 +285,11 @@ void AllocateImapUidString(const uint32_t* msgUids, uint32_t& msgCount,
       returnString.AppendInt((int64_t)startSequence);
       returnString += ':';
       returnString.AppendInt((int64_t)curSequenceEnd);
-      startSequence = nextKey;
+      startSequence = nextUid;
       curSequenceEnd = startSequence;
       curFlagStateIndex = -1;
     } else {
-      startSequence = nextKey;
+      startSequence = nextUid;
       curSequenceEnd = startSequence;
       returnString.AppendInt((int64_t)msgUids[keyIndex]);
       curFlagStateIndex = -1;
@@ -303,14 +307,16 @@ void AllocateImapUidString(const uint32_t* msgUids, uint32_t& msgCount,
   }
 }
 
-void ParseUidString(const char* uidString, nsTArray<nsMsgKey>& keys) {
+void ParseUidString(const char* uidString, nsTArray<ImapUid>& uids) {
   // This is in the form <id>,<id>, or <id1>:<id2>
-  if (!uidString) return;
+  if (!uidString) {
+    return;
+  }
 
   char curChar = *uidString;
   bool isRange = false;
-  uint32_t curToken;
-  uint32_t saveStartToken = 0;
+  ImapUid curToken;
+  ImapUid saveStartToken = 0;
 
   for (const char* curCharPtr = uidString; curChar && *curCharPtr;) {
     const char* currentKeyToken = curCharPtr;
@@ -323,16 +329,95 @@ void ParseUidString(const char* uidString, nsTArray<nsMsgKey>& keys) {
     // stops at non-numeric chars.
     curToken = strtoul(currentKeyToken, nullptr, 10);
     if (isRange) {
-      while (saveStartToken < curToken) keys.AppendElement(saveStartToken++);
+      while (saveStartToken < curToken) uids.AppendElement(saveStartToken++);
     }
-    keys.AppendElement(curToken);
+    uids.AppendElement(curToken);
     isRange = (curChar == ':');
-    if (isRange) saveStartToken = curToken + 1;
+    if (isRange) {
+      saveStartToken = curToken + 1;
+    }
   }
 }
 
-void AppendUid(nsCString& msgIds, uint32_t uid) {
+void AppendUid(nsCString& msgIds, ImapUid uid) {
   char buf[20];
   PR_snprintf(buf, sizeof(buf), "%u", uid);
   msgIds.Append(buf);
+}
+
+nsCString UidSetFromUids(mozilla::Span<const ImapUid> uids) {
+  nsTArray<ImapUid> sortedUids(uids);
+  sortedUids.Sort();
+
+  nsTArray<nsCString> fragments;
+  size_t i = 0;
+  while (i < sortedUids.Length()) {
+    // Collect a range (which might just be a single UID).
+    ImapUid first = sortedUids[i];
+    ImapUid last = first;
+    ++i;
+    MOZ_ASSERT(first != 0);  // Not a valid UID.
+    while (i < sortedUids.Length()) {
+      ImapUid uid = sortedUids[i];
+      MOZ_ASSERT(uid >= last);
+      uint32_t distance = uid - last;
+      if (distance == 0) {
+        // Duplicate UID. Ignore and keep going.
+        ++i;
+      } else if (distance == 1) {
+        // Consecutive UID - extend the range.
+        ++last;
+        ++i;
+      } else {
+        // Hit a gap, so that's the end of this range.
+        break;
+      }
+    }
+
+    switch (last - first) {
+      case 0:
+        fragments.AppendElement(nsFmtCString("{}", first));
+        break;
+      case 1:
+        // Don't bother emitting a trivially-small range.
+        fragments.AppendElement(nsFmtCString("{},{}", first, last));
+        break;
+      default:
+        fragments.AppendElement(nsFmtCString("{}:{}", first, last));
+        break;
+    }
+  }
+
+  return StringJoin(","_ns, fragments);
+}
+
+mozilla::Result<nsTArray<ImapUid>, nsresult> UidsFromHdrs(
+    nsTArray<RefPtr<nsIMsgDBHdr>> const& hdrs) {
+  nsTArray<ImapUid> uids(hdrs.Length());
+  for (nsIMsgDBHdr* hdr : hdrs) {
+    // TODO: When we take the final step to separate nsMsgKey and UIDs,
+    // this function will have to be changed to use GetUidOnServer() instead
+    // of GetMessageKey().
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=1806770
+
+    //    ImapUid uid;
+    //    nsresult rv = hdr->GetUidOnServer(&uid);
+    //    if (NS_FAILED(rv)) {
+    //      return mozilla::Err(rv);
+    //    }
+    //    // Ignore messages with no UID.
+    //    if (uid != 0) {
+    //      uids.AppendElement(uid);
+    //    }
+
+    // But for now the UID is the nsMsgKey...
+    nsMsgKey key;
+    nsresult rv = hdr->GetMessageKey(&key);
+    if (NS_FAILED(rv)) {
+      return mozilla::Err(rv);
+    }
+    MOZ_ASSERT(key != nsMsgKey_None);
+    uids.AppendElement((ImapUid)key);
+  }
+  return uids;
 }

@@ -223,13 +223,67 @@ Enigmail.msg = {
    */
   checkPgpmimeHandler() {
     if (
-      EnigmailVerify.currentCtHandler !== EnigmailConstants.MIME_HANDLER_PGPMIME
+      EnigmailVerify.currentCtHandler === EnigmailConstants.MIME_HANDLER_PGPMIME
     ) {
-      EnigmailVerify.registerPGPMimeHandler();
-      this.messageReload();
+      return true;
+    }
+    // Only switch the handler (and reload) if a PGP/MIME part exists at a
+    // position where switching is intended.
+    if (!this.hasSwitchablePgpPart()) {
+      return true;
+    }
+    EnigmailVerify.registerPGPMimeHandler();
+    this.messageReload();
+    return false;
+  },
+
+  /**
+   * Decide whether switching the content-type handler from OpenPGP to
+   * S/MIME (or vice versa) is allowed while processing the given MIME part.
+   *
+   * @param {string} partNum - MIME part number being processed.
+   * @param {string} topContentType - Content type of the top part ("1").
+   * @param {string} partContentType - Content type of the processed part.
+   * @returns {boolean} true if switching the handler is allowed.
+   */
+  mayChangeHandlerForPart(partNum, topContentType, partContentType) {
+    if (partNum == "1") {
+      return true;
+    }
+    if (partNum != "1.1") {
       return false;
     }
-    return true;
+    if (/multipart\/signed/i.test(topContentType)) {
+      return true;
+    }
+    return (
+      /multipart\/encrypted/i.test(topContentType) &&
+      /multipart\/signed/i.test(partContentType)
+    );
+  },
+
+  /**
+   * @returns {boolean} true if the message has a PGP/MIME signed or encrypted
+   *   part at a position where switching the content-type handler is allowed
+   *   (see mayChangeHandlerForPart).
+   */
+  hasSwitchablePgpPart() {
+    const isPgpMime = ct => {
+      const s = (ct || "").replace(/[\r\n]/g, " ");
+      return (
+        /multipart\/signed.*application\/pgp-signature/i.test(s) ||
+        /application\/pgp-encrypted/i.test(s)
+      );
+    };
+    const topCt = this.mimeParts?.fullContentType || "";
+    if (isPgpMime(topCt)) {
+      // The top part "1" is always a switchable position.
+      return true;
+    }
+    const childCt = this.mimeParts?.subParts?.[0]?.fullContentType || "";
+    const result =
+      isPgpMime(childCt) && this.mayChangeHandlerForPart("1.1", topCt, childCt);
+    return result;
   },
 
   async notifyMessageDecryptDone() {
@@ -1995,7 +2049,7 @@ Enigmail.msg = {
     this.fetchParticipants();
 
     for (const newKey of preview) {
-      const oldKey = EnigmailKeyRing.getKeyById(newKey.fpr);
+      const oldKey = EnigmailKeyRing.getKeyById(newKey.fpr, true);
       if (!oldKey) {
         // If the key is unknown, an expired key cannot help us
         // for anything new, so don't use it.
@@ -2152,8 +2206,14 @@ Enigmail.msg = {
       ) {
         shouldUpdate = true;
       } else if (
-        oldKey.userIds.length != newKey.userIds.length ||
-        !oldKey.userIds.every((el, ix) => el === newKey.userIds[ix])
+        // Attached keys may be in minimal form (cf. `extractPublicKeys` in `keyRing.sys.mjs`
+        // in which case the `userIds` list is always empty. Hence, an empty `userIds` list does not convey
+        // information about whether the key changed, so we explicitly exclude this case.
+        newKey.userIds.length > 0 &&
+        (oldKey.userIds.length != newKey.userIds.length ||
+          !oldKey.userIds.every(
+            (el, ix) => el.userId == newKey.userIds[ix].userId
+          ))
       ) {
         shouldUpdate = true;
       }

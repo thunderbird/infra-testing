@@ -4,7 +4,6 @@
 
 use std::{
     cell::{Cell, OnceCell},
-    future::Future,
     task::Waker,
 };
 
@@ -23,7 +22,7 @@ pub(super) struct OAuthListener {
 }
 
 impl OAuthListener {
-    pub fn new() -> RefPtr<Self> {
+    pub(super) fn new() -> RefPtr<Self> {
         Self::allocate(InitOAuthListener {
             result: Default::default(),
             waker: Default::default(),
@@ -35,7 +34,7 @@ impl OAuthListener {
         let bearer = String::from(bearer.to_utf8());
         self.result
             .set(Ok(bearer))
-            .map_err(|_| nserror::NS_ERROR_UNEXPECTED)?;
+            .or(Err(nserror::NS_ERROR_UNEXPECTED))?;
 
         if let Some(waker) = self.waker.take() {
             waker.wake();
@@ -48,7 +47,7 @@ impl OAuthListener {
     fn on_failure(&self, err: nsresult) -> Result<(), nsresult> {
         self.result
             .set(Err(err))
-            .map_err(|_| nserror::NS_ERROR_UNEXPECTED)?;
+            .or(Err(nserror::NS_ERROR_UNEXPECTED))?;
 
         if let Some(waker) = self.waker.take() {
             waker.wake();

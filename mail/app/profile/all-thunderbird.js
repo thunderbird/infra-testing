@@ -232,6 +232,15 @@ pref("extensions.startupScanScopes", 4);
 pref("extensions.update.requireBuiltInCerts", false);
 pref("extensions.install.requireBuiltInCerts", false);
 
+// Allow experiments and suppress unsigned warnings.
+pref("extensions.experiments.enabled", true);
+pref("extensions.ui.disableUnsignedWarnings", true);
+
+// Allow Experiments to be suppressed.
+pref("extensions.experiments.suppressed", false);
+// Comma-separated list of add-on IDs exempt from experiment suppression.
+pref("extensions.experiments.allowed", "tbpro-add-on@thunderbird.net,owl@beonex.com");
+
 // Gecko Profiler
 pref("extensions.geckoProfiler.acceptedExtensionIds", "geckoprofiler@mozilla.com,quantum-foxfooding@mozilla.com,raptor@mozilla.org");
 
@@ -467,9 +476,10 @@ pref("network.protocol-handler.expose.nntp", true);
 pref("network.protocol-handler.expose.imap", true);
 pref("network.protocol-handler.expose.pop", true);
 pref("network.protocol-handler.expose.mailbox", true);
-// `x-moz-ews` is meant for internal use only, so we shouldn't handle e.g.
+// `x-moz-{ews,graph}` are meant for internal use only, so we shouldn't handle e.g.
 // clickable links with this scheme.
 pref("network.protocol-handler.expose.x-moz-ews", false);
+pref("network.protocol-handler.expose.x-moz-graph", false);
 // Although we allow these to be exposed internally, there are various places
 // (e.g. message pane) where we may divert them out to external applications.
 pref("network.protocol-handler.expose.about", true);
@@ -511,7 +521,9 @@ pref("network.protocol-handler.external.moz-cal-handle-itip", false);
 pref("network.protocol-handler.external.smile", false);
 pref("network.protocol-handler.external.ews", false);
 pref("network.protocol-handler.external.ews-message", false);
+pref("network.protocol-handler.external.graph-message", false);
 pref("network.protocol-handler.external.x-moz-ews", false);
+pref("network.protocol-handler.external.x-moz-graph", false);
 
 pref("network.hosts.smtp_server",           "mail");
 pref("network.hosts.pop_server",            "mail");
@@ -997,6 +1009,7 @@ pref("devtools.command-button-rulers.enabled", false);
 pref("devtools.command-button-measure.enabled", false);
 pref("devtools.command-button-noautohide.enabled", false);
 pref("devtools.command-button-errorcount.enabled", true);
+pref("devtools.command-button-jstracer.enabled", false);
 #ifndef MOZILLA_OFFICIAL
   pref("devtools.command-button-experimental-prefs.enabled", true);
 #endif
@@ -1041,6 +1054,8 @@ pref("devtools.inspector.simple-highlighters-reduced-motion", false);
 // Whether or not Enter on inplace editor in the Rules view moves focus and activates
 // next inplace editor.
 pref("devtools.inspector.rule-view.focusNextOnEnter", true);
+// Enable Rules view CSS explainers
+pref("devtools.inspector.css-explainers", false);
 
 // Whether or not the box model panel is opened in the layout view
 pref("devtools.layout.boxmodel.opened", true);
@@ -1068,6 +1083,8 @@ pref("devtools.eyedropper.zoom", 6);
 pref("devtools.markup.collapseAttributes", true);
 // Length to collapse attributes
 pref("devtools.markup.collapseAttributeLength", 120);
+// Enable the display of comment nodes in the markup view.
+pref("devtools.markup.showComments", true);
 // Whether to auto-beautify the HTML on copy.
 pref("devtools.markup.beautifyOnCopy", false);
 
@@ -1107,6 +1124,13 @@ pref("devtools.netmonitor.features.webtransport", true);
 
 // Enable the Application panel
 pref("devtools.application.enabled", true);
+pref("devtools.application.selectedSidebar", "service-workers");
+
+// The internal Anti tracking debugging panel
+pref("devtools.anti-tracking.enabled", false);
+
+// Session History panel
+pref("devtools.application.sessionHistory.enabled", false);
 
 // Enable the custom formatters feature
 // This preference represents the user's choice to enable the custom formatters feature.
@@ -1132,6 +1156,8 @@ pref("devtools.netmonitor.msg.visibleColumns",
 pref("devtools.netmonitor.msg.displayed-messages.limit", 500);
 
 pref("devtools.netmonitor.response.ui.limit", 10240);
+
+pref("devtools.netmonitor.ui.default-raw-response", false);
 
 // Save request/response bodies yes/no.
 pref("devtools.netmonitor.saveRequestAndResponseBodies", true);
@@ -1242,6 +1268,9 @@ pref("devtools.webconsole.input.editorOnboarding", true);
 // Enable grouping/repeating similar messages in the console, true by default
 pref("devtools.webconsole.groupSimilarMessages", true);
 
+// Enable codemirror 6 for the JSTerminal in the console
+pref("devtools.webconsole.codemirrorNext", false);
+
 // Enable network monitoring the browser toolbox console/browser console.
 pref("devtools.browserconsole.enableNetworkMonitoring", false);
 
@@ -1288,6 +1317,10 @@ pref("devtools.responsive.touchSimulation.enabled", false);
 pref("devtools.responsive.userAgent", "");
 // Show the custom user agent input by default
 pref("devtools.responsive.showUserAgentInput", true);
+// Whether to show the RDM dynamic toolbar
+pref("devtools.responsive.dynamicToolbar.enabled", false);
+// Whether the RDM dynamic toolbar is on the top (false = on bottom)
+pref("devtools.responsive.dynamicToolbar.onTop", false);
 
 // Show tab debug targets for This Firefox (on by default for local builds).
 #ifdef MOZILLA_OFFICIAL
@@ -1316,12 +1349,18 @@ pref("devtools.aboutdebugging.collapsibilities.temporaryExtension", false);
   pref("devtools.aboutdebugging.showHiddenAddons", true);
 #endif
 
+// Add some extra logging to the console, for debugging
+pref("devtools.aboutdebugging.showReduxActionsInConsole", false);
+
 // Map top-level await expressions in the console
 pref("devtools.debugger.features.map-await-expression", true);
 
 // This relies on javascript.options.asyncstack as well or it has no effect.
 pref("devtools.debugger.features.async-captured-stacks", true);
 pref("devtools.debugger.features.async-live-stacks", false);
+
+// This supports showing stylesheet sources in the debugger
+pref("devtools.debugger.features.stylesheets-in-debugger", false);
 
 // When debugging a website, this pref controls if extension content scripts applied
 // to the currently debugged page should be shown in the Debugger Source Tree
@@ -1486,11 +1525,6 @@ pref("mail.inappnotifications.refreshInterval", 21600000);
 // Disables all filtering of in-app notifications, useful for testing.
 pref("mail.inappnotifications.bypass-filtering", false);
 
-// Whether Yahoo/AOL/ATT OAuth user is detected.
-// Used to notify about upcoming changes via in-app notification.
-// TODO: Remove this when PKCE is fully rolled out for Yahoo/AOL/AT&T
-pref("mail.inappnotifications.pkceUpgradeForYahooAol", false);
-
 // Whether Thunderbird is running under Flatpak or Snap.
 // These are set at startup each run so they reflect the current runtime.
 // Used to notify about upcoming changes via in-app notification.
@@ -1506,11 +1540,14 @@ pref("mail.thread.conversation.enabled", false);
 pref("mail.dark-reader.enabled", true);
 pref("mail.dark-reader.show-toggle", true);
 
-// Enable the new account setup (starting from the second account)
-pref("mail.accounthub.enabled", true);
-
 // Enable address book setup via account hub
 pref("mail.accounthub.addressbook.enabled", true);
+
+// Enable Thundermail ui in account hub.
+pref("mail.accounthub.thundermail.enabled", true);
+
+// Enable new manual config ui in account hub.
+pref("mail.accounthub.manualconfig.enabled", false);
 
 // Export to mobile logging level.
 pref("mail.qrexport.loglevel", "Warn");
@@ -1529,3 +1566,10 @@ pref("mail.threadpane.cardsview.rowcount", 3);
 
 // Whether the OS Authentication is enabled or not.
 pref("signon.management.page.os-auth.locked.enabled", false);
+
+#ifdef XP_MACOSX
+pref("widget.macos.native-anchored-menus", false);
+#endif
+
+// The color used to style primary buttons and elements.
+pref("mail.appearance.accentColor", "accent-color");

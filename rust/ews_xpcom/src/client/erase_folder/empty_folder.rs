@@ -6,7 +6,7 @@ use ews::{
     delete_folder::DeleteFolder, empty_folder::EmptyFolder, server_version::ExchangeServerVersion,
 };
 use protocol_shared::client::DoOperation;
-use protocol_shared::safe_xpcom::{SafeEwsSimpleOperationListener, handle_error};
+use protocol_shared::safe_xpcom::{SafeExchangeSimpleOperationListener, handle_error};
 use std::{marker::PhantomData, sync::Arc};
 
 use super::{DoEraseFolder, XpComEwsClient};
@@ -14,10 +14,10 @@ use super::{DoEraseFolder, XpComEwsClient};
 use crate::client::ServerType;
 
 impl<ServerT: ServerType> XpComEwsClient<ServerT> {
-    pub async fn empty_folder(
+    pub(crate) async fn empty_folder(
         self: Arc<XpComEwsClient<ServerT>>,
-        listener: SafeEwsSimpleOperationListener,
-        folder_ids: Vec<String>,
+        listener: SafeExchangeSimpleOperationListener,
+        folder_id: String,
         subfolder_ids: Vec<String>,
         message_ids: Vec<String>,
     ) {
@@ -29,7 +29,7 @@ impl<ServerT: ServerType> XpComEwsClient<ServerT> {
         if server_version >= ExchangeServerVersion::Exchange2010 {
             // we have support for the EmptyFolder operation, just use that
             let operation = DoEraseFolder::<EmptyFolder> {
-                folder_ids,
+                folder_ids: vec![folder_id],
                 _op_type: PhantomData,
             };
             return operation.handle_operation(&self, &listener).await;
@@ -50,7 +50,7 @@ impl<ServerT: ServerType> XpComEwsClient<ServerT> {
         }
 
         if !message_ids.is_empty() {
-            let message_ids = message_ids.into_iter().map(|s| s.into()).collect();
+            let message_ids = message_ids.into_iter().map(Into::into).collect();
             self.delete_messages(listener, message_ids).await;
         }
     }

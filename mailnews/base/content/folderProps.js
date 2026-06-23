@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* import-globals-from retention.js */
 /* global BigInt */
 
 ChromeUtils.defineESModuleGetters(this, {
@@ -13,8 +12,15 @@ ChromeUtils.defineESModuleGetters(this, {
   MorkParser: "resource:///modules/MorkParser.sys.mjs",
 });
 
+ChromeUtils.defineESModuleGetters(
+  this,
+  {
+    RetentionSettingsUI: "chrome://messenger/content/RetentionSettingsUI.mjs",
+  },
+  { global: "current" }
+);
+
 var gMsgFolder;
-var gLockedPref = null;
 
 var gDefaultColor = "";
 let isDefaultColor = false;
@@ -163,13 +169,9 @@ function folderPropsOKButton(event) {
       }
     }
 
-    var retentionSettings = saveCommonRetentionSettings(
+    gMsgFolder.retentionSettings = RetentionSettingsUI.save(
       gMsgFolder.retentionSettings
     );
-    retentionSettings.useServerDefaults = document.getElementById(
-      "retention.useDefault"
-    ).checked;
-    gMsgFolder.retentionSettings = retentionSettings;
 
     let color = document.getElementById("color").value;
     if (color == gDefaultColor || isDefaultColor) {
@@ -199,18 +201,37 @@ function folderCancelButton() {
 function folderPropsOnLoad() {
   UIFontSize.registerWindow(window);
   const styles = getComputedStyle(document.body);
+  // The same order as in FolderUtils.getSpecialFolderString.
   const folderColors = {
-    Inbox: styles.getPropertyValue("--folder-color-inbox"),
-    Sent: styles.getPropertyValue("--folder-color-sent"),
-    Outbox: styles.getPropertyValue("--folder-color-outbox"),
-    Drafts: styles.getPropertyValue("--folder-color-draft"),
-    Trash: styles.getPropertyValue("--folder-color-trash"),
-    Archive: styles.getPropertyValue("--folder-color-archive"),
-    Templates: styles.getPropertyValue("--folder-color-template"),
-    Spam: styles.getPropertyValue("--folder-color-spam"),
-    Virtual: styles.getPropertyValue("--folder-color-folder-filter"),
+    [Ci.nsMsgFolderFlags.Inbox]: styles.getPropertyValue(
+      "--folder-color-inbox"
+    ),
+    [Ci.nsMsgFolderFlags.Trash]: styles.getPropertyValue(
+      "--folder-color-trash"
+    ),
+    [Ci.nsMsgFolderFlags.Queue]: styles.getPropertyValue(
+      "--folder-color-outbox"
+    ),
+    [Ci.nsMsgFolderFlags.SentMail]: styles.getPropertyValue(
+      "--folder-color-sent"
+    ),
+    [Ci.nsMsgFolderFlags.Drafts]: styles.getPropertyValue(
+      "--folder-color-draft"
+    ),
+    [Ci.nsMsgFolderFlags.Templates]: styles.getPropertyValue(
+      "--folder-color-template"
+    ),
+    [Ci.nsMsgFolderFlags.Junk]: styles.getPropertyValue("--folder-color-spam"),
+    [Ci.nsMsgFolderFlags.Archive]: styles.getPropertyValue(
+      "--folder-color-archive"
+    ),
+    [Ci.nsMsgFolderFlags.Virtual]: styles.getPropertyValue(
+      "--folder-color-folder-filter"
+    ),
+    [Ci.nsMsgFolderFlags.Newsgroup]: styles.getPropertyValue(
+      "--folder-color-newsletter"
+    ),
     RSS: styles.getPropertyValue("--folder-color-rss"),
-    Newsgroup: styles.getPropertyValue("--folder-color-newsletter"),
   };
   gDefaultColor = styles.getPropertyValue("--folder-color-folder");
 
@@ -254,22 +275,16 @@ function folderPropsOnLoad() {
 
     // Check the current folder name against known folder names to set the
     // correct default color, if needed.
-    let selectedFolderName = "";
-
-    switch (window.arguments[0].serverType) {
-      case "rss":
-        selectedFolderName = "RSS";
-        break;
-      case "nntp":
-        selectedFolderName = "Newsgroup";
-        break;
-      default:
-        selectedFolderName = window.arguments[0].name;
-        break;
-    }
-
-    if (Object.keys(folderColors).includes(selectedFolderName)) {
-      gDefaultColor = folderColors[selectedFolderName];
+    if (window.arguments[0].serverType == "rss") {
+      gDefaultColor = folderColors.RSS;
+    } else {
+      const flags = gMsgFolder.flags;
+      for (const [key, value] of Object.entries(folderColors)) {
+        if (flags & key) {
+          gDefaultColor = value;
+          break;
+        }
+      }
     }
 
     const colorInput = document.getElementById("color");
@@ -360,10 +375,9 @@ function folderPropsOnLoad() {
       gMsgFolder.supportsOffline && Services.io.offline;
   }
 
-  var retentionSettings = gMsgFolder.retentionSettings;
-  initCommonRetentionSettings(retentionSettings);
-  document.getElementById("retention.useDefault").checked =
-    retentionSettings.useServerDefaults;
+  RetentionSettingsUI.init(gMsgFolder.retentionSettings);
+
+  onUseDefaultRetentionSettings();
 
   // set folder sizes
   const numberOfMsgs = gMsgFolder.getTotalMessages(false);
@@ -377,9 +391,6 @@ function folderPropsOnLoad() {
       .formatFileSize(gMsgFolder.sizeOnDisk, true);
     document.getElementById("sizeOnDisk").value = sizeOnDisk;
   } catch (e) {}
-
-  onCheckKeepMsg();
-  onUseDefaultRetentionSettings();
 
   // select the initial tab
   if (window.arguments[0].tabID) {
@@ -450,17 +461,21 @@ function onFolderPrivileges() {
   window.close();
 }
 
-function onUseDefaultRetentionSettings() {
-  var useDefault = document.getElementById("retention.useDefault").checked;
-  document.getElementById("retention.keepMsg").disabled = useDefault;
-  document.getElementById("retention.keepNewMsgMinLabel").disabled = useDefault;
-  document.getElementById("retention.keepOldMsgMinLabel").disabled = useDefault;
+/**
+ * Handle changes to the retention radio group selection.
+ */
+function onCheckKeepMsg() {
+  RetentionSettingsUI.updateStates(gMsgFolder.server.type);
+}
 
-  var keepMsg = document.getElementById("retention.keepMsg").value;
-  document.getElementById("retention.keepOldMsgMin").disabled =
-    useDefault || keepMsg != Ci.nsIMsgRetentionSettings.nsMsgRetainByAge;
-  document.getElementById("retention.keepNewMsgMin").disabled =
-    useDefault || keepMsg != Ci.nsIMsgRetentionSettings.nsMsgRetainByNumHeaders;
+/**
+ * Handle toggling the "Use my account settings" checkbox.
+ */
+function onUseDefaultRetentionSettings() {
+  if (RetentionSettingsUI.setDisabledStates()) {
+    return;
+  }
+  RetentionSettingsUI.updateStates(gMsgFolder.server.type);
 }
 
 /**

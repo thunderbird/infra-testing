@@ -191,8 +191,12 @@ pref("mail.citation_color", "#007cff");
 #endif
 // Use CTE quoted-printable for mail bodies.
 pref("mail.strictly_mime", false);
-// The maximum number of entries in the "Recent" menu of the folder picker.
-pref("mail.folder_widget.max_recent", 25);
+// The sort order for the entries in the 'Recent Destination' sub menu:
+// 0 by last used, 1 alphabetically.
+pref("mail.folder_widget.recent_sort_order", 0);
+// The maximum number of entries in the "Recent Destinations" menu of the
+// folder picker.
+pref("mail.folder_widget.max_recent", 10);
 // 0/1 (name param is encoded in a legacy way), 2(RFC 2231 only)
 // 0 the name param is never separated to multiple lines.
 pref("mail.strictly_mime.parm_folding", 1);
@@ -291,6 +295,8 @@ pref("mail.dsn.ret_full_on", true);
 // false: Use global true: Use custom
 pref("mail.identity.default.dsn_use_custom_prefs", false);
 pref("mail.identity.default.dsn_always_request_on", false);
+
+pref("mail.feedback.loglevel", "Warn");
 
 pref("news.show_size_in_lines", true);
 pref("news.update_unread_on_expand", true);
@@ -722,7 +728,7 @@ pref("mail.forward_add_extension", true);
 // Prefix of for mail forwards. E.g. "Fwd" -> subject will be Fwd: <subject>
 pref("mail.forward_subject_prefix", "Fwd");
 
-// RFC 2646=======
+// RFC 2646
 pref("mailnews.send_plaintext_flowed", true);
 // prompt user when crossing folders
 pref("mailnews.nav_crosses_folders", 1);
@@ -851,22 +857,16 @@ pref("mail.server.default.retainBy", 1);
 
 pref("mailnews.ui.junk.manualMarkAsJunkMarksRead", true);
 
-// default description and color prefs for tags
-// (we keep the .labels. names for backwards compatibility)
-pref("mailnews.labels.description.1", "chrome://messenger/locale/messenger.properties");
-pref("mailnews.labels.description.2", "chrome://messenger/locale/messenger.properties");
-pref("mailnews.labels.description.3", "chrome://messenger/locale/messenger.properties");
-pref("mailnews.labels.description.4", "chrome://messenger/locale/messenger.properties");
-pref("mailnews.labels.description.5", "chrome://messenger/locale/messenger.properties");
-// default: red
+// Color prefs for the five default tags (derived from the legacy labels).
+// Important: red
 pref("mailnews.labels.color.1", "#FF0000");
-// default: orange
+// Work: orange
 pref("mailnews.labels.color.2", "#FF9900");
-// default: green
+// Personal: green
 pref("mailnews.labels.color.3", "#009900");
-// default: blue
+// To Do: blue
 pref("mailnews.labels.color.4", "#3333FF");
-// default: purple
+// Later: purple
 pref("mailnews.labels.color.5", "#993399");
 
 //default null headers
@@ -1062,6 +1062,10 @@ pref("mailnews.oauth.loglevel", "Warn");
 // existing session information to cause interference when signing into multiple
 // accounts.
 pref("mailnews.oauth.usePrivateBrowser", false);
+// Use the system browser for OAuth instead of a Thunderbird window.
+pref("mailnews.oauth.useExternalBrowser", true);
+// Use a net.thunderbird: URL instead of localhost for redirection.
+pref("mailnews.oauth.useSchemeRedirect", true);
 
 pref("test.loghelper.loglevel", "Warn");
 
@@ -1074,7 +1078,7 @@ pref("mail.export.loglevel", "Warn");
 pref("mail.imap.use_disk_cache2", true);
 
 // Enable users to override OAuth provider details for EWS accounts.
-pref("experimental.mail.ews.overrideOAuth.enabled", false);
+pref("experimental.mail.ews.overrideOAuth.enabled", true);
 
 // Use the Microsoft365 sandbox application and tenant information.
 pref("mail.microsoft.useM365Sandbox", false);

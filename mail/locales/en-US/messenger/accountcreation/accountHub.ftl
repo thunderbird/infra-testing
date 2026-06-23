@@ -69,11 +69,11 @@ account-hub-email-continue-button = Continue
 
 account-hub-email-confirm-button = Confirm
 
-account-hub-result-incoming-server-legend = Incoming server
-    .title = Incoming server
+account-hub-result-incoming-legend = Incoming
 
-account-hub-result-outgoing-server-legend = Outgoing server
-    .title = Outgoing server
+account-hub-result-outgoing-legend = Outgoing
+
+account-hub-all-servers-legend = All servers
 
 account-hub-protocol-label = Protocol
 
@@ -81,6 +81,37 @@ account-hub-result-hostname-label = Hostname
     .title = Hostname
 
 account-hub-result-socket-type-label = Connection security
+
+account-hub-servers-username-label = Username:
+
+account-hub-result-server-label = Server:
+
+account-hub-result-port-label = Port:
+
+account-hub-result-security-label = Security:
+
+account-hub-result-authentication-type-label = Authentication:
+
+account-hub-result-authentication-none = None
+    .title = None
+
+account-hub-result-authentication-password = Normal Password
+    .title = Normal Password
+
+account-hub-result-authentication-encrypted-password = Encrypted Password
+    .title = Encrypted Password
+
+account-hub-result-authentication-gssapi = Kerberos
+    .title = Kerberos
+
+account-hub-result-authentication-ntlm = NTLM
+    .title = NTLM
+
+account-hub-result-authentication-external = External
+    .title = External
+
+account-hub-result-authentication-oauth2 = OAuth2
+    .title = OAuth2
 
 account-hub-on-port-label = Port
 
@@ -137,7 +168,7 @@ account-hub-email-setup-incoming = Incoming server settings
 
 account-hub-email-setup-outgoing = Outgoing server settings
 
-account-hub-email-config-found = Choose your email account type
+account-hub-email-connect-settings = Connect your email settings
 
 account-hub-email-enter-password = Enter your email account password
 
@@ -155,9 +186,19 @@ account-hub-result-ews-shortname = Exchange
 
 account-hub-result-ews-description = Use Microsoft Exchange Web Services to sync your folders and emails
 
+account-hub-result-graph-shortname = Exchange (Graph)
+
+account-hub-result-graph-description = Use Microsoft Graph API to sync your folders and emails
+
 account-hub-result-exchange-description = Sync folders & emails with Exchange or Office 365
 
 account-hub-result-ews-text = Server
+
+# Expanded text used in Account Confirmation page heading
+
+account-hub-result-ews-expanded-text = Exchange Web Services
+
+account-hub-result-graph-expanded-text = Graph API
 
 account-hub-result-recommended-label = Recommended
 
@@ -165,17 +206,19 @@ account-hub-result-addon-label = Requires Add-on
 
 account-hub-edit-configuration = Edit configuration
 
-account-hub-config-success = Configuration found in Mozilla ISPDB
+account-hub-config-success-title = Account settings found automatically.
 
-account-hub-config-success-exchange = Configuration found for a Microsoft Exchange server
+account-hub-config-success-description-db = Configuration found in Mozilla ISPDB.
 
-account-hub-config-success-guess = Configuration found by trying common server names
+account-hub-config-success-description-exchange = Configuration found for a Microsoft Exchange server.
 
-account-hub-config-success-disk = Configuration found in { -brand-short-name } installation
+account-hub-config-success-description-guess = Configuration found by trying common server names.
 
-account-hub-config-success-isp = Configuration found at email provider
+account-hub-config-success-description-disk = Configuration found in { -brand-short-name } installation.
 
-account-hub-config-success-unknown = Configuration found
+account-hub-config-success-description-isp = Configuration found at email provider.
+
+account-hub-config-success-description-read-more = You can <a data-l10n-name="automated-setup-link">read about how automated email setup works.</a>
 
 account-hub-password-info = Your credentials will only be stored locally on your computer
 
@@ -261,15 +304,11 @@ address-book-add-ldap = New LDAP Address Book
 
 address-book-add-ldap-description = Connect to a remote LDAP address book
 
-# $addressBooks (Number) - The number of address books that can be synced.
-# $accounts (Number) - The number of accounts.
-account-hub-address-book-sync-option-data =
+# $addressBooks (Number) - The number of address books that can be synced from existing accounts.
+account-hub-address-book-sync-books-data =
   { $addressBooks ->
-    [one] 1 address book
-    *[other] { $addressBooks } address books
-  } from { $accounts ->
-    [one] 1 account available
-    *[other] { $accounts } accounts available
+        [one] 1 address book available
+        *[other] { $addressBooks } address books available
   }
 
 address-book-sync-existing-description = Retrieving existing accounts…
@@ -382,3 +421,86 @@ account-hub-ssl-noencryption = None
 account-hub-email-skip-button = Skip
 
 account-hub-finding-sync-accounts = Account created. Discovering address books and calendars…
+
+account-hub-privacy-policy = Privacy Policy
+
+account-hub-welcome = Welcome to
+
+account-hub-welcome-brand = { -brand-short-name }
+
+account-hub-welcome-text = Welcome to { -brand-short-name }
+
+account-hub-name-warning-icon =
+    .title = Please enter your name
+
+account-hub-email-label = Email address
+    .accesskey = E
+
+account-hub-email-input =
+    .placeholder = john.doe@example.com
+
+account-hub-email-warning-icon =
+    .title = Invalid email address
+
+account-hub-password-label = Password
+    .accesskey = P
+    .title = Optional, will only be used to validate the username
+
+account-hub-remember-password = Remember password
+    .accesskey = m
+
+account-hub-exchange-label = Your login
+    .accesskey = l
+
+account-hub-installing-addon = Downloading and installing add-on…
+
+account-hub-success-addon = Successfully installed the add-on
+
+account-hub-success-half-manual = The following settings were found by probing the given server:
+
+account-hub-result-security-no-encryption = No Encryption
+    .title = No Encryption
+
+account-hub-result-security-ssl = SSL/TLS
+    .title = SSL/TLS
+
+account-hub-result-security-starttls = STARTTLS
+    .title = STARTTLS
+
+account-hub-credentials-wrong = Authentication failed. Please check the username and password
+
+account-hub-find-settings-failed = { -brand-full-name } failed to find the settings for your email account.
+
+account-hub-exchange-config-unverifiable = Configuration could not be verified. If your username and password are correct, it’s likely that the server administrator has disabled the selected configuration for your account. Try selecting another protocol.
+
+account-hub-advanced-setup-button = Advanced config
+    .accesskey = A
+
+# Variables:
+#  $domain (String): The name of the server where the configuration was found, e.g. rackspace.com.
+account-hub-exchange-dialog-question = { -brand-short-name } found your account setup information on { $domain }. Do you want to proceed and submit your credentials?
+
+account-hub-creation-error-title = Error Creating Account
+
+account-hub-error-server-exists = Incoming server already exists.
+
+account-hub-confirm-advanced-title = Confirm Advanced Configuration
+
+account-hub-confirm-advanced-description = This dialog will be closed and an account with the current settings will be created, even if the configuration is incorrect. Do you want to proceed?
+
+account-hub-addon-install-title = Install
+
+account-hub-encryption-button = End-to-end encryption
+
+account-hub-address-books-button = Address Books
+
+account-hub-calendars-button = Calendars
+
+account-hub-thundermail-button = Sign in with Thundermail
+
+# Used as part of a divider between sign in button and a sign in form.
+account-hub-thundermail-divider-text = or
+
+account-hub-manual-config-incoming-legend = Incoming server
+
+account-hub-manual-config-outgoing-legend = Outgoing server

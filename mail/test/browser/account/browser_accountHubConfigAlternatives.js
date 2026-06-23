@@ -4,13 +4,6 @@
 
 "use strict";
 
-const { OAuth2TestUtils } = ChromeUtils.importESModule(
-  "resource://testing-common/mailnews/OAuth2TestUtils.sys.mjs"
-);
-const { ServerTestUtils } = ChromeUtils.importESModule(
-  "resource://testing-common/mailnews/ServerTestUtils.sys.mjs"
-);
-
 const PREF_NAME = "mailnews.auto_config_url";
 const PREF_VALUE = Services.prefs.getCharPref(PREF_NAME);
 
@@ -27,13 +20,6 @@ registerCleanupFunction(function () {
 });
 
 add_task(async function test_account_oauth_imap_account() {
-  const oauthImap = await ServerTestUtils.createServer(
-    ServerTestUtils.serverDefs.imap.oAuth
-  );
-  const oauthSmtp = await ServerTestUtils.createServer(
-    ServerTestUtils.serverDefs.smtp.oAuth
-  );
-  await OAuth2TestUtils.startServer();
   const emailUser = {
     name: "John Doe",
     email: "user@test.test",
@@ -50,10 +36,30 @@ add_task(async function test_account_oauth_imap_account() {
     "The IMAP config option should be visible"
   );
 
+  for (const selector of [
+    "#incomingUsername",
+    "#incomingSocketType",
+    "#incomingAuthenticationType",
+    "#outgoingUsername",
+    "#outgoingSocketType",
+    "#outgoingAuthenticationType",
+  ]) {
+    Assert.ok(
+      BrowserTestUtils.isHidden(configFoundTemplate.querySelector(selector)),
+      `${selector} should be hidden when shared details shown`
+    );
+  }
+
+  Assert.ok(
+    BrowserTestUtils.isVisible(
+      configFoundTemplate.querySelector(".config-common")
+    ),
+    "Shared config details should be visible when incoming and outgoing details match"
+  );
   Assert.equal(
-    configFoundTemplate.querySelector("#incomingUsername").textContent,
+    configFoundTemplate.querySelector("#sharedUsername").textContent,
     "user",
-    "Should show replaced username on incoming config."
+    "Should show replaced username in shared config details."
   );
 
   Assert.equal(
@@ -62,15 +68,72 @@ add_task(async function test_account_oauth_imap_account() {
     "Should show replaced host on incoming config."
   );
 
+  Assert.equal(
+    configFoundTemplate.querySelector("#incomingPort").textContent,
+    "143",
+    "Should show expected port on IMAP config."
+  );
+
+  Assert.equal(
+    configFoundTemplate.l10n.getAttributes(
+      configFoundTemplate.querySelector("#sharedSocketType")
+    ).id,
+    "account-hub-result-security-no-encryption",
+    "Should show expected socket type on IMAP config."
+  );
+
+  Assert.equal(
+    configFoundTemplate.l10n.getAttributes(
+      configFoundTemplate.querySelector("#sharedAuthenticationType")
+    ).id,
+    "account-hub-result-authentication-oauth2",
+    "Should show expected authentication type on IMAP config."
+  );
+
   EventUtils.synthesizeMouseAtCenter(
     configFoundTemplate.querySelector("#pop3 input"),
     {}
+  );
+
+  Assert.ok(
+    BrowserTestUtils.isHidden(
+      configFoundTemplate.querySelector(".config-common")
+    ),
+    "Shared config details should be hidden when any shared detail differs"
+  );
+  for (const selector of [
+    "#incomingUsername",
+    "#incomingSocketType",
+    "#incomingAuthenticationType",
+    "#outgoingUsername",
+    "#outgoingSocketType",
+    "#outgoingAuthenticationType",
+  ]) {
+    Assert.ok(
+      BrowserTestUtils.isVisible(configFoundTemplate.querySelector(selector)),
+      `${selector} should be visible when shared configs hidden`
+    );
+  }
+  Assert.equal(
+    configFoundTemplate.querySelector("#incomingHost").textContent,
+    "atest.test",
+    "POP3 incoming host should be displayed"
+  );
+  Assert.equal(
+    configFoundTemplate.querySelector("#outgoingUsername").textContent,
+    "user",
+    "POP3 outgoing username should be displayed"
   );
 
   Assert.equal(
     configFoundTemplate.querySelector("#incomingUsername").textContent,
     "user@test.test",
     "Should show replaced username on incoming config."
+  );
+  Assert.equal(
+    configFoundTemplate.querySelector("#outgoingUsername").textContent,
+    "user",
+    "Outgoing username should be shown"
   );
 
   Assert.equal(
@@ -79,12 +142,46 @@ add_task(async function test_account_oauth_imap_account() {
     "Should show replaced host on incoming config."
   );
 
+  Assert.equal(
+    configFoundTemplate.querySelector("#incomingPort").textContent,
+    "143",
+    "Should show expected port on POP3 config."
+  );
+
+  Assert.equal(
+    configFoundTemplate.l10n.getAttributes(
+      configFoundTemplate.querySelector("#incomingSocketType")
+    ).id,
+    "account-hub-result-security-starttls",
+    "Should show expected incoming socket type on POP3 config."
+  );
+
+  Assert.equal(
+    configFoundTemplate.l10n.getAttributes(
+      configFoundTemplate.querySelector("#incomingAuthenticationType")
+    ).id,
+    "account-hub-result-authentication-password",
+    "Should show expected incoming authentication type on POP3 config."
+  );
+
+  Assert.equal(
+    configFoundTemplate.l10n.getAttributes(
+      configFoundTemplate.querySelector("#outgoingSocketType")
+    ).id,
+    "account-hub-result-security-no-encryption",
+    "Should show expected outgoing socket type on POP3 config."
+  );
+
+  Assert.equal(
+    configFoundTemplate.l10n.getAttributes(
+      configFoundTemplate.querySelector("#outgoingAuthenticationType")
+    ).id,
+    "account-hub-result-authentication-oauth2",
+    "Should show expected outgoing authentication type on POP3 config."
+  );
+
   await subtest_clear_status_bar();
 
-  OAuth2TestUtils.stopServer();
-  oauthImap.close();
-  oauthSmtp.close();
-  OAuth2TestUtils.forgetObjects();
-  Services.logins.removeAllLogins();
+  await Services.logins.removeAllLoginsAsync();
   await subtest_close_account_hub_dialog(dialog, configFoundTemplate);
 });

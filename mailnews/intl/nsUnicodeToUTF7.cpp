@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -77,23 +76,21 @@ nsresult nsBasicUTF7Encoder::EncodeDirect(const char16_t* aSrc,
 
     if (ch == mEscChar) {
       // special case for the escape char
-      if (destEnd - dest < 1) {
+      if (destEnd - dest < 2) {
         res = NS_OK_UENC_MOREOUTPUT;
         break;
-      } else {
-        *dest++ = (char)ch;
-        *dest++ = (char)'-';
-        src++;
       }
+      *dest++ = (char)ch;
+      *dest++ = (char)'-';
+      src++;
     } else {
       // classic direct encoding
       if (dest >= destEnd) {
         res = NS_OK_UENC_MOREOUTPUT;
         break;
-      } else {
-        *dest++ = (char)ch;
-        src++;
       }
+      *dest++ = (char)ch;
+      src++;
     }
   }
 

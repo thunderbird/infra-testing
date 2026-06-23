@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /**
  * Tests sending messages to addresses with non-ASCII characters.
  */
@@ -158,19 +157,24 @@ async function doSendTest(aRecipient, aRecipientExpected, waitForPrompt) {
     var msgSend = Cc["@mozilla.org/messengercompose/send;1"].createInstance(
       Ci.nsIMsgSend
     );
-    msgSend.sendMessageFile(
-      identity,
-      "",
-      compFields,
-      testFile,
-      false,
-      false,
-      Ci.nsIMsgSend.nsMsgDeliverNow,
-      null,
-      new MsgSendListener(aRecipientExpected, originalData),
-      null,
-      null
-    );
+    try {
+      await msgSend.sendMessageFile(
+        identity,
+        "",
+        compFields,
+        testFile,
+        false,
+        false,
+        Ci.nsIMsgSend.nsMsgDeliverNow,
+        null,
+        new MsgSendListener(aRecipientExpected, originalData),
+        null
+      );
+    } catch (e) {
+      if (test == kToValid || test == kToASCII) {
+        Assert.ok(false, "should not have failed");
+      }
+    }
 
     server.performTest();
     do_timeout(10000, function () {

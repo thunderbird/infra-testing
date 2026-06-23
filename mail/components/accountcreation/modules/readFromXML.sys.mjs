@@ -5,7 +5,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AccountConfig: "resource:///modules/accountcreation/AccountConfig.sys.mjs",
-  Sanitizer: "resource:///modules/accountcreation/Sanitizer.sys.mjs",
+  InputSanitizer: "resource:///modules/accountcreation/InputSanitizer.sys.mjs",
 });
 
 import { OAuth2Providers } from "resource:///modules/OAuth2Providers.sys.mjs";
@@ -53,16 +53,16 @@ export function readFromXML(clientConfigXML, subSource) {
   d.source = lazy.AccountConfig.kSourceXML;
   d.subSource = `xml-from-${subSource}`;
 
-  d.id = lazy.Sanitizer.hostname(xml["@id"]);
+  d.id = lazy.InputSanitizer.hostname(xml["@id"]);
   d.displayName = d.id;
   try {
-    d.displayName = lazy.Sanitizer.label(xml.displayName);
+    d.displayName = lazy.InputSanitizer.label(xml.displayName);
   } catch (e) {
     console.error(e);
   }
   for (var domain of xml.$domain) {
     try {
-      d.domains.push(lazy.Sanitizer.hostname(domain));
+      d.domains.push(lazy.InputSanitizer.hostname(domain));
     } catch (e) {
       console.error(e);
       exception = e;
@@ -75,29 +75,62 @@ export function readFromXML(clientConfigXML, subSource) {
 
   // incoming server
   for (const iX of array_or_undef(xml.$incomingServer)) {
+    const supportedProtocols = [
+      "pop3",
+      "imap",
+      "nntp",
+      "exchange",
+      "ews",
+      "owa",
+    ];
+
+    if (Services.prefs.getBoolPref("mail.graph.enabled")) {
+      supportedProtocols.push("graph");
+    }
+
     // input (XML)
     const iO = d.createNewIncoming(); // output (object)
     try {
       // throws if not supported
-      iO.type = lazy.Sanitizer.enum(iX["@type"], [
-        "pop3",
-        "imap",
-        "nntp",
-        "exchange",
-      ]);
-      iO.hostname = lazy.Sanitizer.hostname(iX.hostname);
-      iO.port = lazy.Sanitizer.integerRange(iX.port, 1, 65535);
+      iO.type = lazy.InputSanitizer.enum(iX["@type"], supportedProtocols);
+
+      if ("hostname" in iX) {
+        iO.hostname = lazy.InputSanitizer.hostname(iX.hostname);
+      }
+
+      if ("port" in iX) {
+        iO.port = lazy.InputSanitizer.integerRange(iX.port, 1, 65535);
+      }
+
+      if ("url" in iX) {
+        try {
+          iO.url = lazy.InputSanitizer.url(iX.url);
+
+          const parsedUrl = new URL(iO.url);
+          iO.hostname = lazy.InputSanitizer.hostname(parsedUrl.host);
+
+          const protocol = parsedUrl.protocol;
+          if (protocol == "https:") {
+            iO.socketType = Ci.nsMsgSocketType.SSL;
+          } else if (protocol == "http:") {
+            iO.socketType = Ci.nsMsgSocketType.plain;
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
       // We need a username even for Kerberos, need it even internally.
-      iO.username = lazy.Sanitizer.string(iX.username); // may be a %VARIABLE%
+      iO.username = lazy.InputSanitizer.string(iX.username); // may be a %VARIABLE%
 
       if ("password" in iX) {
         d.rememberPassword = true;
-        iO.password = lazy.Sanitizer.string(iX.password);
+        iO.password = lazy.InputSanitizer.string(iX.password);
       }
 
       for (const iXsocketType of array_or_undef(iX.$socketType)) {
         try {
-          iO.socketType = lazy.Sanitizer.translate(iXsocketType, {
+          iO.socketType = lazy.InputSanitizer.translate(iXsocketType, {
             plain: Ci.nsMsgSocketType.plain,
             SSL: Ci.nsMsgSocketType.SSL,
             STARTTLS: Ci.nsMsgSocketType.alwaysSTARTTLS,
@@ -124,24 +157,49 @@ export function readFromXML(clientConfigXML, subSource) {
         OAuth2: Ci.nsMsgAuthMethod.OAuth2,
       });
 
+      if (iO.type == "ews") {
+        try {
+          iO.exchangeURL = lazy.InputSanitizer.url(iX.url);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      if (iO.type == "owa") {
+        try {
+          iO.owaURL = lazy.InputSanitizer.url(iX.url);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      if (iO.type == "graph") {
+        try {
+          iO.exchangeURL = lazy.InputSanitizer.url(iX.url);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // Backwards compatibility with the combined exchange element.
       if (iO.type == "exchange") {
         try {
           if ("owaURL" in iX) {
-            iO.owaURL = lazy.Sanitizer.url(iX.owaURL);
+            iO.owaURL = lazy.InputSanitizer.url(iX.owaURL);
           }
         } catch (e) {
           console.error(e);
         }
         try {
           if ("ewsURL" in iX) {
-            iO.exchangeURL = lazy.Sanitizer.url(iX.ewsURL);
+            iO.exchangeURL = lazy.InputSanitizer.url(iX.ewsURL);
           }
         } catch (e) {
           console.error(e);
         }
         try {
           if ("easURL" in iX) {
-            iO.easURL = lazy.Sanitizer.url(iX.easURL);
+            iO.easURL = lazy.InputSanitizer.url(iX.easURL);
           }
         } catch (e) {
           console.error(e);
@@ -151,12 +209,12 @@ export function readFromXML(clientConfigXML, subSource) {
       if (iO.type == "pop3" && "pop3" in iX) {
         try {
           if ("leaveMessagesOnServer" in iX.pop3) {
-            iO.leaveMessagesOnServer = lazy.Sanitizer.boolean(
+            iO.leaveMessagesOnServer = lazy.InputSanitizer.boolean(
               iX.pop3.leaveMessagesOnServer
             );
           }
           if ("daysToLeaveMessagesOnServer" in iX.pop3) {
-            iO.daysToLeaveMessagesOnServer = lazy.Sanitizer.integer(
+            iO.daysToLeaveMessagesOnServer = lazy.InputSanitizer.integer(
               iX.pop3.daysToLeaveMessagesOnServer
             );
           }
@@ -165,7 +223,9 @@ export function readFromXML(clientConfigXML, subSource) {
         }
         try {
           if ("downloadOnBiff" in iX.pop3) {
-            iO.downloadOnBiff = lazy.Sanitizer.boolean(iX.pop3.downloadOnBiff);
+            iO.downloadOnBiff = lazy.InputSanitizer.boolean(
+              iX.pop3.downloadOnBiff
+            );
           }
         } catch (e) {
           console.error(e);
@@ -174,7 +234,7 @@ export function readFromXML(clientConfigXML, subSource) {
 
       try {
         if ("useGlobalPreferredServer" in iX) {
-          iO.useGlobalPreferredServer = lazy.Sanitizer.boolean(
+          iO.useGlobalPreferredServer = lazy.InputSanitizer.boolean(
             iX.useGlobalPreferredServer
           );
         }
@@ -208,12 +268,12 @@ export function readFromXML(clientConfigXML, subSource) {
         throw new Error(lazy.l10n.formatValueSync("outgoing-not-smtp-error"));
       }
       oO.type = "smtp";
-      oO.hostname = lazy.Sanitizer.hostname(oX.hostname);
-      oO.port = lazy.Sanitizer.integerRange(oX.port, 1, 65535);
+      oO.hostname = lazy.InputSanitizer.hostname(oX.hostname);
+      oO.port = lazy.InputSanitizer.integerRange(oX.port, 1, 65535);
 
       for (const oXsocketType of array_or_undef(oX.$socketType)) {
         try {
-          oO.socketType = lazy.Sanitizer.translate(oXsocketType, {
+          oO.socketType = lazy.InputSanitizer.translate(oXsocketType, {
             plain: Ci.nsMsgSocketType.plain,
             SSL: Ci.nsMsgSocketType.SSL,
             STARTTLS: Ci.nsMsgSocketType.alwaysSTARTTLS,
@@ -253,18 +313,18 @@ export function readFromXML(clientConfigXML, subSource) {
         oO.auth == Ci.nsMsgAuthMethod.passwordCleartext ||
         oO.auth == Ci.nsMsgAuthMethod.passwordEncrypted
       ) {
-        oO.username = lazy.Sanitizer.string(oX.username);
+        oO.username = lazy.InputSanitizer.string(oX.username);
       }
 
       if ("password" in oX) {
         d.rememberPassword = true;
-        oO.password = lazy.Sanitizer.string(oX.password);
+        oO.password = lazy.InputSanitizer.string(oX.password);
       }
 
       try {
         // defaults are in accountConfig.js
         if ("useGlobalPreferredServer" in oX) {
-          oO.useGlobalPreferredServer = lazy.Sanitizer.boolean(
+          oO.useGlobalPreferredServer = lazy.InputSanitizer.boolean(
             oX.useGlobalPreferredServer
           );
         }
@@ -294,9 +354,11 @@ export function readFromXML(clientConfigXML, subSource) {
   for (const inputField of array_or_undef(xml.$inputField)) {
     try {
       const fieldset = {
-        varname: lazy.Sanitizer.alphanumdash(inputField["@key"]).toUpperCase(),
-        displayName: lazy.Sanitizer.label(inputField["@label"]),
-        exampleValue: lazy.Sanitizer.label(inputField.value),
+        varname: lazy.InputSanitizer.alphanumdash(
+          inputField["@key"]
+        ).toUpperCase(),
+        displayName: lazy.InputSanitizer.label(inputField["@label"]),
+        exampleValue: lazy.InputSanitizer.label(inputField.value),
       };
       d.inputFields.push(fieldset);
     } catch (e) {
@@ -311,9 +373,17 @@ export function readFromXML(clientConfigXML, subSource) {
 
 function readAuthentication(authenticationValues, hostname, type, mapping) {
   let exception;
+
+  if (!hostname) {
+    throw new Error(`No available hostname for server with type ${type}`);
+  }
+
   for (const authenticationValue of authenticationValues || []) {
     try {
-      const authMethod = lazy.Sanitizer.translate(authenticationValue, mapping);
+      const authMethod = lazy.InputSanitizer.translate(
+        authenticationValue,
+        mapping
+      );
 
       if (
         authMethod === Ci.nsMsgAuthMethod.OAuth2 &&

@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { OAuth2 } from "resource:///modules/OAuth2.sys.mjs";
-
 import { OAuth2Providers } from "resource:///modules/OAuth2Providers.sys.mjs";
+import { enforcePrimaryPassword } from "resource:///modules/PrimaryPassword.sys.mjs";
 
 const log = console.createInstance({
   prefix: "mailnews.oauth",
@@ -42,7 +42,7 @@ OAuth2Module.prototype = {
 
   initFromMail(server, customDetails) {
     return this.initFromHostname(
-      server.hostName,
+      server.hostname,
       server.username,
       server.type,
       customDetails
@@ -83,16 +83,6 @@ OAuth2Module.prototype = {
       return false;
     }
 
-    // Set pref for Yahoo/AOL/AT&T users if applicable
-    // TODO: Remove this block when PKCE is fully rolled out for Yahoo/AOL/AT&T
-    if (["login.yahoo.com", "login.aol.com"].includes(issuer)) {
-      Services.prefs.setBoolPref(
-        "mail.inappnotifications.pkceUpgradeForYahooAol",
-        !issuerDetails.usePKCE
-      );
-    }
-    // TODO: END
-
     // Username is needed to generate the XOAUTH2 string.
     this._username = username;
     // loginOrigin is needed to save the refresh token in the password manager.
@@ -114,20 +104,33 @@ OAuth2Module.prototype = {
         oauth.username == username &&
         scopeSet(oauth.scope).isSupersetOf(this._requiredScopes)
       ) {
-        log.debug(`Found existing OAuth2 object for ${issuer}`);
+        log.debug(
+          `Found existing OAuth2 object for ${this._username} at ${issuer}`
+        );
         this._oauth = oauth;
         break;
       }
     }
     if (!this._oauth) {
-      log.debug(`Creating a new OAuth2 object for ${issuer}`);
+      log.debug(
+        `Creating a new OAuth2 object for ${this._username} at ${issuer} with scope=${this._scope}`
+      );
       // This gets the refresh token from the login manager. It may change
       // `this._scope` if a refresh token was found for the required scopes
       // but not all of the wanted scopes.
-      const refreshToken = this.getRefreshToken();
+      let refreshToken;
+      let finished = false;
+      this.getRefreshToken()
+        .then(ok => (refreshToken = ok))
+        .finally(() => (finished = true));
+      Services.tm.spinEventLoopUntilOrQuit(
+        "OAuth2Module:initFromHostname",
+        () => finished
+      );
 
       // Define the OAuth property and store it.
       this._oauth = new OAuth2(this._scope, issuerDetails);
+      this._oauth.loginOrigin = this._loginOrigin;
       this._oauth.username = username;
       oAuth2Objects.add(new WeakRef(this._oauth));
 
@@ -152,12 +155,10 @@ OAuth2Module.prototype = {
    *
    * @returns {string} - A refresh token, or an empty string.
    */
-  getRefreshToken() {
-    for (const login of Services.logins.findLogins(
-      this._loginOrigin,
-      null,
-      ""
-    )) {
+  async getRefreshToken() {
+    for (const login of await Services.logins.searchLoginsAsync({
+      origin: this._loginOrigin,
+    })) {
       if (login.username != this._username) {
         continue;
       }
@@ -185,50 +186,63 @@ OAuth2Module.prototype = {
     const grantedScopes = scopeSet(scope);
 
     // Update any existing logins matching this origin, username, and scope.
-    const logins = Services.logins.findLogins(this._loginOrigin, null, "");
+    const logins = await Services.logins.searchLoginsAsync({
+      origin: this._loginOrigin,
+    });
     let didChangePassword = false;
     for (const login of logins) {
       if (login.username != this._username) {
         continue;
       }
 
+      log.debug(`Found matching login for ${this._username}`);
+
       const loginScopes = scopeSet(login.httpRealm);
-      if (grantedScopes.isSupersetOf(loginScopes)) {
-        if (grantedScopes.size == loginScopes.size && token) {
-          // The scope matches, just update the token...
-          if (login.password != token) {
-            // ... but only if it actually changed.
-            log.debug(
-              `Updating existing token for ${this._loginOrigin} with scope "${scope}"`
-            );
-            const propBag = Cc[
-              "@mozilla.org/hash-property-bag;1"
-            ].createInstance(Ci.nsIWritablePropertyBag);
-            propBag.setProperty("password", token);
-            propBag.setProperty("timePasswordChanged", Date.now());
-            Services.logins.modifyLogin(login, propBag);
-          }
-          didChangePassword = true;
-        } else {
-          // We've got a new token for this scope, remove the existing one.
-          log.debug(
-            `Removing superseded token for ${this._loginOrigin} with scope "${login.httpRealm}"`
-          );
-          Services.logins.removeLogin(login);
+      if (grantedScopes.isSupersetOf(loginScopes) && token) {
+        const propBag = Cc["@mozilla.org/hash-property-bag;1"].createInstance(
+          Ci.nsIWritablePropertyBag
+        );
+        let updated = false;
+        if (login.password != token) {
+          // Update the token...
+          propBag.setProperty("password", token);
+          updated = true;
         }
+        if (grantedScopes.size > loginScopes.size) {
+          // ... and the scopes...
+          propBag.setProperty("httpRealm", scope);
+          updated = true;
+        }
+        if (updated) {
+          // ... but only if something actually changed.
+          log.debug(
+            `Updating existing token for ${this._username} at ${this._loginOrigin} with scope "${scope}"`
+          );
+          propBag.setProperty("timePasswordChanged", Date.now());
+          await Services.logins.modifyLoginAsync(login, propBag);
+        }
+        didChangePassword = true;
       }
     }
 
     // Unless the token is null, we need to create and fill in a new login.
     if (!didChangePassword && token) {
+      if (!enforcePrimaryPassword()) {
+        log.debug(`Need primary password. Will skip creating new login.`);
+        return;
+      }
       log.debug(
-        `Creating new login for ${this._loginOrigin} with httpRealm "${scope}"`
+        `Creating new login for ${this._username} at ${this._loginOrigin} with scope "${scope}"`
       );
       const login = Cc["@mozilla.org/login-manager/loginInfo;1"].createInstance(
         Ci.nsILoginInfo
       );
       login.init(this._loginOrigin, null, scope, this._username, token, "", "");
       await Services.logins.addLoginAsync(login);
+    } else {
+      log.debug(
+        `Not creating new login for ${this._username} at ${this._loginOrigin} with scope "${scope}" (changed=${didChangePassword}; token length=${token.length})`
+      );
     }
   },
   /**
@@ -243,7 +257,7 @@ OAuth2Module.prototype = {
    * the login manager, so the the next attempt to use this object must
    * re-authenticate.
    */
-  clearTokens() {
+  async clearTokens() {
     this._oauth.refreshToken = null;
     this._oauth.accessToken = null;
 
@@ -251,7 +265,9 @@ OAuth2Module.prototype = {
     const grantedScopes = scopeSet(scope);
 
     // Update any existing logins matching this origin, username, and scope.
-    const logins = Services.logins.findLogins(this._loginOrigin, null, "");
+    const logins = await Services.logins.searchLoginsAsync({
+      origin: this._loginOrigin,
+    });
     for (const login of logins) {
       if (login.username != this._username) {
         continue;
@@ -261,9 +277,9 @@ OAuth2Module.prototype = {
       if (grantedScopes.isSupersetOf(loginScopes)) {
         // We've got a new token for this scope, remove the existing one.
         log.debug(
-          `Removing obsolete token for ${this._loginOrigin} with scope "${login.httpRealm}"`
+          `Removing obsolete token for ${this._username} at ${this._loginOrigin} with scope "${login.httpRealm}"`
         );
-        Services.logins.removeLogin(login);
+        await Services.logins.removeLoginAsync(login);
       }
     }
   },
@@ -400,6 +416,38 @@ OAuth2Module.prototype = {
               this._oauth.refreshToken != oldRefreshToken ||
               this._oauth.scope != this._scope
             ) {
+              // We don't have a username, but we might be able to get it now.
+              if (this._username === null) {
+                if (
+                  this._oauth.accessToken &&
+                  [
+                    "oauth://auth.tb.pro",
+                    "oauth://auth-stage.tb.pro",
+                    "oauth://external.test",
+                  ].includes(this._loginOrigin)
+                ) {
+                  const jwt = JSON.parse(
+                    new TextDecoder().decode(
+                      ChromeUtils.base64URLDecode(
+                        this._oauth.accessToken.split(".")[1],
+                        { padding: "ignore" }
+                      )
+                    )
+                  );
+                  this._oauth.username = this._username =
+                    jwt.preferred_username;
+                  log.debug(
+                    `Found a username for ${this._loginOrigin}: ${this._username}`
+                  );
+                } else {
+                  log.error(
+                    `Couldn't find a username for ${this._loginOrigin}`
+                  );
+                  listener.onFailure(Cr.NS_ERROR_ABORT);
+                  callback?.onAuthResult(false);
+                  return;
+                }
+              }
               // Refresh token and/or scope changed; save them.
               await this.setRefreshToken(this._oauth.refreshToken);
               this._scope = this._oauth.scope;
@@ -439,13 +487,62 @@ OAuth2Module.prototype = {
 };
 
 /**
- * Forget any `OAuth2` objects we've stored, which is necessary in some
- * testing scenarios.
+ * Forget any `OAuth2` objects we've stored.
  */
 OAuth2Module._forgetObjects = function () {
-  log.debug("Clearing OAuth2 objects from cache");
+  log.debug("Clearing all OAuth2 objects from cache");
+  for (const weakRef of oAuth2Objects) {
+    const oauth = weakRef.deref();
+    if (oauth) {
+      oauth.refreshToken = null;
+      oauth.accessToken = null;
+    }
+  }
   oAuth2Objects.clear();
+  OAuth2.clearState();
 };
+
+/**
+ * Forget any `OAuth2` objects we've stored matching `origin` and `username`.
+ *
+ * @param {string} origin
+ * @param {string} username
+ */
+OAuth2Module._forgetObjectsMatching = function (origin, username) {
+  log.debug(`Clearing OAuth2 objects for ${username} at ${origin} from cache`);
+  for (const weakRef of oAuth2Objects) {
+    const oauth = weakRef.deref();
+    if (oauth?.loginOrigin == origin && oauth.username == username) {
+      oauth.refreshToken = null;
+      oauth.accessToken = null;
+      oAuth2Objects.delete(weakRef);
+    }
+  }
+};
+
+/**
+ * Listens for passwords being removed and forgets `OAuth2` objects associated
+ * with them.
+ */
+const observer = {
+  observe(subject, topic, data) {
+    if (topic == "passwordmgr-storage-changed") {
+      if (data == "removeLogin") {
+        subject.QueryInterface(Ci.nsILoginInfo);
+        if (subject.origin.startsWith("oauth://")) {
+          OAuth2Module._forgetObjectsMatching(subject.origin, subject.username);
+        }
+      } else if (data == "removeAllLogins") {
+        OAuth2Module._forgetObjects();
+      }
+    } else if (topic == "quit-application-granted") {
+      Services.obs.removeObserver(this, "passwordmgr-storage-changed");
+      Services.obs.removeObserver(this, "quit-application-granted");
+    }
+  },
+};
+Services.obs.addObserver(observer, "passwordmgr-storage-changed");
+Services.obs.addObserver(observer, "quit-application-granted");
 
 /**
  * Turns a space-delimited string of scopes into a Set containing the scopes.

@@ -44,11 +44,28 @@ class AccountHubSelect extends HTMLElement {
    */
   #error;
 
+  /**
+   * Mutation observer for sloted options to reflect changes to the select
+   * options.
+   *
+   * @type {MutationObserver}
+   */
+  #observer;
+
+  /**
+   * Cache the value of the select as it can get lost in option updates.
+   *
+   * @type {string}
+   */
+  #cachedValue;
+
   get value() {
     return this.select.value;
   }
 
   set value(newValue) {
+    // Cache the value in case we need to restore it.
+    this.#cachedValue = newValue;
     this.select.value = newValue;
   }
 
@@ -85,11 +102,37 @@ class AccountHubSelect extends HTMLElement {
     this.#slot.addEventListener("slotchange", this);
     this.select.addEventListener("change", this);
     this.#error.querySelector("a").addEventListener("click", this);
-    this.#updateOptions(); // Initial update
 
     for (const attr of attrs) {
       this.attributeChangedCallback(attr, "", this.getAttribute(attr));
     }
+
+    // Initial setup.
+    this.#observeAssignedNodes();
+  }
+
+  #observeAssignedNodes() {
+    // Stop previous observer if any.
+    this.#observer?.disconnect();
+
+    const nodes = this.#slot.assignedNodes({ flatten: true });
+
+    this.#observer = new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        this.#updateElement(mutation);
+      }
+    });
+
+    for (const node of nodes) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        this.#observer.observe(node, {
+          attributes: true,
+          characterData: true,
+        });
+      }
+    }
+
+    this.#updateOptions();
   }
 
   disconnectedCallback() {
@@ -97,11 +140,50 @@ class AccountHubSelect extends HTMLElement {
     this.#slot.removeEventListener("slotchange", this);
     this.select.removeEventListener("change", this);
     this.#error.querySelector("a").removeEventListener("click", this);
+    this.#observer?.disconnect();
   }
 
+  /**
+   * Update the options based on the mutations observed.
+   *
+   * @param {MutationRecord} mutationRecord - The mutation record for the
+   *  observed changes.
+   */
+  #updateElement(mutationRecord) {
+    const target = mutationRecord.target;
+    const element = this.select.querySelector(`#${target.id}`);
+    switch (mutationRecord.type) {
+      case "attributes":
+        if (!target.hasAttribute(mutationRecord.attributeName)) {
+          element.removeAttribute(mutationRecord.attributeName);
+        } else {
+          element.setAttribute(
+            mutationRecord.attributeName,
+            target.getAttribute(mutationRecord.attributeName)
+          );
+        }
+        break;
+      case "characterData":
+        element.textContent = target.textContent;
+        break;
+    }
+  }
+
+  /*
+   * Updates the options in the select based on the slotted options. This is
+   * needed to reflect any changes to the options in the select, as the slotted
+   * options are just a template and not rendered directly in the select.
+   * The options are cloned from the slotted content to the select, so that
+   * they can be rendered and interacted with.
+   *
+   * The method also handles selection state reconciliation when options are
+   * updated, ensuring that user selections are preserved when possible.
+   */
   #updateOptions() {
     const options = this.#slot.assignedElements();
     this.select.innerHTML = "";
+    let selected;
+    let selectedValue;
 
     for (const option of options) {
       const element = option.cloneNode(true);
@@ -110,6 +192,37 @@ class AccountHubSelect extends HTMLElement {
         element.part.add(element.id);
       }
       this.select.append(element);
+      selectedValue ||= element.value;
+      selected ||= element.selected;
+    }
+
+    /**
+     * This conditions along with setting of selected above handles updates from
+     * the mutation observer when the option list is updated.
+     *
+     * Since the observer replaces all options in the DOM, any existing
+     * selection association is lost. We track user-driven or programmatically
+     * set selections via `cachedValue`, which is only updated in:
+     *   - the change event listener
+     *   - the value setter (custom elements API)
+     *
+     * When options change, we reconcile the previous selection state with the
+     * new option set using the following rules:
+     *
+     * 1. If the new options have a selected value and a previous selection exists:
+     *    → Respect the new options (most recent state).
+     *
+     * 2. If the new options have a selected value and no previous selection exists:
+     *    → Respect the new options (only source of truth).
+     *
+     * 3. If the new options have no selected value and no previous selection exists:
+     *    → Do nothing (no selection to preserve).
+     *
+     * 4. If the new options have no selected value and a previous selection exists:
+     *    → Attempt to restore the previous selection if possible.
+     */
+    if (!selected) {
+      this.value = this.#cachedValue;
     }
   }
 
@@ -157,7 +270,8 @@ class AccountHubSelect extends HTMLElement {
   handleEvent(event) {
     switch (event.type) {
       case "slotchange":
-        this.#updateOptions();
+        // The slotted elements have changed so re run observer logic.
+        this.#observeAssignedNodes();
         break;
       case "change": {
         const customChangeEvent = new CustomEvent("change", {
@@ -169,6 +283,9 @@ class AccountHubSelect extends HTMLElement {
         for (const option of this.select.selectedOptions) {
           option.state = "selected";
         }
+
+        // Update the cached value as it has changed.
+        this.#cachedValue = this.value;
 
         // Dispatch the event from the custom element itself (the host)
         this.dispatchEvent(customChangeEvent);

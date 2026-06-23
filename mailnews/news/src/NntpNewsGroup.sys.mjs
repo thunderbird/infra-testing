@@ -89,12 +89,14 @@ export class NntpNewsGroup {
         propBag.setPropertyAsInt32("articleCount", end - start + 1);
         propBag.setPropertyAsAString("groupName", this._folder.name);
         propBag.setPropertyAsACString("serverKey", this._server.key);
-        this._msgWindow.domWindow.openDialog(
-          "chrome://messenger/content/downloadheaders.xhtml",
-          "_blank",
-          "centerscreen,chrome,modal,titlebar",
-          propBag
-        );
+        Services.wm
+          .getMostRecentWindow("mail:3pane")
+          .openDialog(
+            "chrome://messenger/content/downloadheaders.xhtml",
+            "_blank",
+            "centerscreen,chrome,modal,titlebar",
+            propBag
+          );
         if (!propBag.getPropertyAsBool("hitOK")) {
           return [];
         }
@@ -157,7 +159,7 @@ export class NntpNewsGroup {
       bytes,
       lines,
     ] = parts;
-    const msgHdr = this._db.createNewHdr(articleNumber);
+    const msgHdr = this._db.createNewHdrWithSpecificMsgKey(articleNumber);
     msgHdr.orFlags(Ci.nsMsgMessageFlags.New);
     this.setSubject(msgHdr, subject);
     msgHdr.author = from;
@@ -221,7 +223,7 @@ export class NntpNewsGroup {
     }
 
     if (articleNumber >= 0) {
-      this._msgHdr = this._db.createNewHdr(articleNumber);
+      this._msgHdr = this._db.createNewHdrWithSpecificMsgKey(articleNumber);
     }
   }
 

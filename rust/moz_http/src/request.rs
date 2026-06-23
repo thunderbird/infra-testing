@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::ptr;
 
-use cstr::cstr;
+use http::Method;
 use nserror::nsresult;
 use url::Url;
 
@@ -17,9 +17,8 @@ use xpcom::interfaces::{
     nsITransportSecurityInfo, nsIURI, nsIUploadChannel, nsSecurityFlags,
 };
 use xpcom::{RefPtr, getter_addrefs};
-use xpcom_async::XpComFuture;
+use xpcom_async_glue::AsyncChannelOpener;
 
-use crate::client::Method;
 use crate::error::{Error, TransportSecurityInfo};
 use crate::response::Response;
 
@@ -59,9 +58,14 @@ struct RequestBody<'b> {
 }
 
 /// A builder to create and send HTTP requests.
+///
+/// Ideally this would also have a `build()` method that returns a request-like
+/// struct, however this isn't trivial to support in contexts when acquiring
+/// ownership of the request's body without cloning is difficult.
+#[must_use]
 pub struct RequestBuilder<'rb> {
     url: &'rb Url,
-    method: Method,
+    method: &'rb Method,
     // Ideally we'd store header keys as nsCString directly, but nsCString does
     // not implement the traits Hash and Eq, which are required to be used as
     // HashMap keys.
@@ -75,7 +79,7 @@ impl<'rb> RequestBuilder<'rb> {
     ///
     /// If the URL is not a valid HTTP URL, i.e. if its protocol scheme is
     /// neither HTTP nor HTTPS, an error is returned.
-    pub(crate) fn new(method: Method, url: &'rb Url) -> crate::Result<RequestBuilder<'rb>> {
+    pub(crate) fn new(method: &'rb Method, url: &'rb Url) -> crate::Result<RequestBuilder<'rb>> {
         // We only support HTTP(S) URLs.
         // url.scheme() is always lower-cased.
         if url.scheme() != "http" && url.scheme() != "https" {
@@ -124,25 +128,25 @@ impl<'rb> RequestBuilder<'rb> {
     pub async fn send(&self) -> crate::Result<Response> {
         // Get the nsIScriptSecurityManager service to retrieve an nsIPrincipal we can use in
         // NewChannel.
-        let script_sec_mgr = xpcom::get_service::<nsIScriptSecurityManager>(cstr!(
-            "@mozilla.org/scriptsecuritymanager;1"
-        ))
-        .ok_or(Error::XpComOperationFailure(
-            "failed to get service nsIScriptSecurityManager",
-        ))?;
+        let script_sec_mgr =
+            xpcom::get_service::<nsIScriptSecurityManager>(c"@mozilla.org/scriptsecuritymanager;1")
+                .ok_or(Error::XpComOperationFailure(
+                    "failed to get service nsIScriptSecurityManager",
+                ))?;
 
         let principal: RefPtr<nsIPrincipal> =
             getter_addrefs(unsafe { |p| script_sec_mgr.GetSystemPrincipal(p) })?;
 
         // Get the nsIIOService service to generate the nsIChannel.
-        let io_service =
-            xpcom::get_service::<nsIIOService>(cstr!("@mozilla.org/network/io-service;1")).ok_or(
-                Error::XpComOperationFailure("failed to get service nsIIOService"),
-            )?;
+        let io_service = xpcom::get_service::<nsIIOService>(c"@mozilla.org/network/io-service;1")
+            .ok_or(Error::XpComOperationFailure(
+            "failed to get service nsIIOService",
+        ))?;
 
         let url = nsCString::from(self.url.as_str());
-        let uri: RefPtr<nsIURI> =
-            getter_addrefs(|p| unsafe { io_service.NewURI(&*url, ptr::null(), ptr::null(), p) })?;
+        let uri: RefPtr<nsIURI> = getter_addrefs(|p| unsafe {
+            io_service.NewURI(&raw const *url, ptr::null(), ptr::null(), p)
+        })?;
 
         // Instantiate an `nsILoadInfo` that's configured to allow cookies
         // (unless the user settings say otherwise). We need to take this extra
@@ -189,7 +193,7 @@ impl<'rb> RequestBuilder<'rb> {
 
             unsafe {
                 http_channel
-                    .SetRequestHeader(&*key, &*value, false)
+                    .SetRequestHeader(&raw const *key, &raw const *value, false)
                     .to_result()?;
             }
         }
@@ -198,21 +202,24 @@ impl<'rb> RequestBuilder<'rb> {
         // because nsIUploadChannel::SetUploadStream() used on an HTTP channel
         // sets the channel's method depending on the content of its arguments,
         // which might not match the method we want to use.
-        let method: nsCString = self.method.into();
-        unsafe { http_channel.SetRequestMethod(&*method).to_result()? }
+        let method: nsCString = self.method.as_str().into();
+        unsafe {
+            http_channel
+                .SetRequestMethod(&raw const *method)
+                .to_result()?;
+        }
 
         // Send the request through the nsIChannel.
-        let bytes = match XpComFuture::from(channel.clone()).await {
+        let bytes = match AsyncChannelOpener::from(channel.clone()).await {
             Ok((_channel, bytes)) => bytes,
             Err(err) => {
                 // If we got an error back from Necko, ask the NSS errors
                 // service if it's a security error.
-                let nss_service = xpcom::get_service::<nsINSSErrorsService>(cstr!(
-                    "@mozilla.org/nss_errors_service;1"
-                ))
-                .ok_or(Error::XpComOperationFailure(
-                    "failed to get service nsINSSErrorsService",
-                ))?;
+                let nss_service =
+                    xpcom::get_service::<nsINSSErrorsService>(c"@mozilla.org/nss_errors_service;1")
+                        .ok_or(Error::XpComOperationFailure(
+                            "failed to get service nsINSSErrorsService",
+                        ))?;
 
                 let sec_info: Option<RefPtr<nsITransportSecurityInfo>> =
                     match getter_addrefs(|p| unsafe { channel.GetSecurityInfo(p) }) {
@@ -231,19 +238,16 @@ impl<'rb> RequestBuilder<'rb> {
                 // If there isn't an `nsITransportSecurityInfo` attached to the
                 // channel, then the error is probably not security-related but
                 // rather represents a connectivity issue.
-                if sec_info.is_none() {
+                let Some(sec_info) = sec_info else {
                     return Err(err.into());
-                }
-
-                // We'll always return if `sec_info` is `None`, so unwrapping
-                // should be fine here.
-                let sec_info = sec_info.unwrap();
+                };
 
                 let mut err_code: i32 = 0;
-                unsafe { sec_info.GetErrorCode(&mut err_code) }.to_result()?;
+                unsafe { sec_info.GetErrorCode(&raw mut err_code) }.to_result()?;
 
                 let mut is_nss_error: bool = false;
-                unsafe { nss_service.IsNSSErrorCode(err_code, &mut is_nss_error) }.to_result()?;
+                unsafe { nss_service.IsNSSErrorCode(err_code, &raw mut is_nss_error) }
+                    .to_result()?;
 
                 // If the NSS service has identified the error as relating to
                 // transport security, include the `nsITransportSecurityInfo`
@@ -279,9 +283,9 @@ impl<'rb> RequestBuilder<'rb> {
         }
 
         // Create an input stream for the body.
-        let body_stream = xpcom::create_instance::<nsIStringInputStream>(cstr!(
-            "@mozilla.org/io/string-input-stream;1"
-        ))
+        let body_stream = xpcom::create_instance::<nsIStringInputStream>(
+            c"@mozilla.org/io/string-input-stream;1",
+        )
         .ok_or(Error::XpComOperationFailure(
             "failed to create instance of nsIStringInputStream",
         ))?;
@@ -326,12 +330,14 @@ impl<'rb> RequestBuilder<'rb> {
             // request, to ensure it stays in scope while the nsIChannel does,
             // and use ShareData() instead.
             let body_content = nsCString::from(body.content.0);
-            body_stream.SetByteStringData(&*body_content).to_result()?;
+            body_stream
+                .SetByteStringData(&raw const *body_content)
+                .to_result()?;
 
             // Set the stream as the channel's upload stream.
             upload_channel
-                .SetUploadStream(body_stream.coerce(), &*content_type, len)
-                .to_result()?
+                .SetUploadStream(body_stream.coerce(), &raw const *content_type, len)
+                .to_result()?;
         }
 
         Ok(())

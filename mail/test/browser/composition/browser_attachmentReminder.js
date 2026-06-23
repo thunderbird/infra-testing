@@ -185,7 +185,7 @@ add_task(async function test_attachment_reminder_appears_properly() {
   // Click the "Oh, I Did!" button in the attachment reminder dialog.
   const dialogPromise = BrowserTestUtils.promiseAlertDialog("extra1");
   const buttonSend = cwc.document.getElementById("button-send");
-  EventUtils.synthesizeMouseAtCenter(buttonSend, {}, buttonSend.ownerGlobal);
+  EventUtils.synthesizeMouseAtCenter(buttonSend, {}, buttonSend.documentGlobal);
   await dialogPromise;
   await new Promise(resolve => setTimeout(resolve));
 
@@ -219,19 +219,23 @@ add_task(async function test_attachment_reminder_dismissal() {
 
   Assert.equal(get_reminder_keywords(cwc), "test.doc, attachment, attached");
 
+  await new Promise(resolve => setTimeout(resolve));
+
   // We didn't click the "Remind Me Later" - the alert should pop up
   // on send anyway.
   // Click the "Oh, I Did!" button in the attachment reminder dialog.
   const dialogPromise = BrowserTestUtils.promiseAlertDialog("extra1");
   const buttonSend = cwc.document.getElementById("button-send");
-  EventUtils.synthesizeMouseAtCenter(buttonSend, {}, buttonSend.ownerGlobal);
+  Assert.ok(!buttonSend.disabled, "#button-send should be enabled");
+  EventUtils.synthesizeMouseAtCenter(buttonSend, {}, buttonSend.documentGlobal);
   await dialogPromise;
   await new Promise(resolve => setTimeout(resolve));
 
   const notification = assert_automatic_reminder_state(cwc, true);
-
   notification.close();
+  info("Closed automatic reminder");
   assert_automatic_reminder_state(cwc, false);
+  await new Promise(resolve => setTimeout(resolve));
 
   await click_send_and_handle_send_error(cwc);
 
@@ -336,7 +340,7 @@ add_task(async function test_no_send_now_sends() {
   // Click the send button again, this time choose "No, Send Now".
   const dialogPromise = BrowserTestUtils.promiseAlertDialog("accept");
   const buttonSend = cwc.document.getElementById("button-send");
-  EventUtils.synthesizeMouseAtCenter(buttonSend, {}, buttonSend.ownerGlobal);
+  EventUtils.synthesizeMouseAtCenter(buttonSend, {}, buttonSend.documentGlobal);
   await dialogPromise;
   await new Promise(resolve => setTimeout(resolve));
 
@@ -452,7 +456,7 @@ add_task(async function test_manual_attachment_reminder() {
   // Click the "Oh, I Did!" button in the attachment reminder dialog.
   dialogPromise = BrowserTestUtils.promiseAlertDialog("extra1");
   const buttonSend = cwc.document.getElementById("button-send");
-  EventUtils.synthesizeMouseAtCenter(buttonSend, {}, buttonSend.ownerGlobal);
+  EventUtils.synthesizeMouseAtCenter(buttonSend, {}, buttonSend.documentGlobal);
   await dialogPromise;
   await TestUtils.waitForCondition(
     () =>
@@ -786,7 +790,7 @@ add_task(async function test_disabling_attachment_reminder() {
     popup: "reminderBarPopup",
   });
   let dropmarker = disableButton.querySelector("dropmarker");
-  EventUtils.synthesizeMouseAtCenter(dropmarker, {}, dropmarker.ownerGlobal);
+  EventUtils.synthesizeMouseAtCenter(dropmarker, {}, dropmarker.documentGlobal);
   await click_menus_in_sequence(
     disableButton.closest("toolbarbutton").querySelector("menupopup"),
     [{ id: "disableReminder" }]
@@ -819,7 +823,7 @@ add_task(async function test_disabling_attachment_reminder() {
     popup: "reminderBarPopup",
   });
   dropmarker = disableButton.querySelector("dropmarker");
-  EventUtils.synthesizeMouseAtCenter(dropmarker, {}, dropmarker.ownerGlobal);
+  EventUtils.synthesizeMouseAtCenter(dropmarker, {}, dropmarker.documentGlobal);
   await click_menus_in_sequence(
     disableButton.closest("toolbarbutton").querySelector("menupopup"),
     [{ id: "disableReminder" }]
@@ -859,7 +863,11 @@ async function click_send_and_handle_send_error(aWin, aAlreadySending) {
   );
   if (!aAlreadySending) {
     const buttonSend = aWin.document.getElementById("button-send");
-    EventUtils.synthesizeMouseAtCenter(buttonSend, {}, buttonSend.ownerGlobal);
+    EventUtils.synthesizeMouseAtCenter(
+      buttonSend,
+      {},
+      buttonSend.documentGlobal
+    );
   }
   await dialogPromise;
   await TestUtils.waitForTick();

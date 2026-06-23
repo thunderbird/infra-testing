@@ -164,6 +164,14 @@ export class CalItipEmailTransport {
       }
     }
 
+    // Retrieve the COMMENT property
+    const comment = item.getProperty("COMMENT");
+
+    // Append COMMENT field to the body
+    if (comment) {
+      body += "\n\n" + cal.l10n.getLtnString("imipHtml.comment") + "\n" + comment;
+    }
+
     return {
       subject,
       body,
@@ -272,7 +280,6 @@ export class CalItipEmailTransport {
           Services.io.offline ? Ci.nsIMsgSend.nsMsgQueueForLater : Ci.nsIMsgSend.nsMsgDeliverNow,
           null, // nsIMsgDBHdr msgToReplace
           null, // nsIMsgSendListener aListener
-          null, // nsIMsgStatusFeedback aStatusFeedback
           ""
         ); // password
         return true;

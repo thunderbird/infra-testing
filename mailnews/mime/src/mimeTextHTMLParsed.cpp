@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -23,6 +22,7 @@
 #include "mimeTextHTMLParsed.h"
 
 #include "mimethtm.h"
+#include "mozilla/dom/ContentList.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/DOMParser.h"
 #include "mozilla/ErrorResult.h"
@@ -89,7 +89,7 @@ static int MimeInlineTextHTMLParsed_parse_eof(MimeObject* obj, bool abort_p) {
   if (rv2.Failed()) return -1;
 
   // Remove meta http-equiv="refresh".
-  RefPtr<nsContentList> metas = document->GetElementsByTagName(u"meta"_ns);
+  RefPtr<dom::ContentList> metas = document->GetElementsByTagName(u"meta"_ns);
   uint32_t length = metas->Length(true);
   for (uint32_t i = length; i > 0; i--) {
     RefPtr<nsGenericHTMLElement> node =
@@ -164,3 +164,5 @@ static int MimeInlineTextHTMLParsed_parse_line(const char* line, int32_t length,
 
   return 0;
 }
+
+#undef MIME_SUPERCLASS

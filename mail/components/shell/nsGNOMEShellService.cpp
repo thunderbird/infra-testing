@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -29,6 +28,8 @@ static const char* const sNewsProtocols[] = {"news", "snews", "nntp"};
 static const char* const sFeedProtocols[] = {"feed"};
 
 static const char* const sCalendarProtocols[] = {"webcal", "webcals"};
+
+static const char* const sNetThunderbirdProtocols[] = {"net.thunderbird"};
 
 struct AppTypeAssociation {
   uint16_t type;
@@ -64,7 +65,9 @@ static const AppTypeAssociation sAppTypes[] = {
     {nsIShellService::RSS, sFeedProtocols, std::size(sFeedProtocols),
      "application/rss+xml", "rss"},
     {nsIShellService::CALENDAR, sCalendarProtocols,
-     std::size(sCalendarProtocols), "text/calendar", "ics"}};
+     std::size(sCalendarProtocols), "text/calendar", "ics"},
+    {nsIShellService::NET_THUNDERBIRD, sNetThunderbirdProtocols,
+     std::size(sNetThunderbirdProtocols), nullptr, nullptr}};
 
 nsGNOMEShellService::nsGNOMEShellService()
     : mUseLocaleFilenames(false),
@@ -322,12 +325,13 @@ nsresult nsGNOMEShellService::MakeDefault(const char* const* aProtocols,
     for (unsigned int i = 0; i < aProtocolsLength; ++i) {
       rv = app->SetAsDefaultForURIScheme(nsDependentCString(aProtocols[i]));
       NS_ENSURE_SUCCESS(rv, rv);
-      if (aMimeType)
-        rv = app->SetAsDefaultForMimeType(nsDependentCString(aMimeType));
+    }
+    if (aMimeType) {
+      rv = app->SetAsDefaultForMimeType(nsDependentCString(aMimeType));
       NS_ENSURE_SUCCESS(rv, rv);
-      if (aExtensions)
-        rv =
-            app->SetAsDefaultForFileExtensions(nsDependentCString(aExtensions));
+    }
+    if (aExtensions) {
+      rv = app->SetAsDefaultForFileExtensions(nsDependentCString(aExtensions));
       NS_ENSURE_SUCCESS(rv, rv);
     }
   }

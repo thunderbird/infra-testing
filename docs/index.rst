@@ -1,6 +1,8 @@
 Thunderbird Source Tree Documentation
 =====================================
 
+.. If there's no other reason to order a toctree, use alphabetical (by page title) ordering.
+
 .. toctree::
    :caption: Overview
    :maxdepth: 1
@@ -14,6 +16,7 @@ Thunderbird Source Tree Documentation
    :maxdepth: 1
 
    /build/index
+   /cxx/index
    /l10n/index
    /rust/index
 
@@ -22,11 +25,13 @@ Thunderbird Source Tree Documentation
    :maxdepth: 1
 
    /frontend/custom_element_conventions
+   /frontend/icons
    /frontend/state_management
    /storybook/index
+   /frontend/support_links
    /frontend/tabmail
    /frontend/trees
-   /frontend/icons
+   /frontend/xul
 
 .. toctree::
    :caption: Mail Front End
@@ -39,9 +44,13 @@ Thunderbird Source Tree Documentation
    :caption: Mail Back End
    :maxdepth: 1
 
+   /backend/accounts
+   /backend/copy_move
    /backend/email_protocols
+   /backend/folders
    /backend/folder_compaction
    /backend/folder_storage
+   /backend/message_database
    /panorama/index
 
 .. toctree::
@@ -64,7 +73,16 @@ Thunderbird Source Tree Documentation
    :maxdepth: 1
 
    /inappnotifications/index
+   /backend/net_thunderbird_urls
+   /backend/oauth
    /telemetry/index
+
+.. toctree::
+   :caption: Testing
+   :maxdepth: 1
+
+   /testing/helpers
+   /testing/memory_leaks
 
 Indices and tables
 ==================

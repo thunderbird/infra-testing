@@ -15,14 +15,17 @@ about-addressbook-toolbar-add-ldap-address-book =
 
 books-pane-create-contact-button = New Contact
   .title = Create a new contact
-books-pane-create-book-button =
-  .title = Create a new address book
+books-pane-add-book-button =
+  .title = Add address book
 books-pane-create-list-button =
   .title = Create a new mailing list
 books-pane-import-button = Import
   .title = Import address books
 
 ## Books
+
+address-book-list =
+  .aria-label = List of address books
 
 all-address-books-row =
   .title = All Address Books
@@ -102,6 +105,8 @@ about-addressbook-table-layout =
 ## Card column headers
 ## Each string is listed here twice, and the values should match.
 
+about-addressbook-column-header-a11y-generatedname2 =
+  .aria-label = Name
 about-addressbook-column-header-generatedname2 = Name
   .title = Sort by name
 about-addressbook-column-label-generatedname2 =
@@ -112,6 +117,8 @@ about-addressbook-cell-generatedname2 =
   .aria-label = Name
   .title = { $title }
 
+about-addressbook-column-header-a11y-emailaddresses2 =
+  .aria-label = Email Addresses
 about-addressbook-column-header-emailaddresses2 = Email Addresses
   .title = Sort by email addresses
 about-addressbook-column-label-emailaddresses2 =
@@ -122,6 +129,8 @@ about-addressbook-cell-emailaddresses2 =
   .aria-label = Email Addresses
   .title = { $title }
 
+about-addressbook-column-header-a11y-nickname2 =
+  .aria-label = Nickname
 about-addressbook-column-header-nickname2 = Nickname
   .title = Sort by nickname
 about-addressbook-column-label-nickname2 =
@@ -132,6 +141,8 @@ about-addressbook-cell-nickname2 =
   .aria-label = Nickname
   .title = { $title }
 
+about-addressbook-column-header-a11y-phonenumbers2 =
+  .aria-label = Phone Numbers
 about-addressbook-column-header-phonenumbers2 = Phone Numbers
   .title = Sort by phone numbers
 about-addressbook-column-label-phonenumbers2 =
@@ -142,6 +153,8 @@ about-addressbook-cell-phonenumbers2 =
   .aria-label = Phone Numbers
   .title = { $title }
 
+about-addressbook-column-header-a11y-addresses2 =
+  .aria-label = Addresses
 about-addressbook-column-header-addresses2 = Addresses
   .title = Sort by addresses
 about-addressbook-column-label-addresses2 =
@@ -152,6 +165,8 @@ about-addressbook-cell-addresses2 =
   .aria-label = Addresses
   .title = { $title }
 
+about-addressbook-column-header-a11y-title2 =
+  .aria-label = Title
 about-addressbook-column-header-title2 = Title
   .title = Sort by title
 about-addressbook-column-label-title2 =
@@ -162,6 +177,8 @@ about-addressbook-cell-title2 =
   .aria-label = Title
   .title = { $title }
 
+about-addressbook-column-header-a11y-department2 =
+  .aria-label = Department
 about-addressbook-column-header-department2 = Department
   .title = Sort by department
 about-addressbook-column-label-department2 =
@@ -172,6 +189,8 @@ about-addressbook-cell-department2 =
   .aria-label = Department
   .title = { $title }
 
+about-addressbook-column-header-a11y-organization2 =
+  .aria-label = Organization
 about-addressbook-column-header-organization2 = Organization
   .title = Sort by organization
 about-addressbook-column-label-organization2 =
@@ -182,6 +201,8 @@ about-addressbook-cell-organization2 =
   .aria-label = Organization
   .title = { $title }
 
+about-addressbook-column-header-a11y-addrbook2 =
+  .aria-label = Address Book
 about-addressbook-column-header-addrbook2 = Address Book
   .title = Sort by address book
 about-addressbook-column-label-addrbook2 =

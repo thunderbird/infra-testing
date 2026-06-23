@@ -4,51 +4,85 @@
 
 use nserror::nsresult;
 use nsstring::nsCString;
-use xpcom::{RefPtr, getter_addrefs, interfaces::IEwsMessageSyncListener};
+use xpcom::{
+    RefPtr,
+    interfaces::{IExchangeMessageSyncListener, IHeaderBlock},
+};
 
-use super::{SafeListener, SafeListenerWrapper, StaleMsgDbHeader, UpdatedMsgDbHeader};
+use super::{SafeListener, SafeListenerWrapper};
 
 /// See [`SafeListenerWrapper`].
-pub type SafeEwsMessageSyncListener = SafeListenerWrapper<IEwsMessageSyncListener>;
+pub type SafeExchangeMessageSyncListener = SafeListenerWrapper<IExchangeMessageSyncListener>;
 
-impl SafeEwsMessageSyncListener {
+impl SafeExchangeMessageSyncListener {
     /// Convert types and forward to
-    /// [`IEwsMessageSyncListener::OnMessageCreated`].
+    /// [`IExchangeMessageSyncListener::OnMessageCreated`].
     pub fn on_message_created<S: AsRef<str>>(
         &self,
         message_id: S,
-    ) -> Result<StaleMsgDbHeader, nsresult> {
+        header_block: RefPtr<IHeaderBlock>,
+        message_size: u32,
+        is_read: bool,
+        is_flagged: bool,
+        preview_text: &str,
+    ) -> Result<(), nsresult> {
         let ews_id = nsCString::from(message_id.as_ref());
+        let preview = nsCString::from(preview_text);
         // SAFETY: We have converted all of the inputs into the appropriate
         // types to cross the Rust/C++ boundary.
-        getter_addrefs(|hdr| unsafe { self.0.OnMessageCreated(&*ews_id, hdr) })
-            .map(|hdr| hdr.into())
+        unsafe {
+            self.0.OnMessageCreated(
+                &raw const *ews_id,
+                header_block.coerce(),
+                message_size,
+                is_read,
+                is_flagged,
+                &raw const *preview,
+            )
+        }
+        .to_result()
     }
 
     /// Convert types and forward to
-    /// [`IEwsMessageSyncListener::OnMessageUpdated`].
+    /// [`IExchangeMessageSyncListener::OnMessageUpdated`].
     pub fn on_message_updated<S: AsRef<str>>(
         &self,
         message_id: S,
-    ) -> Result<StaleMsgDbHeader, nsresult> {
+        header_block: RefPtr<IHeaderBlock>,
+        message_size: u32,
+        is_read: bool,
+        is_flagged: bool,
+        preview_text: &str,
+    ) -> Result<(), nsresult> {
         let ews_id = nsCString::from(message_id.as_ref());
+        let preview = nsCString::from(preview_text);
+
         // SAFETY: We have converted all of the inputs into the appropriate
         // types to cross the Rust/C++ boundary.
-        getter_addrefs(|hdr| unsafe { self.0.OnMessageUpdated(&*ews_id, hdr) })
-            .map(|hdr| hdr.into())
+        unsafe {
+            self.0.OnMessageUpdated(
+                &raw const *ews_id,
+                header_block.coerce(),
+                message_size,
+                is_read,
+                is_flagged,
+                &raw const *preview,
+            )
+        }
+        .to_result()
     }
 
     /// Convert types and forward to
-    /// [`IEwsMessageSyncListener::OnMessageDeleted`].
+    /// [`IExchangeMessageSyncListener::OnMessageDeleted`].
     pub fn on_message_deleted<S: AsRef<str>>(&self, message_id: S) -> Result<(), nsresult> {
         let ews_id = nsCString::from(message_id.as_ref());
         // SAFETY: We have converted all of the inputs into the appropriate
         // types to cross the Rust/C++ boundary.
-        unsafe { self.0.OnMessageDeleted(&*ews_id) }.to_result()
+        unsafe { self.0.OnMessageDeleted(&raw const *ews_id) }.to_result()
     }
 
     /// Convert types and forward to
-    /// [`IEwsMessageSyncListener::OnReadStatusChanged`].
+    /// [`IExchangeMessageSyncListener::OnReadStatusChanged`].
     pub fn on_read_status_changed<S: AsRef<str>>(
         &self,
         message_id: S,
@@ -57,40 +91,24 @@ impl SafeEwsMessageSyncListener {
         let ews_id = nsCString::from(message_id.as_ref());
         // SAFETY: We have converted all of the inputs into the appropriate
         // types to cross the Rust/C++ boundary.
-        unsafe { self.0.OnReadStatusChanged(&*ews_id, is_read) }.to_result()
+        unsafe { self.0.OnReadStatusChanged(&raw const *ews_id, is_read) }.to_result()
     }
 
     /// Convert types and forward to
-    /// [`IEwsMessageSyncListener::OnSyncStateTokenChanged`].
+    /// [`IExchangeMessageSyncListener::OnSyncStateTokenChanged`].
     pub fn on_sync_state_token_changed(&self, sync_state_token: &str) -> Result<(), nsresult> {
         let sync_state = nsCString::from(sync_state_token);
         // SAFETY: We have converted all of the inputs into the appropriate
         // types to cross the Rust/C++ boundary.
-        unsafe { self.0.OnSyncStateTokenChanged(&*sync_state) }.to_result()
-    }
-
-    /// Convert types and forward to
-    /// [`IEwsMessageSyncListener::OnDetachedHdrPopulated`].
-    pub fn on_detached_hdr_populated(&self, hdr: UpdatedMsgDbHeader) -> Result<(), nsresult> {
-        let hdr: RefPtr<_> = hdr.into();
-        // SAFETY: hdr is behind a safe wrapper, so points to a valid (in the
-        // safety sense) header.
-        unsafe { self.0.OnDetachedHdrPopulated(&*hdr) }.to_result()
-    }
-
-    /// A safe wrapper for
-    /// [`IEwsMessageSyncListener::OnExistingHdrChanged`].
-    pub fn on_existing_hdr_changed(&self) -> Result<(), nsresult> {
-        // SAFETY: Callback takes no arguments.
-        unsafe { self.0.OnExistingHdrChanged() }.to_result()
+        unsafe { self.0.OnSyncStateTokenChanged(&raw const *sync_state) }.to_result()
     }
 }
 
-impl SafeListener for SafeEwsMessageSyncListener {
+impl SafeListener for SafeExchangeMessageSyncListener {
     type OnSuccessArg = ();
     type OnFailureArg = ();
 
-    /// Forward to [`IEwsMessageSyncListener::OnSyncComplete`].
+    /// Forward to [`IExchangeMessageSyncListener::OnSyncComplete`].
     fn on_success(&self, _arg: ()) -> Result<(), nsresult> {
         // SAFETY: Callback takes no arguments.
         unsafe { self.0.OnSyncComplete() }.to_result()

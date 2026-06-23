@@ -8,10 +8,12 @@ license:
         - comm/build/macosx/hardenedruntime/v2/developer/browser.xml
         - comm/build/macosx/hardenedruntime/v2/developer/media-plugin-helper.xml
         - comm/build/macosx/hardenedruntime/v2/developer/plugin-container.xml
+        - comm/build/macosx/hardenedruntime/v2/developer/security-module-helper.xml
         - comm/build/macosx/hardenedruntime/v2/developer/utility.xml
         - comm/build/macosx/hardenedruntime/v2/production/browser.xml
         - comm/build/macosx/hardenedruntime/v2/production/media-plugin-helper.xml
         - comm/build/macosx/hardenedruntime/v2/production/plugin-container.xml
+        - comm/build/macosx/hardenedruntime/v2/production/security-module-helper.xml
         # License not super clear, Firefox excludes its branding
         - comm/mail/branding/
         # Mostly empty file
@@ -51,7 +53,9 @@ license:
         - .xhtml
         - .xml
     support-files:
-        - 'tools/lint/license/**'
+        - 'tools/lint/mozcheck/**'
+        - 'tools/lint/license/valid-licenses.txt'
     type: external
     payload: commlint:lint_wrapper
-    wraps: license:lint
+    wraps: mozcheck:lint
+    check: license

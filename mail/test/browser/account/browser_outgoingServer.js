@@ -10,6 +10,11 @@ const { click_account_tree_row, get_account_tree_row, open_advanced_settings } =
 var account;
 
 add_setup(async function () {
+  document
+    .querySelector("account-hub-container")
+    ?.shadowRoot.querySelector("dialog")
+    .close();
+
   // Some previous tests or infrastructure might have left stray SMTP servers
   // around, and we need to start with a clean slate.
   for (const server of MailServices.outgoingServer.servers) {
@@ -39,7 +44,7 @@ add_setup(async function () {
   ewsServer.username = "alice@local-ews.test";
   ewsServer.authMethod = Ci.nsMsgAuthMethod.OAuth2;
 
-  const ewsServer2 = ewsServer.QueryInterface(Ci.nsIEwsServer);
+  const ewsServer2 = ewsServer.QueryInterface(Ci.IExchangeOutgoingServer);
   ewsServer2.initialize("https://local-ews.test/EWS/Exchange.asmx");
 
   registerCleanupFunction(() => {
@@ -83,7 +88,7 @@ add_task(async function test_outgoingSettings() {
     EventUtils.synthesizeMouseAtCenter(
       serverList[0],
       {},
-      serverList[0].ownerGlobal
+      serverList[0].documentGlobal
     );
     await TestUtils.waitForTick();
 
@@ -102,7 +107,7 @@ add_task(async function test_outgoingSettings() {
     EventUtils.synthesizeMouseAtCenter(
       serverList[1],
       {},
-      serverList[1].ownerGlobal
+      serverList[1].documentGlobal
     );
     await TestUtils.waitForTick();
 
@@ -144,7 +149,7 @@ add_task(async function test_accountSettings() {
       await BrowserTestUtils.waitForEvent(doc, "L10nMutationsFinished");
     }
 
-    await SimpleTest.promiseFocus(doc.ownerGlobal);
+    await SimpleTest.promiseFocus(doc.documentGlobal);
 
     // The button to edit the settings of the selected outgoing server, which
     // state we'll observe throughout the test.
@@ -160,15 +165,10 @@ add_task(async function test_accountSettings() {
     // index 0 is the "Use Default Server" option.
     info("Opening Outgoing Server menu to select first created server...");
 
-    EventUtils.synthesizeMouseAtCenter(menu, {}, menu.ownerGlobal);
-    await BrowserTestUtils.waitForPopupEvent(menu, "shown");
-
-    EventUtils.synthesizeMouseAtCenter(
-      serverList[1],
-      {},
-      serverList[1].ownerGlobal
-    );
-    await BrowserTestUtils.waitForPopupEvent(menu, "hidden");
+    EventUtils.synthesizeMouseAtCenter(menu, {}, menu.documentGlobal);
+    await BrowserTestUtils.waitForPopupEvent(menu.menupopup, "shown");
+    menu.menupopup.activateItem(serverList[1]);
+    await BrowserTestUtils.waitForPopupEvent(menu.menupopup, "hidden");
 
     // Check that the item that's currently selected is the correct one (SMTP)
     // and that the edit button is in the correct state.
@@ -184,15 +184,10 @@ add_task(async function test_accountSettings() {
 
     // Now open the menu again and select the second server we created (EWS).
     info("Opening Outgoing Server menu again to select ews server...");
-    EventUtils.synthesizeMouseAtCenter(menu, {}, menu.ownerGlobal);
-    await BrowserTestUtils.waitForPopupEvent(menu, "shown");
-
-    EventUtils.synthesizeMouseAtCenter(
-      serverList[2],
-      {},
-      serverList[2].ownerGlobal
-    );
-    await BrowserTestUtils.waitForPopupEvent(menu, "hidden");
+    EventUtils.synthesizeMouseAtCenter(menu, {}, menu.documentGlobal);
+    await BrowserTestUtils.waitForPopupEvent(menu.menupopup, "shown");
+    menu.menupopup.activateItem(serverList[2]);
+    await BrowserTestUtils.waitForPopupEvent(menu.menupopup, "hidden");
 
     // Check that the item that's currently selected is the correct one
     // (non-SMTP/EWS) and that the edit button is in the correct state.

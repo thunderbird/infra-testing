@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -21,7 +20,6 @@
 #include "nsIMsgFolder.h"
 #include "nsIMsgWindow.h"
 #include "nsIMsgDatabase.h"
-#include "nsIMsgStatusFeedback.h"
 #include "nsIMsgCopyServiceListener.h"
 #include "nsIInputStream.h"
 #include "nsIOutputStream.h"
@@ -51,8 +49,6 @@ struct nsLocalMailCopyState {
   nsCOMPtr<nsIMsgWindow> m_msgWindow;
   nsCOMPtr<nsIMsgDatabase> m_destDB;
 
-  // for displaying status;
-  nsCOMPtr<nsIMsgStatusFeedback> m_statusFeedback;
   nsCOMPtr<nsIStringBundle> m_stringBundle;
   int64_t m_lastProgressTime;
 

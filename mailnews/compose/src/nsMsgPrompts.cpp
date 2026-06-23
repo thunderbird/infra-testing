@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -6,6 +5,7 @@
 #include "nsMsgPrompts.h"
 
 #include "nsIWindowWatcher.h"
+#include "nsIWindowMediator.h"
 #include "nsIStringBundle.h"
 #include "nsServiceManagerUtils.h"
 #include "nsMsgUtils.h"
@@ -57,16 +57,14 @@ nsresult nsMsgBuildMessageWithTmpFile(nsIFile* aFile, nsString& aResult) {
   return nsMsgBuildMessageByName("unableToOpenTmpFile", aFile, aResult);
 }
 
-nsresult nsMsgDisplayMessageByName(mozIDOMWindowProxy* window,
-                                   const char* aName,
+nsresult nsMsgDisplayMessageByName(const char* aName,
                                    const char16_t* windowTitle) {
   nsString msg;
   nsMsgGetMessageByName(aName, msg);
-  return nsMsgDisplayMessageByString(window, msg.get(), windowTitle);
+  return nsMsgDisplayMessageByString(msg.get(), windowTitle);
 }
 
-nsresult nsMsgDisplayMessageByString(mozIDOMWindowProxy* window,
-                                     const char16_t* msg,
+nsresult nsMsgDisplayMessageByString(const char16_t* msg,
                                      const char16_t* windowTitle) {
   NS_ENSURE_ARG_POINTER(msg);
 
@@ -75,18 +73,11 @@ nsresult nsMsgDisplayMessageByString(mozIDOMWindowProxy* window,
       do_GetService(NS_PROMPTSERVICE_CONTRACTID, &rv));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  return dlgService->Alert(window, windowTitle, msg);
-}
-
-nsresult nsMsgAskBooleanQuestionByString(mozIDOMWindowProxy* window,
-                                         const char16_t* msg, bool* answer,
-                                         const char16_t* windowTitle) {
-  NS_ENSURE_TRUE(msg && *msg, NS_ERROR_INVALID_ARG);
-
-  nsresult rv;
-  nsCOMPtr<nsIPromptService> dlgService(
-      do_GetService(NS_PROMPTSERVICE_CONTRACTID, &rv));
+  nsCOMPtr<mozIDOMWindowProxy> domWindow;
+  nsCOMPtr<nsIWindowMediator> winMed =
+      do_GetService(NS_WINDOWMEDIATOR_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
+  winMed->GetMostRecentWindow(nullptr, getter_AddRefs(domWindow));
 
-  return dlgService->Confirm(window, windowTitle, msg, answer);
+  return dlgService->Alert(domWindow, windowTitle, msg);
 }

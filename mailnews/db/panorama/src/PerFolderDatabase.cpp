@@ -227,14 +227,19 @@ NS_IMETHODIMP PerFolderDatabase::GetMsgHdrForUID(uint32_t uid,
   NS_ENSURE_ARG_POINTER(aRetVal);
   return NS_ERROR_NOT_IMPLEMENTED;
 }
-NS_IMETHODIMP PerFolderDatabase::CreateNewHdr(nsMsgKey aKey,
-                                              nsIMsgDBHdr** aRetVal) {
+
+NS_IMETHODIMP PerFolderDatabase::CreateNewHdr(nsIMsgDBHdr** aRetVal) {
   NS_ENSURE_ARG_POINTER(aRetVal);
-  MOZ_ASSERT(aKey == nsMsgKey_None);
   RefPtr<DetachedMsgHdr> hdr = new DetachedMsgHdr(mFolderId);
   hdr.forget(aRetVal);
   return NS_OK;
 }
+
+NS_IMETHODIMP PerFolderDatabase::CreateNewHdrWithSpecificMsgKey(
+    nsMsgKey aKey, nsIMsgDBHdr** aRetVal) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
 NS_IMETHODIMP PerFolderDatabase::AddNewHdrToDB(nsIMsgDBHdr* newHdr,
                                                bool notify) {
   NS_ERROR("AddNewHdrToDB() not supported");
@@ -539,9 +544,6 @@ NS_IMETHODIMP PerFolderDatabase::DeleteHeader(nsIMsgDBHdr* msgHdr,
   return DeleteMessages({key}, instigator);
 }
 
-NS_IMETHODIMP PerFolderDatabase::RemoveHeaderMdbRow(nsIMsgDBHdr* msgHdr) {
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
 NS_IMETHODIMP PerFolderDatabase::UndoDelete(nsIMsgDBHdr* msgHdr) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -647,15 +649,6 @@ NS_IMETHODIMP PerFolderDatabase::SetNextPseudoMsgKey(
 }
 NS_IMETHODIMP PerFolderDatabase::GetNextFakeOfflineMsgKey(
     nsMsgKey* aNextFakeOfflineMsgKey) {
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-NS_IMETHODIMP PerFolderDatabase::CreateCollationKey(
-    const nsAString& sourceString, nsTArray<uint8_t>& aRetVal) {
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-NS_IMETHODIMP PerFolderDatabase::CompareCollationKeys(
-    const nsTArray<uint8_t>& key1, const nsTArray<uint8_t>& key2,
-    int32_t* aRetVal) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 NS_IMETHODIMP PerFolderDatabase::GetDefaultViewFlags(
@@ -881,10 +874,10 @@ NS_IMETHODIMP FolderInfo::GetExpungedBytes(int64_t* aExpungedBytes) {
 NS_IMETHODIMP FolderInfo::SetExpungedBytes(int64_t aExpungedBytes) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
-NS_IMETHODIMP FolderInfo::GetImapUidValidity(int32_t* aImapUidValidity) {
+NS_IMETHODIMP FolderInfo::GetImapUidValidity(ImapUid* aImapUidValidity) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
-NS_IMETHODIMP FolderInfo::SetImapUidValidity(int32_t aImapUidValidity) {
+NS_IMETHODIMP FolderInfo::SetImapUidValidity(ImapUid aImapUidValidity) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 NS_IMETHODIMP FolderInfo::GetVersion(uint32_t* aVersion) {

@@ -8,10 +8,10 @@
 # documentation and how to modify this file.
 repo: comm-central
 created_at: '2022-10-20T11:26:42.853013'
-updated_at: '2025-11-17T15:44:31.128871+00:00'
+updated_at: '2026-06-11T12:34:29.734562+00:00'
 hashes:
-  config: f063d7810fa38f2aecdbaaba8c2ae7e2ee5b1ed2
-  export: 2d4d70da0a3a4e7c1941df5dacb882c8a1988d9d
+  config: ad812b65af480cffc09409a76943bbb446ea7cc8
+  export: 74e97d3cf27cdc840a23a246beb5bfc419779862
 export:
   path: ./docs/mots/index.md
   format: md
@@ -120,6 +120,10 @@ people:
     bmo_id: 1537
     name: Dan Mosendale
     nick: dmose
+  - &ebaginski
+    bmo_id: 789340
+    name: Evandro Baginski
+    nick: ebaginski
   - &edicharry
     bmo_id: 771441
     name: Eleanor Dicharry
@@ -263,6 +267,10 @@ people:
     bmo_id: 69136
     name: Simon Paquet
     nick: sipaq
+  - &sking
+    bmo_id: 775283
+    name: Stephen King
+    nick: sking
   - &squib
     bmo_id: 352169
     name: Jim Porter
@@ -328,6 +336,7 @@ modules:
     owners: [*thunderbirdcouncil]
     peers: [*mkmelin, *darktrojan, *Paenglab, *aleca]
     meta:
+      group: https://thunderbird.topicbox.com/groups/developers
       owners_emeritus:
         - *standard8
         - David Bienvenu
@@ -340,6 +349,7 @@ modules:
         - *aceman
       url: https://developer.thunderbird.net/
       components: [Thunderbird]
+      review_group: thunderbird-reviewers
     submodules:
       - name: Addon Support
         machine_name: addon_support
@@ -361,7 +371,7 @@ modules:
           - mail/config/**
           - taskcluster/**
         owners: [*dandarnell]
-        peers: [*coreycb]
+        peers: [*coreycb, *ebaginski, *sking]
         meta:
           owners_emeritus: [*rjl]
           peers_emeritus:
@@ -373,6 +383,7 @@ modules:
             - *aleth
             - *Fallen
           components: [Thunderbird::Build Config]
+          review_group: thunderbird-build-system-reviewers
 
       - name: Instant Messaging
         machine_name: instant_messaging
@@ -403,6 +414,8 @@ modules:
           components:
             - 'MailNews Core::Security: OpenPGP'
             - 'MailNews Core::Security: S/MIME'
+          group: https://thunderbird.topicbox.com/groups/e2ee
+          review_group: thunderbird-security-reviewers
 
       - name: Theme
         machine_name: theme
@@ -417,6 +430,8 @@ modules:
             - *mconley
           components:
             - Thunderbird::Theme
+          group: https://thunderbird.topicbox.com/groups/ux
+          review_group: thunderbird-front-end-reviewers
 
       - name: UX (User Experience)
         machine_name: user_experience
@@ -431,6 +446,8 @@ modules:
             - *henryx
           components:
             - Thunderbird::General
+          group: https://thunderbird.topicbox.com/groups/ux
+          review_group: thunderbird-front-end-reviewers
 
   - name: Calendar
     machine_name: 02-calendar
@@ -492,6 +509,7 @@ modules:
         - MailNews Core::Search
         - MailNews Core::Security
         - MailNews Core::Simple MAPI
+      review_group: thunderbird-back-end-reviewers
 
     submodules:
       - name: Addressbook
@@ -512,7 +530,7 @@ modules:
         machine_name: exchange_protocol
         description: Code responsible for sending/receiving messages over Exchange.
         includes:
-          - mailnews/protocols/ews/**
+          - mailnews/protocols/exchange/**
           - rust/ews_xpcom/**
           - rust/graph_xpcom/**
         owners: [*edicharry]
@@ -563,6 +581,7 @@ modules:
         machine_name: importing
         includes:
           - mailnews/import/**
+        owners: [*nobody]
         peers: [*mkmelin]
         meta:
           components:
@@ -585,6 +604,7 @@ modules:
           components:
             - MailNews Core::Localization
           peers_emeritus: [*standard8]
+          review_group: thunderbird-l10n-reviewers
       - name: MIME Parser
         machine_name: mime_parser
         description: RFC822 MIME Parser

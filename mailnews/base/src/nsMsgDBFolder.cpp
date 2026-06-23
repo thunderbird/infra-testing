@@ -1,9 +1,9 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "FolderPopulation.h"
+#include "IHeaderBlock.h"
 #include "MailNewsTypes.h"
 #include "msgCore.h"
 #include "nsLocalFile.h"
@@ -22,8 +22,7 @@
 #include "FolderCompactor.h"
 #include "nsIDocShell.h"
 #include "nsIMsgWindow.h"
-#include "nsIPrompt.h"
-#include "nsIInterfaceRequestorUtils.h"
+#include "nsIWindowMediator.h"
 #include "nsIAbCard.h"
 #include "nsISpamSettings.h"
 #include "nsIMsgFilterPlugin.h"
@@ -43,10 +42,10 @@
 #include "nsIMessenger.h"
 #include "nsThreadUtils.h"
 #include "nsITransactionManager.h"
+#include "nsIMsgTransactionService.h"
 #include "nsMsgReadStateTxn.h"
 #include "prmem.h"
-#include "nsIPK11TokenDB.h"
-#include "nsIPK11Token.h"
+#include "nsIPKCS11Token.h"
 #include "nsMsgUtils.h"
 #include "nsIMsgFilterService.h"
 #include "nsDirectoryServiceUtils.h"
@@ -87,6 +86,9 @@ static LazyLogModule gFolderLockLog("FolderLock");
 
 static PRTime gtimeOfLastPurgeCheck;  // variable to know when to check for
                                       // purge threshold
+
+// Guard to prevent re-entrant auto-compaction.
+static bool gAutoCompactInProgress;
 
 #define PREF_MAIL_PROMPT_PURGE_THRESHOLD "mail.prompt_purge_threshold"
 #define PREF_MAIL_PURGE_THRESHOLD_MB "mail.purge_threshold_mb"
@@ -164,17 +166,17 @@ NS_IMETHODIMP nsMsgFolderService::InitializeFolderStrings() {
   return NS_OK;
 }
 
-MOZ_RUNINIT nsString nsMsgDBFolder::kLocalizedInboxName;
-MOZ_RUNINIT nsString nsMsgDBFolder::kLocalizedTrashName;
-MOZ_RUNINIT nsString nsMsgDBFolder::kLocalizedSentName;
-MOZ_RUNINIT nsString nsMsgDBFolder::kLocalizedDraftsName;
-MOZ_RUNINIT nsString nsMsgDBFolder::kLocalizedTemplatesName;
-MOZ_RUNINIT nsString nsMsgDBFolder::kLocalizedUnsentName;
-MOZ_RUNINIT nsString nsMsgDBFolder::kLocalizedJunkName;
-MOZ_RUNINIT nsString nsMsgDBFolder::kLocalizedAllMailName;
-MOZ_RUNINIT nsString nsMsgDBFolder::kLocalizedArchivesName;
+constinit nsString nsMsgDBFolder::kLocalizedInboxName;
+constinit nsString nsMsgDBFolder::kLocalizedTrashName;
+constinit nsString nsMsgDBFolder::kLocalizedSentName;
+constinit nsString nsMsgDBFolder::kLocalizedDraftsName;
+constinit nsString nsMsgDBFolder::kLocalizedTemplatesName;
+constinit nsString nsMsgDBFolder::kLocalizedUnsentName;
+constinit nsString nsMsgDBFolder::kLocalizedJunkName;
+constinit nsString nsMsgDBFolder::kLocalizedAllMailName;
+constinit nsString nsMsgDBFolder::kLocalizedArchivesName;
 
-MOZ_RUNINIT nsString nsMsgDBFolder::kLocalizedBrandShortName;
+constinit nsString nsMsgDBFolder::kLocalizedBrandShortName;
 
 nsrefcnt nsMsgDBFolder::mInstanceCount = 0;
 bool nsMsgDBFolder::gInitializeStringsDone = false;
@@ -193,7 +195,6 @@ constexpr nsLiteralCString kJunkStatusChanged = "JunkStatusChanged"_ns;
 constexpr nsLiteralCString kKeywords = "Keywords"_ns;
 constexpr nsLiteralCString kMRMTimeChanged = "MRMTimeChanged"_ns;
 constexpr nsLiteralCString kMRUTimeChanged = "MRUTimeChanged"_ns;
-constexpr nsLiteralCString kMsgLoaded = "msgLoaded"_ns;
 constexpr nsLiteralCString kName = "Name"_ns;
 constexpr nsLiteralCString kNewMailReceived = "NewMailReceived"_ns;
 constexpr nsLiteralCString kNewMessages = "NewMessages"_ns;
@@ -1260,7 +1261,10 @@ nsresult nsMsgDBFolder::AddMarkAllReadUndoAction(nsIMsgWindow* msgWindow,
   NS_ENSURE_ARG_POINTER(msgWindow);
 
   nsCOMPtr<nsITransactionManager> txnMgr;
-  msgWindow->GetTransactionManager(getter_AddRefs(txnMgr));
+  nsCOMPtr<nsIMsgTransactionService> txns =
+      mozilla::components::Txns::Service();
+  NS_ENSURE_STATE(txns);
+  txns->GetTransactionManager(getter_AddRefs(txnMgr));
   if (!txnMgr) {
     return NS_ERROR_NOT_INITIALIZED;
   }
@@ -1553,6 +1557,18 @@ class AutoCompactEvent : public mozilla::Runnable {
 
 nsresult nsMsgDBFolder::HandleAutoCompactEvent(nsIMsgWindow* aWindow) {
   MOZ_LOG(gCompactLog, LogLevel::Debug, ("Performing AutoCompactEvent check"));
+
+  // Prevent re-entrant auto-compaction. The compact dialog is modal and
+  // spins the event loop, which can allow the autosync timer or additional
+  // AutoCompactEvents to fire. Those nested operations may commit or modify
+  // the same Mork database, corrupting iterators (bug 554482).
+  if (gAutoCompactInProgress) {
+    MOZ_LOG(gCompactLog, LogLevel::Debug,
+            ("AutoCompactEvent already in progress, skipping"));
+    return NS_OK;
+  }
+  gAutoCompactInProgress = true;
+  auto guard = mozilla::MakeScopeExit([&] { gAutoCompactInProgress = false; });
 
   nsCOMPtr<nsIMsgAccountManager> accountMgr =
       mozilla::components::AccountManager::Service();
@@ -1958,7 +1974,7 @@ nsMsgDBFolder::OnMessageClassified(const nsACString& aMsgURI,
       // appearing in the middle of automatic filtering (plus I really don't
       // want to propagate that value.)
       rv = filterService->ApplyFilters(nsMsgFilterType::PostPlugin,
-                                       mPostBayesMessagesToFilter, this,
+                                       mPostBayesMessagesToFilter, {}, this,
                                        nullptr, nullptr);
       mPostBayesMessagesToFilter.Clear();
     }
@@ -2079,18 +2095,6 @@ nsMsgDBFolder::CallFilterPlugins(nsIMsgWindow* aMsgWindow, bool* aFiltersRun) {
   nsCString folderName;
   GetLocalizedName(folderName);
 
-  bool isLocked;
-  GetLocked(&isLocked);
-  if (isLocked) {
-    MOZ_LOG(
-        FILTERLOGMODULE, LogLevel::Info,
-        ("Won't run filter plugins on locked folder '%s'", folderName.get()));
-    return NS_ERROR_FAILURE;
-  }
-
-  MOZ_LOG(FILTERLOGMODULE, LogLevel::Info,
-          ("Running filter plugins on folder '%s'", folderName.get()));
-
   nsCOMPtr<nsIMsgIncomingServer> server;
   nsCOMPtr<nsISpamSettings> spamSettings;
   int32_t spamLevel = 0;
@@ -2111,6 +2115,22 @@ nsMsgDBFolder::CallFilterPlugins(nsIMsgWindow* aMsgWindow, bool* aFiltersRun) {
   nsCOMPtr<nsIJunkMailPlugin> junkMailPlugin = do_QueryInterface(filterPlugin);
   if (!junkMailPlugin)  // we currently only support the junk mail plugin
     return NS_OK;
+
+  if (serverType.EqualsLiteral("pop3") || serverType.EqualsLiteral("none")) {
+    // For pop, ensure the folder is locked so e.g. folder compact during
+    // delivery would be safe.
+    bool isLocked;
+    GetLocked(&isLocked);
+    if (isLocked) {
+      MOZ_LOG(
+          FILTERLOGMODULE, LogLevel::Info,
+          ("Won't run filter plugins on locked folder '%s'", folderName.get()));
+      return NS_ERROR_FAILURE;
+    }
+  }
+
+  MOZ_LOG(FILTERLOGMODULE, LogLevel::Info,
+          ("Running filter plugins on folder '%s'", folderName.get()));
 
   // if it's a news folder, then we really don't support junk in the ui
   // yet the legacy spamLevel seems to think we should analyze it.
@@ -2447,19 +2467,17 @@ bool nsMsgDBFolder::PromptForMasterPasswordIfNecessary() {
   if (!userNeedsToAuthenticate) return true;
 
   // Do we have a master password?
-  nsCOMPtr<nsIPK11TokenDB> tokenDB =
-      do_GetService("@mozilla.org/security/pk11tokendb;1", &rv);
+  nsCOMPtr<nsIPKCS11Token> token(
+      do_CreateInstance("@mozilla.org/security/internalkeytoken;1"));
+  if (!token) {
+    return false;
+  }
+
+  bool hasPassword;
+  rv = token->GetHasPassword(&hasPassword);
   NS_ENSURE_SUCCESS(rv, false);
 
-  nsCOMPtr<nsIPK11Token> token;
-  rv = tokenDB->GetInternalKeyToken(getter_AddRefs(token));
-  NS_ENSURE_SUCCESS(rv, false);
-
-  bool result;
-  rv = token->CheckPassword(EmptyCString(), &result);
-  NS_ENSURE_SUCCESS(rv, false);
-
-  if (result) {
+  if (!hasPassword) {
     // We don't have a master password, so this function isn't supported,
     // therefore just tell account manager we've authenticated and return true.
     accountManager->SetUserNeedsToAuthenticate(false);
@@ -2467,17 +2485,19 @@ bool nsMsgDBFolder::PromptForMasterPasswordIfNecessary() {
   }
 
   // We have a master password, so try and login to the slot.
-  rv = token->Login(false);
-  if (NS_FAILED(rv))
+  rv = token->Login();
+  if (NS_FAILED(rv)) {
     // Login failed, so we didn't get a password (e.g. prompt cancelled).
     return false;
+  }
 
   // Double-check that we are now logged in
-  rv = token->IsLoggedIn(&result);
+  bool isLoggedIn;
+  rv = token->GetIsLoggedIn(&isLoggedIn);
   NS_ENSURE_SUCCESS(rv, false);
 
-  accountManager->SetUserNeedsToAuthenticate(!result);
-  return result;
+  accountManager->SetUserNeedsToAuthenticate(!isLoggedIn);
+  return isLoggedIn;
 }
 
 // this gets called after the last junk mail classification has run.
@@ -3989,6 +4009,10 @@ NS_IMETHODIMP nsMsgDBFolder::SetFlag(uint32_t flag) {
 }
 
 NS_IMETHODIMP nsMsgDBFolder::ClearFlag(uint32_t flag) {
+  if (flag & mLockedFlags) {
+    return NS_OK;
+  }
+
   // If calling this function causes us to open the db (i.e., it was not
   // open before), we're going to close the db before returning.
   bool dbWasOpen = mDatabase != nullptr;
@@ -4017,6 +4041,10 @@ NS_IMETHODIMP nsMsgDBFolder::GetFlag(uint32_t flag, bool* _retval) {
 }
 
 NS_IMETHODIMP nsMsgDBFolder::ToggleFlag(uint32_t flag) {
+  if (flag & mLockedFlags) {
+    return NS_OK;
+  }
+
   mFlags ^= flag;
   OnFlagChange(flag);
 
@@ -4049,6 +4077,8 @@ NS_IMETHODIMP nsMsgDBFolder::OnFlagChange(uint32_t flag) {
 }
 
 NS_IMETHODIMP nsMsgDBFolder::SetFlags(uint32_t aFlags) {
+  aFlags |= mLockedFlags;
+
   if (mFlags != aFlags) {
     uint32_t changedFlags = aFlags ^ mFlags;
     mFlags = aFlags;
@@ -4216,35 +4246,6 @@ NS_IMETHODIMP nsMsgDBFolder::SetSizeOnDisk(int64_t aSizeOnDisk) {
   return NS_OK;
 }
 
-NS_IMETHODIMP nsMsgDBFolder::GetSizeOnDiskWithSubFolders(int64_t* sizeOnDisk) {
-  NS_ENSURE_ARG_POINTER(sizeOnDisk);
-
-  int64_t totalSize;
-
-  // Get the size of the current folder.
-  nsresult rv = GetSizeOnDisk(&totalSize);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  // Iterate over all sub-folders, and add their size to the total.
-  for (auto folder : mSubFolders) {
-    // Ignore virtual folders.
-    uint32_t folderFlags;
-    folder->GetFlags(&folderFlags);
-    if (!(folderFlags & nsMsgFolderFlags::Virtual)) {
-      // Get the nested size on disk for the sub-folder, so it includes any
-      // sub-folder it might have.
-      int64_t size;
-      rv = folder->GetSizeOnDiskWithSubFolders(&size);
-      NS_ENSURE_SUCCESS(rv, rv);
-      totalSize += size;
-    }
-  }
-
-  *sizeOnDisk = totalSize;
-
-  return NS_OK;
-}
-
 NS_IMETHODIMP nsMsgDBFolder::GetUsername(nsACString& userName) {
   nsresult rv;
   nsCOMPtr<nsIMsgIncomingServer> server;
@@ -4253,12 +4254,12 @@ NS_IMETHODIMP nsMsgDBFolder::GetUsername(nsACString& userName) {
   return server->GetUsername(userName);
 }
 
-NS_IMETHODIMP nsMsgDBFolder::GetHostname(nsACString& hostName) {
+NS_IMETHODIMP nsMsgDBFolder::GetHostname(nsACString& hostname) {
   nsresult rv;
   nsCOMPtr<nsIMsgIncomingServer> server;
   rv = GetServer(getter_AddRefs(server));
   NS_ENSURE_SUCCESS(rv, rv);
-  return server->GetHostName(hostName);
+  return server->GetHostname(hostname);
 }
 
 NS_IMETHODIMP nsMsgDBFolder::GetNewMessages(nsIMsgWindow*,
@@ -4985,15 +4986,18 @@ nsresult nsMsgDBFolder::GetStringFromBundle(const char* msgName,
 nsresult nsMsgDBFolder::ThrowConfirmationPrompt(nsIMsgWindow* msgWindow,
                                                 const nsAString& confirmString,
                                                 bool* confirmed) {
-  if (msgWindow) {
-    nsCOMPtr<nsIDocShell> docShell;
-    msgWindow->GetRootDocShell(getter_AddRefs(docShell));
-    if (docShell) {
-      nsCOMPtr<nsIPrompt> dialog(do_GetInterface(docShell));
-      if (dialog && !confirmString.IsEmpty())
-        dialog->Confirm(nullptr, nsString(confirmString).get(), confirmed);
-    }
-  }
+  nsresult rv;
+  nsCOMPtr<mozIDOMWindowProxy> domWindow;
+  nsCOMPtr<nsIWindowMediator> winMed =
+      do_GetService(NS_WINDOWMEDIATOR_CONTRACTID, &rv);
+  NS_ENSURE_SUCCESS(rv, rv);
+  winMed->GetMostRecentWindow(nullptr, getter_AddRefs(domWindow));
+
+  nsCOMPtr<nsIPromptService> dlgService(
+      do_GetService(NS_PROMPTSERVICE_CONTRACTID, &rv));
+  NS_ENSURE_SUCCESS(rv, rv);
+  dlgService->Confirm(domWindow, nullptr, nsString(confirmString).get(),
+                      confirmed);
   return NS_OK;
 }
 
@@ -5064,8 +5068,10 @@ NS_IMETHODIMP nsMsgDBFolder::ThrowAlertMsg(const char* msgName,
   bundle->FormatStringFromName("folderErrorAlertTitle", {ident}, title);
 
   nsCOMPtr<mozIDOMWindowProxy> domWindow;
-  rv = msgWindow->GetDomWindow(getter_AddRefs(domWindow));
+  nsCOMPtr<nsIWindowMediator> winMed =
+      do_GetService(NS_WINDOWMEDIATOR_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
+  winMed->GetMostRecentWindow(nullptr, getter_AddRefs(domWindow));
 
   nsCOMPtr<nsIPromptService> dlgService(
       do_GetService(NS_PROMPTSERVICE_CONTRACTID, &rv));
@@ -5080,22 +5086,29 @@ NS_IMETHODIMP nsMsgDBFolder::AlertFilterChanged(nsIMsgWindow* msgWindow) {
   nsresult rv = NS_OK;
   bool checkBox = false;
   GetWarnFilterChanged(&checkBox);
-  if (!checkBox) {
-    nsCOMPtr<nsIDocShell> docShell;
-    msgWindow->GetRootDocShell(getter_AddRefs(docShell));
-    nsString alertString;
-    rv = GetStringFromBundle("alertFilterChanged", alertString);
-    nsString alertCheckbox;
-    rv = GetStringFromBundle("alertFilterCheckbox", alertCheckbox);
-    if (!alertString.IsEmpty() && !alertCheckbox.IsEmpty() && docShell) {
-      nsCOMPtr<nsIPrompt> dialog(do_GetInterface(docShell));
-      if (dialog) {
-        dialog->AlertCheck(nullptr, alertString.get(), alertCheckbox.get(),
-                           &checkBox);
-        SetWarnFilterChanged(checkBox);
-      }
-    }
+  if (checkBox) {
+    return NS_OK;
   }
+
+  nsString alertString;
+  rv = GetStringFromBundle("alertFilterChanged", alertString);
+  NS_ENSURE_SUCCESS(rv, rv);
+  nsString alertCheckbox;
+  rv = GetStringFromBundle("alertFilterCheckbox", alertCheckbox);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCOMPtr<mozIDOMWindowProxy> domWindow;
+  nsCOMPtr<nsIWindowMediator> winMed =
+      do_GetService(NS_WINDOWMEDIATOR_CONTRACTID, &rv);
+  NS_ENSURE_SUCCESS(rv, rv);
+  winMed->GetMostRecentWindow(nullptr, getter_AddRefs(domWindow));
+
+  nsCOMPtr<nsIPromptService> dlgService(
+      do_GetService(NS_PROMPTSERVICE_CONTRACTID, &rv));
+  NS_ENSURE_SUCCESS(rv, rv);
+  dlgService->AlertCheck(domWindow, nullptr, alertString.get(),
+                         alertCheckbox.get(), &checkBox);
+  SetWarnFilterChanged(checkBox);
   return rv;
 }
 
@@ -5395,10 +5408,7 @@ NS_IMETHODIMP nsMsgDBFolder::GetMsgTextFromStream(
 
   // finally, truncate the string based on aMaxOutputLen
   if (aMsgText.Length() > aMaxOutputLen) {
-    if (NS_IsAscii(aMsgText.BeginReading()))
-      aMsgText.SetLength(aMaxOutputLen);
-    else
-      nsMsgI18NShrinkUTF8Str(aMsgText, aMaxOutputLen, aMsgText);
+    aMsgText = nsMsgI18NTruncateUTF8Str(aMsgText, (size_t)aMaxOutputLen);
   }
 
   // Also assign the content type being returned

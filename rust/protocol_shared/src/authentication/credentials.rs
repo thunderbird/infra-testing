@@ -2,91 +2,79 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{ffi::CString, ops::Deref};
+use std::ops::Deref;
 
 use base64::prelude::*;
-use cstr::cstr;
 
-use moz_http::Client;
+use moz_http::{Client, Response};
 use nserror::nsresult;
 use nsstring::{nsCString, nsString};
-use url::Url;
 use xpcom::{
-    RefPtr, create_instance, get_service, getter_addrefs,
+    RefPtr, create_instance, getter_addrefs,
     interfaces::{
-        IEwsLanguageInteropFactory, IOAuth2CustomDetails, msgIOAuth2Module, nsIMsgIncomingServer,
-        nsIMsgOutgoingServer, nsIPrefService, nsMsgAuthMethod, nsMsgAuthMethodValue,
+        IExchangeLanguageInteropFactory, IOAuth2CustomDetails, msgIOAuth2Module,
+        nsIMsgIncomingServer, nsIMsgOutgoingServer, nsMsgAuthMethod, nsMsgAuthMethodValue,
     },
 };
 
 use crate::{
-    authentication::{
-        ntlm::{self, NTLMAuthOutcome},
-        oauth_listener::OAuthListener,
-    },
+    authentication::{ntlm, oauth_listener::OAuthListener},
     error::ProtocolError,
+    operation_sender::send_request::{OperationRequest, send_request},
 };
-
-/// The outcome of [`Credentials::validate`].
-pub enum AuthValidationOutcome {
-    /// We've been able to confirm the credentials work with the current server.
-    Valid,
-
-    /// We haven't been able to successfully authenticate against the current
-    /// server with the credentials.
-    Invalid,
-}
 
 /// The credentials to use when authenticating against a server.
 #[derive(Clone)]
 pub enum Credentials {
-    /// The username and password to use for Basic authentication, as well as
-    /// the URL to use when validating these credentials.
+    /// The username and password to use for Basic authentication.
     Basic {
         username: String,
         password: String,
-        ews_url: Url,
     },
 
     /// The XPCOM OAuth2 module to use for negotiating OAuth2 and retrieving an
-    /// authentication token, as well as the URL to use when validating this
-    /// token.
+    /// authentication token.
     OAuth2 {
         oauth_module: RefPtr<msgIOAuth2Module>,
-        ews_url: Url,
     },
 
-    // The username and password to use for NTLM authentication, as well as the
-    // URL to request a challenge from.
+    // The username and password to use for NTLM authentication.
     Ntlm {
         username: String,
         password: String,
-        ews_url: Url,
     },
 }
 
 impl Credentials {
-    /// Validates the current set of credentials against the current URL.
-    pub async fn validate(&self) -> Result<AuthValidationOutcome, nsresult> {
-        let res = match &self {
+    /// Validates the current set of credentials against the current request.
+    ///
+    /// This involves performing the request again with the current credentials.
+    /// This method is expected to be used after asking the user for new
+    /// credentials (if relevant).
+    ///
+    /// If authentication succeeded, the success response is returned, otherwise
+    /// [`ProtocolError::Authentication`] is used to indicate an authentication
+    /// failure. In this context, an authentication failure is any response with
+    /// a 401 status code.
+    pub(crate) async fn validate<'or>(
+        &self,
+        op_request: &OperationRequest<'or>,
+    ) -> Result<Response, ProtocolError> {
+        let resp = match &self {
             // Validation for Basic authentication and OAuth2 is done by
-            // performing a request against the current URL with the
-            // `Authorization` set to the return value of
-            // `to_auth_header_value`, and checking that it does not results in a 401
-            // Unauthorized response.
-            Credentials::Basic { ews_url, .. } | Credentials::OAuth2 { ews_url, .. } => {
+            // performing the request again with the `Authorization` set to the
+            // return value of `to_auth_header_value`, and checking that it does
+            // not result in a 401 Unauthorized response.
+            Credentials::Basic { .. } | Credentials::OAuth2 { .. } => {
                 // Get the value for the `Authorization` header.
                 let auth_hdr_value = match self.to_auth_header_value().await {
                     Ok(value) => value,
 
-                    // When using OAuth2, `to_auth_header_value` will return an
-                    // authentication error if it's failed to get credentials
-                    // even after prompting the user again.
-                    Err(ProtocolError::Authentication) => {
-                        return Ok(AuthValidationOutcome::Invalid);
-                    }
-
-                    Err(err) => return Err(err.into()),
+                    // When using OAuth2, `to_auth_header_value()` returns
+                    // `ProtocolError::Authentication` if it failed to get an
+                    // authentication token after running its auth flow, and we
+                    // propagate it here.
+                    Err(err) => return Err(err),
                 };
 
                 // We're in the case where we know we should include an
@@ -94,32 +82,24 @@ impl Credentials {
                 // one.
                 let auth_hdr_value = auth_hdr_value.ok_or(nserror::NS_ERROR_INVALID_ARG)?;
 
-                let resp = Client::new()
-                    .get(ews_url)?
-                    .header("Authorization", &auth_hdr_value)
-                    .send()
-                    .await?;
+                let resp = send_request(&Client::new(), op_request, Some(auth_hdr_value)).await?;
 
-                match resp.status()?.0 {
-                    401 => AuthValidationOutcome::Invalid,
-                    _ => AuthValidationOutcome::Valid,
+                if resp.status()?.0 == 401 {
+                    return Err(ProtocolError::Authentication);
                 }
+
+                resp
             }
 
             // Validation for NTLM is is done by performing the full NTLM
-            // authentication flow and checking if the final response does not
-            // include an error code.
-            Credentials::Ntlm {
-                username,
-                password,
-                ews_url,
-            } => match ntlm::authenticate(username, password, ews_url).await? {
-                NTLMAuthOutcome::Success => AuthValidationOutcome::Valid,
-                NTLMAuthOutcome::Failure => AuthValidationOutcome::Invalid,
-            },
+            // authentication flow and checking if we managed to get a 200
+            // response at the end of it.
+            Credentials::Ntlm { username, password } => {
+                ntlm::authenticate(username, password, op_request).await?
+            }
         };
 
-        Ok(res)
+        Ok(resp)
     }
 
     /// Formats credentials to be used as the value of an HTTP Authorization
@@ -173,9 +153,8 @@ pub trait AuthenticationProvider {
     /// Retrieves the password to use if using Basic auth.
     fn password(&self) -> Result<nsString, nsresult>;
 
-    // Retrieves a string representation of the URL for the server's EWS
-    // endpoint.
-    fn ews_url(&self) -> Result<String, nsresult>;
+    /// Retrieves the server's type string.
+    fn server_type(&self) -> Result<nsCString, nsresult>;
 
     /// Creates and initializes an OAuth2 module.
     ///
@@ -190,33 +169,33 @@ pub trait AuthenticationProvider {
 
     /// Creates an instance of [`Credentials`] from this provider.
     fn get_credentials(&self) -> Result<Credentials, nsresult> {
-        let ews_url = self.ews_url()?;
-        let ews_url = Url::parse(&ews_url).or(Err(nserror::NS_ERROR_INVALID_ARG))?;
-
         match self.auth_method()? {
             nsMsgAuthMethod::passwordCleartext => Ok(Credentials::Basic {
                 username: self.username()?.to_string(),
                 password: self.password()?.to_string(),
-                ews_url,
             }),
             nsMsgAuthMethod::OAuth2 => {
                 // Get the OAuth details.
+                let server_type = self.server_type()?;
                 let oauth_details_identifier = self.oauth_details_identifier()?;
-                let interop_factory = create_instance::<IEwsLanguageInteropFactory>(cstr!(
-                    "@mozilla.org/messenger/ews-interop;1"
-                ))
-                .ok_or(Err::<RefPtr<IEwsLanguageInteropFactory>, _>(
+                let interop_factory = create_instance::<IExchangeLanguageInteropFactory>(
+                    c"@mozilla.org/messenger/exchange-interop;1",
+                )
+                .ok_or(Err::<RefPtr<IExchangeLanguageInteropFactory>, _>(
                     nserror::NS_ERROR_FAILURE,
                 ))?;
                 let override_details = getter_addrefs(|p| unsafe {
-                    interop_factory.CreateOAuth2Details(&*oauth_details_identifier, p)
+                    interop_factory.CreateOAuth2Details(
+                        &raw const *server_type,
+                        &raw const *oauth_details_identifier,
+                        p,
+                    )
                 })?;
 
                 // Ensure the OAuth2 module indicated it can support this provider.
                 match self.oauth2_module(&override_details)? {
                     Some(module) => Ok(Credentials::OAuth2 {
                         oauth_module: module,
-                        ews_url,
                     }),
                     None => {
                         log::error!(
@@ -226,16 +205,10 @@ pub trait AuthenticationProvider {
                     }
                 }
             }
-            nsMsgAuthMethod::NTLM => {
-                let ews_url = self.ews_url()?;
-                let ews_url = Url::parse(&ews_url).or(Err(nserror::NS_ERROR_INVALID_ARG))?;
-
-                Ok(Credentials::Ntlm {
-                    username: self.username()?.to_string(),
-                    password: self.password()?.to_string(),
-                    ews_url,
-                })
-            }
+            nsMsgAuthMethod::NTLM => Ok(Credentials::Ntlm {
+                username: self.username()?.to_string(),
+                password: self.password()?.to_string(),
+            }),
             _ => {
                 log::error!("the preferred auth method is not supported");
                 Err(nserror::NS_ERROR_FAILURE)
@@ -248,7 +221,7 @@ impl AuthenticationProvider for nsIMsgIncomingServer {
     fn auth_method(&self) -> Result<nsMsgAuthMethodValue, nsresult> {
         let mut auth_method: nsMsgAuthMethodValue = 0;
 
-        unsafe { self.GetAuthMethod(&mut auth_method) }.to_result()?;
+        unsafe { self.GetAuthMethod(&raw mut auth_method) }.to_result()?;
 
         Ok(auth_method)
     }
@@ -256,7 +229,7 @@ impl AuthenticationProvider for nsIMsgIncomingServer {
     fn username(&self) -> Result<nsCString, nsresult> {
         let mut username = nsCString::new();
 
-        unsafe { self.GetUsername(&mut *username) }.to_result()?;
+        unsafe { self.GetUsername(&raw mut *username) }.to_result()?;
 
         Ok(username)
     }
@@ -264,22 +237,22 @@ impl AuthenticationProvider for nsIMsgIncomingServer {
     fn password(&self) -> Result<nsString, nsresult> {
         let mut password = nsString::new();
 
-        unsafe { self.GetPassword(&mut *password) }.to_result()?;
+        unsafe { self.GetPassword(&raw mut *password) }.to_result()?;
 
         Ok(password)
     }
 
-    fn ews_url(&self) -> Result<String, nsresult> {
-        let mut ews_url = nsCString::new();
+    fn server_type(&self) -> Result<nsCString, nsresult> {
+        let mut server_type = nsCString::new();
 
-        unsafe { self.GetStringValue(c"ews_url".as_ptr(), &mut *ews_url) }.to_result()?;
+        unsafe { self.GetType(&raw mut *server_type) }.to_result()?;
 
-        Ok(ews_url.to_string())
+        Ok(server_type)
     }
 
     fn oauth_details_identifier(&self) -> Result<nsCString, nsresult> {
         let mut hostname = nsCString::from("");
-        unsafe { self.GetHostName(&mut *hostname) }.to_result()?;
+        unsafe { self.GetHostname(&raw mut *hostname) }.to_result()?;
         Ok(hostname)
     }
 
@@ -288,20 +261,17 @@ impl AuthenticationProvider for nsIMsgIncomingServer {
         override_details: &IOAuth2CustomDetails,
     ) -> Result<Option<RefPtr<msgIOAuth2Module>>, nsresult> {
         let oauth2_module =
-            create_instance::<msgIOAuth2Module>(cstr!("@mozilla.org/mail/oauth2-module;1")).ok_or(
+            create_instance::<msgIOAuth2Module>(c"@mozilla.org/mail/oauth2-module;1").ok_or(
                 Err::<RefPtr<msgIOAuth2Module>, _>(nserror::NS_ERROR_FAILURE),
             )?;
 
         let mut oauth2_supported = false;
         unsafe {
-            oauth2_module.InitFromMail(self.coerce(), override_details, &mut oauth2_supported)
+            oauth2_module.InitFromMail(self.coerce(), override_details, &raw mut oauth2_supported)
         }
         .to_result()?;
 
-        let ret = match oauth2_supported {
-            true => Some(oauth2_module),
-            false => None,
-        };
+        let ret = oauth2_supported.then_some(oauth2_module);
 
         Ok(ret)
     }
@@ -311,7 +281,7 @@ impl AuthenticationProvider for nsIMsgOutgoingServer {
     fn auth_method(&self) -> Result<nsMsgAuthMethodValue, nsresult> {
         let mut auth_method: nsMsgAuthMethodValue = 0;
 
-        unsafe { self.GetAuthMethod(&mut auth_method) }.to_result()?;
+        unsafe { self.GetAuthMethod(&raw mut auth_method) }.to_result()?;
 
         Ok(auth_method)
     }
@@ -319,7 +289,7 @@ impl AuthenticationProvider for nsIMsgOutgoingServer {
     fn username(&self) -> Result<nsCString, nsresult> {
         let mut username = nsCString::new();
 
-        unsafe { self.GetUsername(&mut *username) }.to_result()?;
+        unsafe { self.GetUsername(&raw mut *username) }.to_result()?;
 
         Ok(username)
     }
@@ -327,39 +297,25 @@ impl AuthenticationProvider for nsIMsgOutgoingServer {
     fn password(&self) -> Result<nsString, nsresult> {
         let mut password = nsCString::new();
 
-        unsafe { self.GetPassword(&mut *password) }.to_result()?;
+        unsafe { self.GetPassword(&raw mut *password) }.to_result()?;
 
         let password = password.to_string();
         let password = nsString::from(password.as_str());
         Ok(password)
     }
 
-    fn ews_url(&self) -> Result<String, nsresult> {
-        let mut key = nsCString::new();
-        unsafe { self.GetKey(&mut *key) }.to_result()?;
+    fn server_type(&self) -> Result<nsCString, nsresult> {
+        let mut server_type = nsCString::new();
 
-        // Build the pref root from the key, if set. The root should be
-        // in the format `mail.outgoingserver.ewsX.` - note the trailing
-        // period.
-        let pref_root = format!("mail.outgoingserver.{}.", key.to_utf8());
-        let pref_root = CString::new(pref_root).or(Err(nserror::NS_ERROR_FAILURE))?;
+        unsafe { self.GetType(&raw mut *server_type) }.to_result()?;
 
-        // Retrieve the branch for our root from the pref service.
-        let pref_svc = get_service::<nsIPrefService>(cstr!("@mozilla.org/preferences-service;1"))
-            .ok_or(nserror::NS_ERROR_FAILURE)?;
-
-        let pref_branch = getter_addrefs(unsafe { |p| pref_svc.GetBranch(pref_root.as_ptr(), p) })?;
-
-        let mut ews_url = nsCString::new();
-        unsafe { pref_branch.GetCharPref(c"ews_url".as_ptr(), &mut *ews_url) }.to_result()?;
-
-        Ok(ews_url.to_string())
+        Ok(server_type)
     }
 
     fn oauth_details_identifier(&self) -> Result<nsCString, nsresult> {
         let uri = getter_addrefs(|p| unsafe { self.GetServerURI(p) })?;
         let mut hostname = nsCString::from("");
-        unsafe { uri.GetHost(&mut *hostname) }.to_result()?;
+        unsafe { uri.GetHost(&raw mut *hostname) }.to_result()?;
         Ok(hostname)
     }
 
@@ -368,13 +324,17 @@ impl AuthenticationProvider for nsIMsgOutgoingServer {
         override_details: &IOAuth2CustomDetails,
     ) -> Result<Option<RefPtr<msgIOAuth2Module>>, nsresult> {
         let oauth2_module =
-            create_instance::<msgIOAuth2Module>(cstr!("@mozilla.org/mail/oauth2-module;1")).ok_or(
+            create_instance::<msgIOAuth2Module>(c"@mozilla.org/mail/oauth2-module;1").ok_or(
                 Err::<RefPtr<msgIOAuth2Module>, _>(nserror::NS_ERROR_FAILURE),
             )?;
 
         let mut oauth2_supported = false;
         unsafe {
-            oauth2_module.InitFromOutgoing(self.coerce(), override_details, &mut oauth2_supported)
+            oauth2_module.InitFromOutgoing(
+                self.coerce(),
+                override_details,
+                &raw mut oauth2_supported,
+            )
         }
         .to_result()?;
 

@@ -22,9 +22,9 @@ add_setup(async function () {
   subview = tab.browser.contentWindow.document.querySelector(
     "email-authentication-form"
   );
-  password = subview.querySelector("#password");
-  rememberPassword = subview.querySelector("#rememberPassword");
-  username = subview.querySelector("#username");
+  password = subview.querySelector("#authenticationPassword");
+  rememberPassword = subview.querySelector("#rememberAuthenticationPassword");
+  username = subview.querySelector("#authenticationUsername");
 
   registerCleanupFunction(() => {
     tabmail.closeOtherTabs(tabmail.tabInfo[0]);
@@ -55,7 +55,7 @@ add_task(async function test_captureState() {
     false,
     () => password.value === "test"
   );
-  EventUtils.sendString("test", subview.ownerGlobal);
+  EventUtils.sendString("test", subview.documentGlobal);
   const validUpdatedEvent = await validUpdatedInput;
 
   Assert.ok(
@@ -77,11 +77,9 @@ add_task(async function test_captureState() {
 });
 
 add_task(async function test_captureStateWithRememberPasswordPref() {
-  const previousRememberSignonsValue = Services.prefs.getBoolPref(
-    "signon.rememberSignons",
-    false
-  );
-  Services.prefs.setBoolPref("signon.rememberSignons", true);
+  await SpecialPowers.pushPrefEnv({
+    set: [["signon.rememberSignons", true]],
+  });
   subview.setState();
   Assert.ok(!rememberPassword.disabled, "Remember password should be enabled");
   Assert.ok(rememberPassword.checked, "Remember password should be checked");
@@ -92,7 +90,7 @@ add_task(async function test_captureStateWithRememberPasswordPref() {
     false,
     () => password.value === "test"
   );
-  EventUtils.sendString("test", subview.ownerGlobal);
+  EventUtils.sendString("test", subview.documentGlobal);
   const validUpdatedEvent = await validUpdatedInput;
 
   Assert.ok(
@@ -109,10 +107,7 @@ add_task(async function test_captureStateWithRememberPasswordPref() {
     },
     "Should get the entered data in the captured state"
   );
-  Services.prefs.setBoolPref(
-    "signon.rememberSignons",
-    previousRememberSignonsValue
-  );
+  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function test_captureStateWithUsername() {
@@ -123,9 +118,9 @@ add_task(async function test_captureStateWithUsername() {
     false,
     () => password.value === "test"
   );
-  EventUtils.sendString("test", subview.ownerGlobal);
-  EventUtils.synthesizeKey("KEY_Tab", {}, subview.ownerGlobal);
-  EventUtils.sendString("Joshua", subview.ownerGlobal);
+  EventUtils.sendString("test", subview.documentGlobal);
+  EventUtils.synthesizeKey("KEY_Tab", {}, subview.documentGlobal);
+  EventUtils.sendString("Joshua", subview.documentGlobal);
   const validUpdatedEvent = await validUpdatedInput;
 
   Assert.ok(

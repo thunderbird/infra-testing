@@ -195,7 +195,7 @@ async function testEncryptedMessageComposition(
   }
 
   // Delete the message so other tests work.
-  EventUtils.synthesizeKey("VK_DELETE");
+  EventUtils.synthesizeKey("KEY_Delete");
 }
 
 add_task(async function testEncryptedMessageCompositionAutoEncOff() {
@@ -298,7 +298,7 @@ async function testEncryptedMessageWithKeyComposition(
   );
 
   // Delete the message so other tests work.
-  EventUtils.synthesizeKey("VK_DELETE");
+  EventUtils.synthesizeKey("KEY_Delete");
 }
 
 add_task(async function testEncryptedMessageWithKeyCompositionAutoEncOff() {
@@ -364,7 +364,7 @@ async function testEncryptedRecipientKeyNotAvailabeMessageComposition(
   await OpenPGPTestUtils.toggleMessageEncryption(composeWin);
   await checkDonePromise;
 
-  const kaShown = BrowserTestUtils.waitForCondition(
+  const kaShown = TestUtils.waitForCondition(
     () => composeWin.document.getElementById("keyAssistant").open,
     "Timeout waiting for the #keyAssistant to be visible"
   );
@@ -446,7 +446,7 @@ add_task(async function testEncryptedRecipientKeyNotAvailabeAutoDisable() {
   );
 
   // Clean up so other tests work.
-  EventUtils.synthesizeKey("VK_DELETE");
+  EventUtils.synthesizeKey("KEY_Delete");
 });
 
 /**
@@ -507,7 +507,7 @@ async function testEncryptedRecipientKeyNotAcceptedMessageComposition(
     await OpenPGPTestUtils.toggleMessageEncryption(composeWin);
     await checkDonePromise;
 
-    const kaShown = BrowserTestUtils.waitForCondition(
+    const kaShown = TestUtils.waitForCondition(
       () => composeWin.document.getElementById("keyAssistant").open,
       "Timeout waiting for the #keyAssistant to be visible"
     );
@@ -611,7 +611,7 @@ async function testEncryptedRecipientKeyUnverifiedMessageComposition(
   );
 
   // Clean up so other tests work.
-  EventUtils.synthesizeKey("VK_DELETE");
+  EventUtils.synthesizeKey("KEY_Delete");
   await OpenPGPTestUtils.removeKeyById(OpenPGPTestUtils.CAROL_KEY_ID);
 }
 
@@ -683,7 +683,7 @@ async function testEncryptedOneRecipientKeyNotAvailableMessageComposition(
   await OpenPGPTestUtils.toggleMessageEncryption(composeWin);
   await checkDonePromise;
 
-  const kaShown = BrowserTestUtils.waitForCondition(
+  const kaShown = TestUtils.waitForCondition(
     () => composeWin.document.getElementById("keyAssistant").open,
     "Timeout waiting for the #keyAssistant to be visible"
   );
@@ -782,7 +782,7 @@ async function testEncryptedOneRecipientKeyNotAcceptedMessageComposition(
     await OpenPGPTestUtils.toggleMessageEncryption(composeWin);
     await checkDonePromise;
 
-    const kaShown = BrowserTestUtils.waitForCondition(
+    const kaShown = TestUtils.waitForCondition(
       () => composeWin.document.getElementById("keyAssistant").open,
       "Timeout waiting for the #keyAssistant to be visible"
     );
@@ -890,7 +890,7 @@ async function testEncryptedOneRecipientKeyUnverifiedMessageComposition(
   );
 
   // Clean up so other tests work.
-  EventUtils.synthesizeKey("VK_DELETE");
+  EventUtils.synthesizeKey("KEY_Delete");
   await OpenPGPTestUtils.removeKeyById(OpenPGPTestUtils.CAROL_KEY_ID);
 }
 

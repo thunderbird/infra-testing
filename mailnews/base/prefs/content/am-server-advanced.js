@@ -72,7 +72,10 @@ function onLoad() {
 
     const picker = document.getElementById("deferredServerFolderPicker");
     picker.disabled = radioGroup.selectedIndex != 1;
-  } else if (gServerSettings.serverType == "ews") {
+  } else if (
+    gServerSettings.serverType == "ews" ||
+    gServerSettings.serverType == "graph"
+  ) {
     document.getElementById("pop3Panel").hidden = true;
     document.getElementById("imapPanel").hidden = true;
     if (
@@ -81,13 +84,14 @@ function onLoad() {
         false
       )
     ) {
-      document.getElementById("ewsOverrideOAuthDetailsContainer").hidden =
+      document.getElementById("exchangeOverrideOAuthDetailsContainer").hidden =
         false;
       setOAuthOverrideState(
-        gServerSettings.account.incomingServer.ewsOverrideOAuthDetails
+        gServerSettings.account.incomingServer.exchangeOverrideOAuthDetails
       );
     } else {
-      document.getElementById("ewsOverrideOAuthDetailsContainer").hidden = true;
+      document.getElementById("exchangeOverrideOAuthDetailsContainer").hidden =
+        true;
     }
   }
 
@@ -166,11 +170,11 @@ function updateInboxAccount(enablePicker) {
 
 function setOAuthOverrideState(isEnabled) {
   const oauthElementIds = [
-    "ewsApplicationId",
-    "ewsTenantId",
-    "ewsRedirectUri",
-    "ewsEndpointHost",
-    "ewsOAuthScopes",
+    "exchangeApplicationId",
+    "exchangeTenantId",
+    "exchangeRedirectUri",
+    "exchangeEndpointHost",
+    "exchangeOAuthScopes",
   ];
   for (const elementId of oauthElementIds) {
     document.getElementById(elementId).disabled = !isEnabled;

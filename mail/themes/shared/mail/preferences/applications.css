@@ -37,13 +37,13 @@
     position: sticky;
     inset-block-start: 0;
     /* Background color is needed for sticky headers. */
-    background-color: var(--background-color-canvas);
+    background-color: var(--color-surface-base);
 
     & > th {
-      border-block-end: 1px solid var(--border-color);
+      border-block-end: 1px solid var(--sidebar-border);
 
       &:not(:first-child) {
-        border-inline-start: 1px solid var(--border-color);
+        border-inline-start: 1px solid var(--sidebar-border);
       }
     }
   }
@@ -51,23 +51,24 @@
   & tbody > tr {
     &:hover {
       & .typeCell {
-        background-color: var(--in-content-item-hover);
+        color: var(--text-color-list-item-hover);
+        background-color: var(--background-color-list-item-hover);
       }
 
       & .actionCell menulist {
         /* Get hover effect if anywhere in the row is hovered. */
-        background-color: var(--button-background-color-hover);
+        background-color: var(--button-hover-background-color);
       }
     }
 
     &:focus-within .typeCell {
-      background-color: var(--color-accent-primary-selected);
-      color: var(--text-color-accent-primary-selected);
+      background-color: var(--selected-item-color);
+      color: var(--selected-item-text-color);
     }
 
     &:not(:hover, :focus-within) .actionsMenu {
       background-color: transparent;
-      --button-border: var(--border-width) solid transparent;
+      border-color: transparent;
 
       &::part(dropmarker) {
         display: none;

@@ -93,7 +93,7 @@
       />
       <command
         id="cmd_new"
-        data-l10n-id="account-manager-new-account"
+        data-l10n-id="account-manager-add-account"
         oncommand="gAccountManager.new()"
       />
       <command
@@ -117,7 +117,6 @@
     <menupopup
       id="accountsContextMenu"
       onpopupshowing="gAccountManager.onContextMenuShowing(event)"
-      native="false"
     >
       <menuitem
         id="context_connect"
@@ -161,7 +160,6 @@
           <menupopup
             id="setStatusTypeMenupopup"
             oncommand="statusSelector.editStatus(event)"
-            native="false"
           >
             <menuitem
               id="statusTypeAvailable"
@@ -215,7 +213,7 @@
       </html:div>
     </html:div>
 
-    <hbox flex="1" ondblclick="gAccountManager.new()">
+    <hbox id="imAccountsMain" flex="1" ondblclick="gAccountManager.new()">
       <vbox flex="1" id="noAccountScreen" align="center" pack="center">
         <hbox id="noAccountBox" align="start">
           <vbox id="noAccountInnerBox" flex="1">
@@ -225,7 +223,7 @@
             />
             <description
               id="noAccountDesc"
-              data-l10n-id="account-manager-no-account-description"
+              data-l10n-id="account-manager-no-accounts-description"
             />
           </vbox>
         </hbox>

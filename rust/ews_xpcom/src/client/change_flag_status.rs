@@ -14,7 +14,7 @@ use ews::{
 use nsstring::nsCString;
 use protocol_shared::{
     client::DoOperation,
-    safe_xpcom::{self, SafeEwsSimpleOperationListener, SafeListener, UseLegacyFallback},
+    safe_xpcom::{SafeExchangeSimpleOperationListener, SafeListener, UseLegacyFallback},
 };
 use thin_vec::ThinVec;
 
@@ -24,7 +24,7 @@ use crate::{
 };
 
 struct DoChangeFlagStatus<'a> {
-    listener: &'a SafeEwsSimpleOperationListener,
+    listener: &'a SafeExchangeSimpleOperationListener,
     message_ids: ThinVec<nsCString>,
     is_flagged: bool,
 }
@@ -34,12 +34,12 @@ impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError>
 {
     const NAME: &'static str = "change flag status";
     type Okay = ();
-    type Listener = SafeEwsSimpleOperationListener;
+    type Listener = SafeExchangeSimpleOperationListener;
 
     async fn do_operation(
         &mut self,
         client: &XpComEwsClient<ServerT>,
-    ) -> Result<Self::Okay, crate::error::XpComEwsError> {
+    ) -> Result<Self::Okay, XpComEwsError> {
         let flag = if self.is_flagged {
             Some(Flag {
                 flag_status: Some(FlagStatus::Flagged),
@@ -175,24 +175,21 @@ impl<ServerT: ServerType> DoOperation<XpComEwsClient<ServerT>, XpComEwsError>
         Ok(ret?)
     }
 
-    fn into_success_arg(
-        self,
-        _ok: Self::Okay,
-    ) -> <Self::Listener as safe_xpcom::SafeListener>::OnSuccessArg {
+    fn into_success_arg(self, _ok: Self::Okay) -> <Self::Listener as SafeListener>::OnSuccessArg {
         // this isn't actually used in this case
         (std::iter::empty::<String>(), UseLegacyFallback::No).into()
     }
 
-    fn into_failure_arg(self) -> <Self::Listener as safe_xpcom::SafeListener>::OnFailureArg {}
+    fn into_failure_arg(self) -> <Self::Listener as SafeListener>::OnFailureArg {}
 }
 
 impl<ServerT: ServerType> XpComEwsClient<ServerT> {
     /// Mark a message as flagged or not flagged by performing an [`UpdateItem` operation] via EWS.
     ///
     /// [`UpdateItem` operation]: https://learn.microsoft.com/en-us/exchange/client-developer/web-service-reference/updateitem-operation
-    pub async fn change_flag_status(
+    pub(crate) async fn change_flag_status(
         self: Arc<XpComEwsClient<ServerT>>,
-        listener: SafeEwsSimpleOperationListener,
+        listener: SafeExchangeSimpleOperationListener,
         message_ids: ThinVec<nsCString>,
         is_flagged: bool,
     ) {

@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -183,7 +182,7 @@ nsresult nsMsgXFViewThread::AddHdr(nsIMsgDBHdr* newHdr, bool reparentChildren,
           insertIndex = i;
           // Bump all the children of the current child, and the child.
           nsMsgViewIndex j = insertIndex;
-          uint8_t childLevel = m_levels[insertIndex];
+          uint32_t childLevel = m_levels[insertIndex];
           do {
             m_levels[j] = m_levels[j] + 1;
             j++;
@@ -292,7 +291,7 @@ nsMsgXFViewThread::RemoveChildHdr(nsIMsgDBHdr* child,
 
   for (uint32_t childIndex = 0; childIndex < m_keys.Length(); childIndex++) {
     if (m_keys[childIndex] == msgKey && m_folders[childIndex] == msgFolder) {
-      uint8_t levelRemoved = m_levels[childIndex];
+      uint32_t levelRemoved = m_levels[childIndex];
       // Adjust the levels of all the children of this header.
       nsMsgViewIndex i;
       for (i = childIndex + 1;

@@ -77,6 +77,12 @@ endif
 DEFINES += -DMOZ_CHILD_PROCESS_NAME=$(MOZ_CHILD_PROCESS_NAME)
 DEFINES += -DMOZ_EME_PROCESS_NAME="$(MOZ_EME_PROCESS_NAME)"
 
+ifdef NIGHTLY_BUILD
+ifndef MOZ_NO_SMART_CARDS
+DEFINES += -DMOZ_PKCS11_PROCESS_NAME="$(MOZ_PKCS11_PROCESS_NAME)"
+endif
+endif
+
 # Set MSVC dlls version to package, if any.
 ifdef MOZ_NO_DEBUG_RTL
 ifdef WIN32_REDIST_DIR
@@ -130,20 +136,13 @@ NON_OMNIJAR_FILES = defaults/messenger/mailViews.dat
 
 include $(topsrcdir)/toolkit/mozapps/installer/packager.mk
 
+BINPATH = $(MOZ_PKG_BINPATH)
 ifeq (Darwin,$(OS_TARGET))
-BINPATH = $(_BINPATH)
-DEFINES += -DAPPNAME='$(_APPNAME)'
-else
-# Every other platform just winds up in dist/bin
-BINPATH = bin
+DEFINES += -DAPPNAME='$(MOZ_MACBUNDLE_NAME)'
 endif
 DEFINES += -DBINPATH='$(BINPATH)'
 
-ifeq (cocoa,$(MOZ_WIDGET_TOOLKIT))
-RESPATH = $(_RESPATH)
-else
-RESPATH = $(BINPATH)
-endif
+RESPATH = $(MOZ_PKG_RESPATH)
 DEFINES += -DRESPATH='$(RESPATH)'
 
 LPROJ_ROOT = $(firstword $(subst -, ,$(AB_CD)))
@@ -188,21 +187,13 @@ PKGCOMP_FIND_OPTS =
 else
 PKGCOMP_FIND_OPTS = -L
 endif
-ifeq (Darwin, $(OS_ARCH))
-FINDPATH = $(_APPNAME)/Contents/MacOS
-else
-FINDPATH=bin
-endif
+FINDPATH = $(MOZ_PKG_BINPATH)
 
 package-compare:: $(MOZ_PKG_MANIFEST)
 	cd $(DIST); find $(PKGCOMP_FIND_OPTS) '$(FINDPATH)' -type f | sort > bin-list.txt
 	$(call py_action,preprocessor,$(DEFINES) $(ACDEFINES) $(MOZ_PKG_MANIFEST)) | grep '^$(BINPATH)' | sed -e 's/^\///' | sort > $(DIST)/pack-list.txt
 	-diff -u $(DIST)/pack-list.txt $(DIST)/bin-list.txt
 	rm -f $(DIST)/pack-list.txt $(DIST)/bin-list.txt
-
-# Overwrite the one made by Firefox with our own.
-make-sourcestamp-file::
-	$(PYTHON3) $(commtopsrcdir)/build/source_repos.py gen_sourcestamp > $(MOZ_SOURCESTAMP_FILE)
 
 ifdef ENABLE_WEBDRIVER
 DEFINES += -DENABLE_WEBDRIVER=1

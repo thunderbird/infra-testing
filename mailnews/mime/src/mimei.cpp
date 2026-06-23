@@ -1,6 +1,4 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- *
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  * This Original Code has been modified by IBM Corporation. Modifications made
@@ -19,6 +17,7 @@
 #include "mimecont.h"  /*   |--- MimeContainer (abstract) */
 /*                          |     |--- MimeMultipart (abstract) */
 #include "mimemmix.h"  /*   |     |     |--- MimeMultipartMixed */
+#include "mimemoth.h"  /*   |     |     |--- MimeMultipartOther */
 #include "mimemdig.h"  /*   |     |     |--- MimeMultipartDigest */
 #include "mimempar.h"  /*   |     |     |--- MimeMultipartParallel */
 #include "mimemalt.h"  /*   |     |     |--- MimeMultipartAlternative */
@@ -285,6 +284,7 @@ bool mime_is_allowed_class(const MimeObjectClass* clazz,
                HTML parser, but the user has the option to make an explicit
                choice in this case, via html_as. */
             clazz == (MimeObjectClass*)&mimeMultipartMixedClass ||
+            clazz == (MimeObjectClass*)&mimeMultipartOtherClass ||
             clazz == (MimeObjectClass*)&mimeMultipartAlternativeClass ||
             clazz == (MimeObjectClass*)&mimeMultipartDigestClass ||
             clazz == (MimeObjectClass*)&mimeMultipartAppleDoubleClass ||
@@ -353,7 +353,7 @@ void getMsgHdrForCurrentURL(MimeDisplayOptions* opts, nsIMsgDBHdr** aMsgHdr) {
 
 MimeObjectClass* mime_find_class(const char* content_type, MimeHeaders* hdrs,
                                  MimeDisplayOptions* opts, bool exact_match_p,
-                                 MimeObject* parentObj) {
+                                 MimeObject* smimeParentObj) {
   MimeObjectClass* clazz = 0;
   MimeObjectClass* tempClass = 0;
   contentTypeHandlerInitStruct ctHandlerInfo;
@@ -562,20 +562,20 @@ MimeObjectClass* mime_find_class(const char* content_type, MimeHeaders* hdrs,
       // i.e., we are reformatting the message to remove attachments,
       // we are in a similar boat. The code for deleting
       // attachments properly in that mode is in mimemult.cpp
-      // functions which are inherited by mimeMultipartMixedClass but
-      // not by mimeMultipartAlternativeClass or
-      // mimeMultipartRelatedClass. Therefore, to ensure that
-      // everything is handled properly, in this context too we parse
-      // those MIME types as multipart/mixed.
+      // functions which are inherited by mimeMultipartMixedClass
+      // and MimeMultipartOtherClass, but not by
+      // mimeMultipartAlternativeClass or mimeMultipartRelatedClass.
+      // Therefore, to ensure that everything is handled properly, in
+      // this context too we parse those MIME types as multipart/mixed.
       bool basic_formatting =
           (html_as == 4) ||
           (opts && opts->format_out == nsMimeOutput::nsMimeMessageAttach);
       if (!PL_strcasecmp(content_type + 10, "alternative"))
         clazz = basic_formatting
-                    ? (MimeObjectClass*)&mimeMultipartMixedClass
+                    ? (MimeObjectClass*)&mimeMultipartOtherClass
                     : (MimeObjectClass*)&mimeMultipartAlternativeClass;
       else if (!PL_strcasecmp(content_type + 10, "related"))
-        clazz = basic_formatting ? (MimeObjectClass*)&mimeMultipartMixedClass
+        clazz = basic_formatting ? (MimeObjectClass*)&mimeMultipartOtherClass
                                  : (MimeObjectClass*)&mimeMultipartRelatedClass;
       else if (!PL_strcasecmp(content_type + 10, "digest"))
         clazz = (MimeObjectClass*)&mimeMultipartDigestClass;
@@ -630,13 +630,16 @@ MimeObjectClass* mime_find_class(const char* content_type, MimeHeaders* hdrs,
 #endif
 
       if (!clazz && !exact_match_p)
-        /* Treat all unknown multipart subtypes as "multipart/mixed" */
-        clazz = (MimeObjectClass*)&mimeMultipartMixedClass;
+        /* Treat all unknown multipart subtypes as "multipart/mixed",
+         * but use the separate type mimeMultipartOtherClass, to
+         * allow other code to distinguish whether we are explicitly
+         * processing multipart/mixed or not. */
+        clazz = (MimeObjectClass*)&mimeMultipartOtherClass;
 
       /* If we are sniffing a message, let's treat alternative parts as mixed */
       if (opts && opts->format_out == nsMimeOutput::nsMimeMessageFilterSniffer)
         if (clazz == (MimeObjectClass*)&mimeMultipartAlternativeClass)
-          clazz = (MimeObjectClass*)&mimeMultipartMixedClass;
+          clazz = (MimeObjectClass*)&mimeMultipartOtherClass;
     }
 
     /* Subtypes of message...
@@ -692,14 +695,14 @@ MimeObjectClass* mime_find_class(const char* content_type, MimeHeaders* hdrs,
                          : nullptr;
 
       bool thisPartIsAllowed = false;
-      if (!parentObj && !opts->is_child) {
+      if (!smimeParentObj && !opts->is_child) {
         // We are part "1"
         thisPartIsAllowed = true;
-      } else if (parentObj) {
+      } else if (smimeParentObj) {
         nsAutoCString parentAddress;
-        parentAddress.Adopt(mime_part_address(parentObj));
-        bool parentIsEnveloped = MimeCMS_encrypted_p(parentObj);
-        bool parentIsSigned = MimeCMS_signed_p(parentObj);
+        parentAddress.Adopt(mime_part_address(smimeParentObj));
+        bool parentIsEnveloped = MimeCMS_encrypted_p(smimeParentObj);
+        bool parentIsSigned = MimeCMS_signed_p(smimeParentObj);
 
         // Parent types other than signed/encrypted are forbidden
         if (parentAddress.Length() && (parentIsEnveloped || parentIsSigned) &&
@@ -726,7 +729,7 @@ MimeObjectClass* mime_find_class(const char* content_type, MimeHeaders* hdrs,
                 thisPartIsAllowed = true;
               }
             }  // else: skip other smime-type nested parts
-          } else if (parentObj->parent) {
+          } else if (smimeParentObj->parent) {
             // Parent is 1.1, this is 1.1.1,
             if (!thisST) {
               // We don't know whether the part is allowed.
@@ -735,8 +738,8 @@ MimeObjectClass* mime_find_class(const char* content_type, MimeHeaders* hdrs,
               thisPartIsAllowed = true;
             } else if (!PL_strcasecmp(thisST, "signed-data")) {
               if (parentIsEnveloped) {
-                // parentObj->parent is grandparent
-                if (MimeCMS_signed_p(parentObj->parent)) {
+                // smimeParentObj->parent is grandparent
+                if (MimeCMS_signed_p(smimeParentObj->parent)) {
                   thisPartIsAllowed = true;
                 }
               }
@@ -832,14 +835,20 @@ MimeObjectClass* mime_find_class(const char* content_type, MimeHeaders* hdrs,
 
 MimeObject* mime_create(const char* content_type, MimeHeaders* hdrs,
                         MimeDisplayOptions* opts,
-                        bool forceInline /* = false */, MimeObject* parentObj) {
+                        bool forceInline /* = false */,
+                        int32_t partDepth /* = 0 */,
+                        MimeObject* smimeParentObj) {
   /* If there is no Content-Disposition header, or if the Content-Disposition
    is ``inline'', then we display the part inline (and let mime_find_class()
    decide how.)
 
-   If there is any other Content-Disposition (either ``attachment'' or some
-   disposition that we don't recognise) then we always display the part as
-   an external link, by using MimeExternalObject to display it.
+   If the Content-Disposition is ``attachment'', we always display the part
+   as an external link, by using MimeExternalObject to display it.
+
+   Unrecognised values are treated as attachment per RFC 2183, except for
+   the first text part in the message, which falls back to inline so the
+   body is not hidden. This matches the observed behaviour of other e-mail
+   clients.
 
    But Content-Disposition is ignored for all containers except `message'.
    (including multipart/mixed, and multipart/digest.)  It's not clear if
@@ -850,6 +859,7 @@ MimeObject* mime_create(const char* content_type, MimeHeaders* hdrs,
   char* content_disposition = 0;
   MimeObject* obj = 0;
   char* override_content_type = 0;
+  constexpr int32_t kMaxAcceptedMimePartDepth = 64;
 
   /* We've had issues where the incoming content_type is invalid, of a format:
      content_type="=?windows-1252?q?application/pdf" (bug 659355)
@@ -859,6 +869,14 @@ MimeObject* mime_create(const char* content_type, MimeHeaders* hdrs,
     const char* lastQuestion = strrchr(content_type, '?');
     if (lastQuestion)
       content_type = lastQuestion + 1;  // the substring after the last '?'
+  }
+
+  if (partDepth > kMaxAcceptedMimePartDepth) {
+    // Over-depth parts must still drain parser input, but must not create more
+    // MIME containers or recursively decode nested content.
+    NS_WARNING("MIME part depth exceeds the maximum allowed depth");
+    clazz = (MimeObjectClass*)&mimeExternalObjectClass;
+    goto CREATE;
   }
 
   /* There are some clients send out all attachments with a content-type
@@ -906,7 +924,7 @@ MimeObject* mime_create(const char* content_type, MimeHeaders* hdrs,
     }
   }
 
-  clazz = mime_find_class(content_type, hdrs, opts, false, parentObj);
+  clazz = mime_find_class(content_type, hdrs, opts, false, smimeParentObj);
 
   NS_ASSERTION(clazz, "1.1 <rhp@netscape.com> 19 Mar 1999 12:00");
   if (!clazz) goto FAIL;
@@ -937,7 +955,10 @@ MimeObject* mime_create(const char* content_type, MimeHeaders* hdrs,
                : 0;
   }
 
-  if (!content_disposition || !PL_strcasecmp(content_disposition, "inline"))
+  if (!content_disposition || !PL_strcasecmp(content_disposition, "inline") ||
+      (PL_strcasecmp(content_disposition, "attachment") &&
+       mime_subclass_p(clazz, (MimeObjectClass*)&mimeInlineTextClass) && opts &&
+       opts->state && !opts->state->first_part_written_p))
     ; /* Use the class we've got. */
   else {
     // override messages that have content disposition set to "attachment"
@@ -1009,8 +1030,12 @@ MimeObject* mime_create(const char* content_type, MimeHeaders* hdrs,
     }
   }
 
+CREATE:
   PR_FREEIF(content_disposition);
   obj = mime_new(clazz, hdrs, content_type);
+  if (obj) {
+    obj->partDepth = partDepth;
+  }
 
 FAIL:
 
@@ -1074,6 +1099,10 @@ bool mime_subclass_p(MimeObjectClass* child, MimeObjectClass* parent) {
 
 bool mime_typep(MimeObject* obj, MimeObjectClass* clazz) {
   return mime_subclass_p(obj->clazz, clazz);
+}
+
+int32_t mime_child_part_depth(MimeObject* parent) {
+  return parent ? parent->partDepth + 1 : 0;
 }
 
 /* URL munging

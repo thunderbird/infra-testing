@@ -7,6 +7,7 @@
   ======================================================================= */
 
 @import url("chrome://global/skin/global.css");
+@import url("chrome://messenger/skin/icons.css");
 @import url("chrome://global/skin/in-content/common.css");
 @import url("chrome://messenger/skin/preferences/preferences.css");
 @import url("chrome://messenger/skin/widgets.css");
@@ -40,24 +41,24 @@ fieldset {
   font-size: 1em;
   --panel-border-color: var(--border-color);
   --panel-border-radius: 2px;
-  --panel-background: var(--background-color-box);
-  --panel-color: var(--text-color);
+  --panel-background-color: var(--background-color-box);
+  --panel-text-color: var(--color-text-base);
   --panel-padding: 3px 0;
 
   & > menuitem {
     appearance: none;
-    color: var(--text-color);
+    color: var(--color-text-base);
     padding-block: 0.2em;
     padding-inline: 10px 30px;
 
     &[_moz-menuactive="true"] {
-      color: var(--in-content-item-hover-text);
-      background-color: var(--in-content-item-hover);
+      color: inherit;
+      background-color: var(--panel-background-color-dimmed);
     }
 
     &[selected="true"] {
-      color: var(--text-color-accent-primary-selected);
-      background-color: var(--color-accent-primary-selected);
+      color: var(--selected-item-text-color);
+      background-color: var(--selected-item-color);
     }
   }
 
@@ -118,6 +119,7 @@ fieldset {
   --button-background-color-hover: light-dark(var(--color-red-70), var(--color-red-40));
   --button-background-color-active: light-dark(var(--color-red-80), var(--color-red-30));
   color: var(--color-white);
+  border-color: var(--button-background-color);
   list-style-image: var(--icon-trash);
   -moz-context-properties: fill, stroke;
   fill: color-mix(in srgb, currentColor 20%, transparent);
@@ -153,8 +155,8 @@ menulist > menupopup {
       border: 1px solid transparent;
 
       &:not([disabled])[_moz-menuactive="true"] {
-        color: var(--text-color);
-        background-color: var(--in-content-item-hover);
+        color: inherit;
+        background-color: var(--panel-background-color-dimmed);
       }
 
       &[disabled] {
@@ -202,6 +204,12 @@ menulist > menupopup {
 richlistitem[default="true"],
 #identitiesList > richlistitem:first-child {
   font-weight: bold;
+}
+
+@media (-moz-platform: macos) {
+  description {
+    margin: 4px 4px 8px;
+  }
 }
 
 .label-inline {
@@ -310,6 +318,56 @@ richlistitem[default="true"],
   }
 }
 
+#archiveOptions {
+  & fieldset {
+    margin-block-end: 4px;
+
+    & legend {
+      margin-block: 4px;
+    }
+
+    & > div {
+      /* A maximum of 10 lines are displayed, and they are 28px high. */
+      block-size: 280px;
+      overflow: auto; /* Just in case they're not. */
+      border: 1px var(--border-color) solid;
+      border-radius: var(--border-radius-medium);
+    }
+
+    & ul {
+      margin-block: 0;
+      padding-inline-start: 16px;
+
+      &#archiveTree {
+        padding-inline-start: 0;
+      }
+
+      & li {
+        list-style: none;
+
+        & .container:hover {
+          border-color: transparent;
+        }
+
+        & .icon {
+          content: var(--icon-folder);
+          -moz-context-properties: fill, stroke;
+          fill: color-mix(in srgb, currentColor 20%, transparent);
+          stroke: currentColor;
+
+          .root > .container > & {
+            content: var(--icon-archive);
+          }
+        }
+
+        & .name {
+          margin-inline: 7px;
+        }
+      }
+    }
+  }
+}
+
 /* ::::: dialog header ::::: */
 
 #am-main-title {
@@ -327,7 +385,7 @@ richlistitem[default="true"],
   font-size: 1.46em;
   font-weight: 300;
   line-height: 1.3em;
-  color: var(--text-color);
+  color: var(--color-text-base);
 
   &::before {
     overflow: hidden;
@@ -416,12 +474,15 @@ richlistitem[default="true"],
   border-radius: 4px;
   margin: 3px 0;
   padding: 9px;
-  border: 1px solid var(--in-content-border-color);
-  background-color: rgba(215, 215, 219, 0.2);
+  border: 1px solid var(--border-color-box-info);
+  background-color: var(--background-color-box-info);
 
   &.selected {
-    border: 1px solid #45a1ff;
-    background-color: rgba(69, 161, 255, 0.2);
+    border: 1px solid var(--selected-item-color);
+    background-color: light-dark(
+      color-mix(in srgb, var(--selected-item-color) 5%, transparent),
+      color-mix(in srgb, var(--selected-item-color) 10%, transparent)
+    );
   }
 
   &.disabled {
@@ -442,7 +503,7 @@ richlistitem[default="true"],
     }
 
     &:not(.selected) .content-blocking-warning {
-      background-color: var(--grey-90-a10);
+      background-color: var(--button-background-color);
     }
   }
 
@@ -467,7 +528,7 @@ richlistitem[default="true"],
   min-inline-size: 20px;
   max-block-size: 20px;
   max-inline-size: 20px;
-  list-style-image: url("chrome://messenger/skin/icons/new/nav-down-sm.svg");
+  list-style-image: var(--icon-nav-down-sm);
   background-color: transparent;
   padding: 3px;
   -moz-context-properties: stroke;
@@ -475,15 +536,15 @@ richlistitem[default="true"],
 
   &:not([disabled]):hover {
     cursor: pointer;
-    background-color: var(--grey-90-a10);
+    background-color: var(--button-hover-background-color);
 
     &:active {
-      background-color: var(--grey-90-a20);
+      background-color: var(--button-active-background-color);
     }
   }
 
   &.up {
-    list-style-image: url("chrome://messenger/skin/icons/new/nav-up-sm.svg");
+    list-style-image: var(--icon-nav-up-sm);
   }
 }
 
@@ -566,6 +627,11 @@ richlistitem[default="true"],
   margin-inline-start: 8px;
   font-size: 0.9em;
   min-block-size: 28px;
+  /* These buttons are HTML <button>s placed next to a wrapping <description>
+   * inside a XUL <hbox>. When the pane is narrow the over-constrained XUL box
+   * shrinks the button below its label, clipping the text. Pin the minimum
+   * inline size to the content so the box cannot shrink it past the label. */
+  min-inline-size: max-content;
   margin-block: 0;
 }
 
@@ -576,10 +642,10 @@ richlistitem[default="true"],
 
 .openpgp-key-details {
   margin-block-end: 18px;
-  border: 1px solid var(--in-content-box-border-color);
+  border: 1px solid var(--sidebar-border);
   border-radius: 4px;
   overflow: hidden;
-  background-color: var(--background-color-canvas);
+  background-color: var(--color-surface-base);
 
   & tabs {
     border-block-start: none;
@@ -606,9 +672,11 @@ richlistitem[default="true"],
 }
 
 .openpgp-more-btn .button-menu-dropmarker {
-  content: url("chrome://global/skin/icons/arrow-down-12.svg");
+  content: var(--icon-nav-down-sm);
   -moz-context-properties: stroke;
   stroke: currentColor;
+  appearance: none;
+  display: initial;
 }
 
 .intro-paragraph {

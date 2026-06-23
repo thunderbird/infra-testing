@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -1359,6 +1358,20 @@ nsresult MsgGetHeadersFromKeys(nsIMsgDatabase* aDB,
   return NS_OK;
 }
 
+mozilla::Result<nsTArray<nsMsgKey>, nsresult> MsgGetKeysFromHdrs(
+    nsTArray<RefPtr<nsIMsgDBHdr>> const& hdrs) {
+  nsTArray<nsMsgKey> keys(hdrs.Length());
+  for (nsIMsgDBHdr* hdr : hdrs) {
+    nsMsgKey key;
+    MOZ_TRY(hdr->GetMessageKey(&key));
+    if (key == nsMsgKey_None) {
+      return Err(NS_ERROR_UNEXPECTED);
+    }
+    keys.AppendElement(key);
+  }
+  return keys;
+}
+
 nsresult MsgExamineForProxyAsync(nsIChannel* channel,
                                  nsIProtocolProxyCallback* listener,
                                  nsICancelable** result) {
@@ -1521,7 +1534,7 @@ nsresult MsgDetectCharsetFromFile(nsIFile* aFile, nsACString& aCharset) {
 
   // Use detector.
   mozilla::UniquePtr<mozilla::EncodingDetector> detector =
-      mozilla::EncodingDetector::Create();
+      mozilla::EncodingDetector::Create(true);
   char buffer[1024];
   numRead = 0;
   while (NS_SUCCEEDED(inputStream->Read(buffer, sizeof(buffer), &numRead))) {
@@ -1894,4 +1907,30 @@ nsresult LocalizeMessage(mozilla::intl::Localization* l10n,
   l10n->FormatValueSync(id, l10nArgs, message, error);
   NS_ENSURE_TRUE(!error.Failed(), error.StealNSResult());
   return NS_OK;
+}
+
+nsTArray<nsCString> StringFields(nsACString const& s) {
+  auto isSpace = [](char c) -> bool {
+    // ASCII whitespace is: SPACE, TAB, LF, FF, CR
+    return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
+  };
+
+  nsTArray<nsCString> out;
+  auto it = s.BeginReading();
+  auto end = s.EndReading();
+  while (it != end) {
+    // Skip whitespace.
+    while (it != end && isSpace(*it)) {
+      ++it;
+    }
+    // Collect non-whitespace.
+    auto field = it;
+    while (it != end && !isSpace(*it)) {
+      ++it;
+    }
+    if (field != it) {
+      out.AppendElement(mozilla::Span<const char>(field, it));
+    }
+  }
+  return out;
 }

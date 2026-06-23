@@ -16,6 +16,7 @@ var { XPCOMUtils } = ChromeUtils.importESModule(
 );
 
 ChromeUtils.defineESModuleGetters(this, {
+  jsmime: "resource:///modules/jsmime.sys.mjs",
   EnigmailConstants: "chrome://openpgp/content/modules/constants.sys.mjs",
   EnigmailCore: "chrome://openpgp/content/modules/core.sys.mjs",
   EnigmailDialog: "chrome://openpgp/content/modules/dialog.sys.mjs",
@@ -27,6 +28,7 @@ ChromeUtils.defineESModuleGetters(this, {
   EnigmailSingletons: "chrome://openpgp/content/modules/singletons.sys.mjs",
   EnigmailVerify: "chrome://openpgp/content/modules/mimeVerify.sys.mjs",
   EnigmailWindows: "chrome://openpgp/content/modules/windows.sys.mjs",
+  RNP: "chrome://openpgp/content/modules/RNP.sys.mjs",
 });
 
 Enigmail.hdrView = {
@@ -290,28 +292,6 @@ Enigmail.hdrView = {
       this.msgSignedStateString = signed;
     }
     this.updateVisibleSecurityStatus(triggeredByMimePartNumber);
-
-    if (encrypted) {
-      // For telemetry purposes.
-      window.dispatchEvent(
-        new CustomEvent("secureMsgLoaded", {
-          detail: {
-            key: "encrypted-openpgp",
-            data: encrypted,
-          },
-        })
-      );
-    }
-    if (signed) {
-      window.dispatchEvent(
-        new CustomEvent("secureMsgLoaded", {
-          detail: {
-            key: "signed-openpgp",
-            data: signed,
-          },
-        })
-      );
-    }
   },
 
   /**
@@ -655,8 +635,10 @@ var openpgpSink = {
 
   /**
    * @param {string} uri - URI to handle.
+   * @param {string} mimePartNumber - MIME part number being processed.
+   * @param {string} contentType - Content type of the processed part.
    */
-  handleSMimeMessage(uri) {
+  handleSMimeMessage(uri, mimePartNumber, contentType) {
     if (
       Enigmail.hdrView.msgSignedStateString != null ||
       Enigmail.hdrView.msgEncryptedStateString != null
@@ -666,9 +648,83 @@ var openpgpSink = {
       // the message here, because we'd run into an endless loop.
       return;
     }
+    if (
+      !Enigmail.msg.mayChangeHandlerForPart(
+        mimePartNumber,
+        currentHeaderData?.["content-type"]?.headerValue || "",
+        contentType
+      )
+    ) {
+      return;
+    }
     if (EnigmailFuncs.isCurrentMessage(gMessageURI, uri)) {
       EnigmailVerify.unregisterPGPMimeHandler();
       Enigmail.msg.messageReload(false);
+    }
+  },
+
+  /**
+   * Process an unobtrusive-signature header line.
+   *
+   * @param {string} payload - The signed part of the message that
+   *   follows the Sig: line.
+   * @param {string} sigHeaderLine - The complete Sig: header line.
+   * @param {string} fromAddr - The email's from address
+   * @param {integer} messageTime - The email's date as PRTime
+   * @param {nsIURI} uri - The email's URI
+   * @param {string} mimePartNumber - The MIME part address of this
+   *   message part.
+   */
+  async processUnobtrusiveSignature(
+    payload,
+    sigHeaderLine,
+    fromAddr,
+    messageTime,
+    uri,
+    mimePartNumber
+  ) {
+    const msgDate = new Date(messageTime / 1000);
+    const hdrMap = jsmime.headerparser.parseParameterHeader(
+      ";" + sigHeaderLine,
+      true,
+      true
+    );
+
+    const type = hdrMap.get("t");
+    if (!type || type != "p") {
+      return;
+    }
+
+    const base64 = hdrMap.get("b");
+    if (!base64) {
+      return;
+    }
+
+    const verifyStatus = await RNP.verifyDetached(
+      payload,
+      atob(base64),
+      fromAddr,
+      msgDate
+    );
+
+    if (verifyStatus) {
+      this.updateSecurityStatus(
+        verifyStatus.exitCode,
+        verifyStatus.statusFlags,
+        verifyStatus.extStatusFlags,
+        verifyStatus.keyId,
+        verifyStatus.userId,
+        verifyStatus.sigDetails,
+        verifyStatus.errorMsg,
+        verifyStatus.blockSeparation,
+        uri.spec,
+        JSON.stringify({
+          encryptedTo: verifyStatus.encToDetails,
+          packetDump:
+            "packetDump" in verifyStatus ? verifyStatus.packetDump : "",
+        }),
+        mimePartNumber
+      );
     }
   },
 

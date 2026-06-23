@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,6 +6,7 @@
 
 #include "nsMsgDatabase.h"
 
+#include "ErrorList.h"
 #include "MailNewsTypes.h"
 #include "nsError.h"
 #include "nscore.h"
@@ -60,9 +60,6 @@ static const nsMsgKey kForceReparseKey = 0xfffffff0;
 LazyLogModule DBLog("MsgDB");
 
 PRTime nsMsgDatabase::gLastUseTime;
-
-// Write data in a RawHdr struct to an nsIMsgDBHdr.
-nsresult ApplyRawHdrToDbHdr(RawHdr const& raw, nsIMsgDBHdr* hdr);
 
 /**
  * mozilla::intl APIs require sizeable buffers. This class abstracts over
@@ -127,20 +124,6 @@ nsMsgDBService::~nsMsgDBService() {
   // If you hit this warning, it means that some code is holding onto
   // a db at shutdown.
   NS_WARNING_ASSERTION(!m_dbCache.Length(), "some msg dbs left open");
-#  ifndef MOZILLA_OFFICIAL
-  // Only print this on local builds since it causes crashes,
-  // see bug 1468691, bug 1377692 and bug 1342858.
-  for (uint32_t i = 0; i < m_dbCache.Length(); i++) {
-    nsMsgDatabase* pMessageDB = m_dbCache.ElementAt(i);
-    if (pMessageDB) {
-      NS_WARNING(nsPrintfCString("db left open: %s",
-                                 PromiseFlatCString(
-                                     pMessageDB->m_dbFile->HumanReadablePath())
-                                     .get())
-                     .get());
-    }
-  }
-#  endif
 #endif
 }
 
@@ -2093,13 +2076,6 @@ nsresult nsMsgDatabase::RemoveHeaderFromThread(nsMsgHdr* msgHdr) {
   return ret;
 }
 
-NS_IMETHODIMP nsMsgDatabase::RemoveHeaderMdbRow(nsIMsgDBHdr* msg) {
-  NS_ENSURE_ARG_POINTER(msg);
-  nsMsgHdr* msgHdr =
-      static_cast<nsMsgHdr*>(msg);  // closed system, so this is ok
-  return RemoveHeaderFromDB(msgHdr);
-}
-
 // This is a lower level routine which doesn't send notifications or
 // update folder info. One use is when a rule fires moving a header
 // from one db to another, to remove it from the first db.
@@ -2709,11 +2685,11 @@ NS_IMETHODIMP nsMsgDatabase::ClearNewList(bool notify /* = FALSE */) {
         uint32_t flags;
         (void)msgHdr->GetFlags(&flags);
 
-        if ((flags | nsMsgMessageFlags::New) != flags) {
+        if (flags & nsMsgMessageFlags::New) {
           msgHdr->AndFlags(~nsMsgMessageFlags::New, &flags);
-          NotifyHdrChangeAll(msgHdr, flags | nsMsgMessageFlags::New, flags,
-                             nullptr);
         }
+        NotifyHdrChangeAll(msgHdr, flags | nsMsgMessageFlags::New, flags,
+                           nullptr);
       }
       if (elementIndex == 0) {
         break;
@@ -2984,7 +2960,12 @@ nsresult ApplyRawHdrToDbHdr(RawHdr const& raw, nsIMsgDBHdr* hdr) {
 NS_IMETHODIMP nsMsgDatabase::AddMsgHdr(RawHdr* msg, bool notify,
                                        nsIMsgDBHdr** newHdr) {
   nsCOMPtr<nsIMsgDBHdr> hdr;
-  nsresult rv = CreateNewHdr(msg->key, getter_AddRefs(hdr));
+  nsresult rv;
+  if (msg->key == nsMsgKey_None) {
+    rv = CreateNewHdr(getter_AddRefs(hdr));
+  } else {
+    rv = CreateNewHdrWithSpecificMsgKey(msg->key, getter_AddRefs(hdr));
+  }
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Populate the still-detached hdr.
@@ -3000,7 +2981,46 @@ NS_IMETHODIMP nsMsgDatabase::AddMsgHdr(RawHdr* msg, bool notify,
   return NS_OK;
 }
 
-NS_IMETHODIMP nsMsgDatabase::CreateNewHdr(nsMsgKey key, nsIMsgDBHdr** pnewHdr) {
+NS_IMETHODIMP nsMsgDatabase::CreateNewHdr(nsIMsgDBHdr** pnewHdr) {
+  if (!pnewHdr || !m_mdbAllMsgHeadersTable || !m_mdbStore) {
+    return NS_ERROR_NULL_POINTER;
+  }
+
+  // Mork will assign an ID to the new row, generally the next available ID.
+  nsIMdbRow* hdrRow = nullptr;
+  nsresult err = m_mdbStore->NewRow(GetEnv(), m_hdrRowScopeToken, &hdrRow);
+  if (!hdrRow) {
+    // We failed to create a new row. That can happen if we run out of keys,
+    // which will force a reparse.
+    nsTArray<nsMsgKey> keys;
+    if (NS_SUCCEEDED(ListAllKeys(keys))) {
+      for (nsMsgKey key : keys) {
+        if (key >= kForceReparseKey) {
+          // Force a reparse.
+          if (m_dbFolderInfo) {
+            m_dbFolderInfo->SetBooleanProperty("forceReparse", true);
+          }
+
+          break;
+        }
+      }
+    }
+    return NS_MSG_ERROR_FOLDER_SUMMARY_OUT_OF_DATE;
+  }
+  NS_ENSURE_SUCCESS(err, err);
+
+  struct mdbOid oid{};
+  hdrRow->GetOid(GetEnv(), &oid);
+  nsMsgKey newKey = oid.mOid_Id;
+
+  err = CreateMsgHdr(hdrRow, newKey, pnewHdr);
+  return err;
+}
+
+NS_IMETHODIMP nsMsgDatabase::CreateNewHdrWithSpecificMsgKey(
+    nsMsgKey key, nsIMsgDBHdr** pnewHdr) {
+  NS_ENSURE_TRUE(key != nsMsgKey_None, NS_ERROR_ILLEGAL_VALUE);
+
   nsresult err = NS_OK;
   nsIMdbRow* hdrRow = nullptr;
   struct mdbOid allMsgHdrsTableOID{};
@@ -3009,39 +3029,12 @@ NS_IMETHODIMP nsMsgDatabase::CreateNewHdr(nsMsgKey key, nsIMsgDBHdr** pnewHdr) {
     return NS_ERROR_NULL_POINTER;
   }
 
-  if (key != nsMsgKey_None) {
-    allMsgHdrsTableOID.mOid_Scope = m_hdrRowScopeToken;
-    allMsgHdrsTableOID.mOid_Id = key;  // presumes 0 is valid key value
+  allMsgHdrsTableOID.mOid_Scope = m_hdrRowScopeToken;
+  allMsgHdrsTableOID.mOid_Id = key;  // presumes 0 is valid key value
 
-    err = m_mdbStore->GetRow(GetEnv(), &allMsgHdrsTableOID, &hdrRow);
-    if (!hdrRow) {
-      err = m_mdbStore->NewRowWithOid(GetEnv(), &allMsgHdrsTableOID, &hdrRow);
-    }
-  } else {
-    // Mork will assign an ID to the new row, generally the next available ID.
-    err = m_mdbStore->NewRow(GetEnv(), m_hdrRowScopeToken, &hdrRow);
-    if (hdrRow) {
-      struct mdbOid oid{};
-      hdrRow->GetOid(GetEnv(), &oid);
-      key = oid.mOid_Id;
-    } else {
-      // We failed to create a new row. That can happen if we run out of keys,
-      // which will force a reparse.
-      nsTArray<nsMsgKey> keys;
-      if (NS_SUCCEEDED(ListAllKeys(keys))) {
-        for (nsMsgKey key : keys) {
-          if (key >= kForceReparseKey) {
-            // Force a reparse.
-            if (m_dbFolderInfo) {
-              m_dbFolderInfo->SetBooleanProperty("forceReparse", true);
-            }
-
-            break;
-          }
-        }
-      }
-      err = NS_MSG_ERROR_FOLDER_SUMMARY_OUT_OF_DATE;
-    }
+  err = m_mdbStore->GetRow(GetEnv(), &allMsgHdrsTableOID, &hdrRow);
+  if (!hdrRow) {
+    err = m_mdbStore->NewRowWithOid(GetEnv(), &allMsgHdrsTableOID, &hdrRow);
   }
   NS_ENSURE_SUCCESS(err, err);
 
@@ -3168,7 +3161,11 @@ NS_IMETHODIMP nsMsgDatabase::CopyHdrFromExistingHdr(nsMsgKey key,
     nsMsgHdr* sourceMsgHdr =
         static_cast<nsMsgHdr*>(existingHdr);  // closed system, cast ok
     nsMsgHdr* destMsgHdr = nullptr;
-    CreateNewHdr(key, (nsIMsgDBHdr**)&destMsgHdr);
+    if (key == nsMsgKey_None) {
+      CreateNewHdr((nsIMsgDBHdr**)&destMsgHdr);
+    } else {
+      CreateNewHdrWithSpecificMsgKey(key, (nsIMsgDBHdr**)&destMsgHdr);
+    }
     nsIMdbRow* sourceRow = sourceMsgHdr->GetMDBRow();
     if (!destMsgHdr || !sourceRow) {
       return NS_MSG_MESSAGE_NOT_FOUND;
@@ -3260,102 +3257,6 @@ nsresult nsMsgDatabase::RowCellColumnToMime2DecodedString(
     }
   }
   return err;
-}
-
-nsresult nsMsgDatabase::RowCellColumnToAddressCollationKey(
-    nsIMdbRow* row, mdb_token colToken, nsTArray<uint8_t>& result) {
-  nsString sender;
-  nsresult rv = RowCellColumnToMime2DecodedString(row, colToken, sender);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  nsString name;
-  ExtractName(DecodedHeader(sender), name);
-  return CreateCollationKey(name, result);
-}
-
-nsresult nsMsgDatabase::GetCollationKeyGenerator() {
-  if (!m_collationKeyGenerator) {
-    auto result = mozilla::intl::LocaleService::TryCreateComponent<Collator>();
-    if (result.isErr()) {
-      NS_WARNING("Could not create mozilla::intl::Collation.");
-      return NS_ERROR_FAILURE;
-    }
-
-    m_collationKeyGenerator = result.unwrap();
-
-    // Sort in a case-insensitive way, where "base" letters are considered
-    // equal, e.g: a = á, a = A, a ≠ b.
-    Collator::Options options{};
-    options.sensitivity = Collator::Sensitivity::Base;
-    auto optResult = m_collationKeyGenerator->SetOptions(options);
-
-    if (optResult.isErr()) {
-      NS_WARNING("Could not configure the mozilla::intl::Collation.");
-      m_collationKeyGenerator = nullptr;
-      return NS_ERROR_FAILURE;
-    }
-  }
-  return NS_OK;
-}
-
-nsresult nsMsgDatabase::RowCellColumnToCollationKey(nsIMdbRow* row,
-                                                    mdb_token columnToken,
-                                                    nsTArray<uint8_t>& result) {
-  const char* nakedString = nullptr;
-  nsresult err;
-
-  err = RowCellColumnToConstCharPtr(row, columnToken, &nakedString);
-  if (!nakedString) {
-    nakedString = "";
-  }
-
-  if (NS_SUCCEEDED(err)) {
-    GetMimeConverter();
-    if (m_mimeConverter) {
-      nsCString decodedStr;
-      nsCString charSet;
-      GetEffectiveCharset(row, charSet);
-
-      err = m_mimeConverter->DecodeMimeHeaderToUTF8(
-          nsDependentCString(nakedString), charSet.get(), false, true,
-          decodedStr);
-      if (NS_SUCCEEDED(err)) {
-        err = CreateCollationKey(NS_ConvertUTF8toUTF16(decodedStr), result);
-      }
-    }
-  }
-  return err;
-}
-
-NS_IMETHODIMP
-nsMsgDatabase::CompareCollationKeys(const nsTArray<uint8_t>& key1,
-                                    const nsTArray<uint8_t>& key2,
-                                    int32_t* result) {
-  nsresult rv = GetCollationKeyGenerator();
-  NS_ENSURE_SUCCESS(rv, rv);
-  if (!m_collationKeyGenerator) {
-    return NS_ERROR_FAILURE;
-  }
-
-  *result = m_collationKeyGenerator->CompareSortKeys(key1, key2);
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsMsgDatabase::CreateCollationKey(const nsAString& sourceString,
-                                  nsTArray<uint8_t>& key) {
-  nsresult err = GetCollationKeyGenerator();
-  NS_ENSURE_SUCCESS(err, err);
-  if (!m_collationKeyGenerator) {
-    return NS_ERROR_FAILURE;
-  }
-
-  nsTArrayU8Buffer buffer(key);
-
-  auto result = m_collationKeyGenerator->GetSortKey(sourceString, buffer);
-  NS_ENSURE_TRUE(result.isOk(), NS_ERROR_FAILURE);
-
-  return NS_OK;
 }
 
 nsresult nsMsgDatabase::RowCellColumnToUInt32(nsIMdbRow* hdrRow,

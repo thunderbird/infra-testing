@@ -26,7 +26,9 @@ const views = {
 
 // Dates that we need.
 const now = cal.dtz.jsDateToDateTime(new Date()).getInTimezone(cal.dtz.UTC);
-const closeToRealMidnight = now.hour == 23 && now.minute > 55;
+// For the first 60s after midninght, CalMetronome may not yet have updated minimonth.
+const closeToRealMidnight =
+  (now.hour == 23 && now.minute > 55) || (now.hour == 0 && now.minute == 0);
 now.isDate = true;
 const today = {
   year: now.year,
@@ -242,7 +244,7 @@ add_task(async function testViewsWithTodayNotSelected() {
 
   // Check the current view.
 
-  await checkMonthViewToday("month", today);
+  await checkMonthViewToday("month", today, today.month != dayBeforeYesterday.month);
   await checkMonthViewSelected("month", dayBeforeYesterday);
 
   // Without opening them, check the other views are marked as needing a refresh.
@@ -265,7 +267,7 @@ add_task(async function testViewsWithTodayNotSelected() {
 
   // Switch to the other views and check them.
 
-  await checkMonthViewToday("multiweek", today);
+  await checkMonthViewToday("multiweek", today, today.month != dayBeforeYesterday.month);
   await checkMonthViewSelected("multiweek", dayBeforeYesterday);
   await checkDayViewToday("week", dayBeforeYesterday.weekday <= 4 ? today : null);
   await checkDayViewSelected("week", dayBeforeYesterday);
@@ -279,7 +281,7 @@ add_task(async function testViewsWithTodayNotSelected() {
   minimonths.sidebar.value = dayBeforeYesterday.jsDate;
   clearTodayMarkers();
   CalMetronome.emit("day");
-  await checkMonthViewToday("multiweek", today);
+  await checkMonthViewToday("multiweek", today, today.month != dayBeforeYesterday.month);
   await checkMonthViewSelected("multiweek", dayBeforeYesterday);
 
   // Repeat with week view selected.
@@ -291,7 +293,7 @@ add_task(async function testViewsWithTodayNotSelected() {
   CalMetronome.emit("day");
   // Today won't be shown if it's in the week after the selected date,
   // e.g. the selection is Saturday but today is Monday.
-  await checkDayViewToday("week", dayBeforeYesterday.weekday < 5 ? today : null);
+  await checkDayViewToday("week", dayBeforeYesterday.weekday <= 4 ? today : null);
   await checkDayViewSelected("week", dayBeforeYesterday);
 
   // Repeat with day view selected.
@@ -624,8 +626,10 @@ async function checkDayViewSelected(which, expected) {
  *
  * @param {"multiweek"|"month"} which
  * @param {object} expected
+ * @param {bool} [isDifferentMonth=false] - If true, the selected date and
+ *   today are in different months. Today might not be visible.
  */
-async function checkMonthViewToday(which, expected) {
+async function checkMonthViewToday(which, expected, isDifferentMonth = false) {
   info(`checking ${which} view today`);
   await CalendarTestUtils.setCalendarView(window, which);
 
@@ -637,6 +641,12 @@ async function checkMonthViewToday(which, expected) {
   Assert.equal(dayLabels.indexOf(todayLabels[0]), expected.weekday);
 
   const todayBoxes = views[which].querySelectorAll(`calendar-month-day-box[relation="today"]`);
+  if (which == "month" && isDifferentMonth && today.weekday == 0) {
+    // If today is in a different month and today is Sunday (weekday 0)
+    // then expect today to NOT be visible, in the Sun->Sat week layout we have.
+    Assert.equal(todayBoxes.length, 0, "today should not be visible");
+    return;
+  }
   Assert.equal(todayBoxes.length, 1);
   Assert.equal(todayBoxes[0].getAttribute("year"), expected.year);
   Assert.equal(todayBoxes[0].getAttribute("month"), expected.month + 1); // Not zero-indexed.
@@ -646,10 +656,18 @@ async function checkMonthViewToday(which, expected) {
   Assert.equal(dayBoxes.indexOf(todayBoxes[0]), expected.weekday);
 
   if (expected.weekday > 0) {
-    Assert.equal(dayBoxes[0].getAttribute("relation"), "past");
+    Assert.equal(
+      dayBoxes[0].getAttribute("relation"),
+      "past",
+      `${expected.weekday} should be in the past`
+    );
   }
   if (expected.weekday < 6) {
-    Assert.equal(dayBoxes[6].getAttribute("relation"), "future");
+    Assert.equal(
+      dayBoxes[6].getAttribute("relation"),
+      "future",
+      `${expected.weekday} should be in the future`
+    );
   }
 }
 

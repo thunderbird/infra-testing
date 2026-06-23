@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -384,14 +383,21 @@ interface nsIMsgDatabase : nsIDBChangeAnnouncer {
    * its properties, and _then_ attach it to the database.
    * For new code, better to use addMsgHdr() which does it in one step.
    *
-   * @param aKey msgKey for the new header. If aKey is nsMsgKey_None,
-   *             we will auto-assign a new key.
-   *
    * NOTE: if there is already a header with the given key in the database,
    * that existing header will be returned, _not_ a new one!
    * This behaviour is deprecated - use getMsgHdrForKey() instead.
    */
-  nsIMsgDBHdr createNewHdr(in nsMsgKey aKey);
+  nsIMsgDBHdr createNewHdr();
+
+  /**
+   * @deprecated in favour of createNewHdr().
+   *
+   * This is a version of createNewHdr() to support legacy IMAP/NNTP code
+   * which forces the use of server-assigned IDs as local database keys.
+   * This is being phased out. See
+   * https://bugzilla.mozilla.org/show_bug.cgi?id=1806770
+   */
+  nsIMsgDBHdr createNewHdrWithSpecificMsgKey(in nsMsgKey aKey);
 
   /**
    * @deprecated in favour of attachHdr().
@@ -533,9 +539,6 @@ interface nsIMsgDatabase : nsIDBChangeAnnouncer {
   void deleteHeader(in nsIMsgDBHdr msgHdr, in nsIDBChangeListener instigator,
                           in boolean commit, in boolean notify);
 
-  /// Lower level routine that doesn't remove hdr from thread or adjust counts.
-  void removeHeaderMdbRow(in nsIMsgDBHdr msgHdr);
-
   void undoDelete(in nsIMsgDBHdr msgHdr);
 
   void setStringProperty(in nsMsgKey aKey, in string aProperty, in AUTF8String aValue);
@@ -620,9 +623,6 @@ interface nsIMsgDatabase : nsIDBChangeAnnouncer {
 
   attribute nsMsgKey nextPseudoMsgKey;   //for undo-redo of move pop->imap
   readonly attribute nsMsgKey nextFakeOfflineMsgKey; // for saving "fake" offline msg hdrs
-  // for sorting
-  Array<octet> createCollationKey(in AString sourceString);
-  long compareCollationKeys(in Array<octet> key1, in Array<octet> key2);
 
   // when creating a view, the default sort order and view flags
   // use these for the default.  (this allows news to override, so that

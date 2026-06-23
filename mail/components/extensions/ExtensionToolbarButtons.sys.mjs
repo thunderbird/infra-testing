@@ -1,5 +1,3 @@
-/* -*- Mode: indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set sts=2 sw=2 et tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,6 +5,7 @@
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
+  AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   ExtensionSupport: "resource:///modules/ExtensionSupport.sys.mjs",
   ViewPopup: "resource:///modules/ExtensionPopups.sys.mjs",
 });
@@ -22,6 +21,105 @@ var { IconDetails, StartupCache } = ExtensionParent;
 var { DefaultWeakMap, ExtensionError } = ExtensionUtils;
 
 var DEFAULT_ICON = "chrome://messenger/content/extension.svg";
+
+/**
+ * Tracker for extensions whose toolbar buttons need their XUL store currentset
+ * entries protected during toolbar customization (i.e. the extension is
+ * currently disabled). Consumers register/unregister by extension ID.
+ */
+export class ProtectedToolbarButtonTracker {
+  // Prefixes of currently disabled extensions (need protection).
+  #prefixes = new Set();
+
+  /**
+   * Mark an extension as disabled (needing protection). Called from
+   * onShutdown when the extension is disabled.
+   *
+   * @param {string} extensionId
+   */
+  register(extensionId) {
+    this.#prefixes.add(makeWidgetId(extensionId) + "-");
+  }
+
+  /**
+   * Mark an extension as active (no longer needing protection). Called from
+   * onManifestEntry when the extension is enabled.
+   *
+   * @param {string} extensionId
+   */
+  unregister(extensionId) {
+    this.#prefixes.delete(makeWidgetId(extensionId) + "-");
+  }
+
+  isProtected(buttonId) {
+    return (
+      this.#prefixes.size > 0 &&
+      [...this.#prefixes].some(prefix => buttonId.startsWith(prefix))
+    );
+  }
+
+  observe(window, topic, data) {
+    if (topic != "toolbar-customization-persisted") {
+      return;
+    }
+
+    const windowURL = window.location.href;
+    const { oldState, newState } = JSON.parse(data);
+
+    for (const [toolbarId, oldSet] of Object.entries(oldState)) {
+      const newSet = newState[toolbarId] ?? [];
+
+      const newSetIds = new Set(newSet);
+      let modified = false;
+
+      for (const buttonId of oldSet) {
+        if (newSetIds.has(buttonId) || !this.isProtected(buttonId)) {
+          continue;
+        }
+
+        // Find the best insertion point: right after the last predecessor
+        // from oldSet that is still present in newSet.
+        const oldIndex = oldSet.indexOf(buttonId);
+        let insertAt = 0;
+        for (let i = oldIndex - 1; i >= 0; i--) {
+          const newIndex = newSet.indexOf(oldSet[i]);
+          if (newIndex !== -1) {
+            insertAt = newIndex + 1;
+            break;
+          }
+        }
+
+        newSet.splice(insertAt, 0, buttonId);
+        newSetIds.add(buttonId);
+        modified = true;
+      }
+
+      if (modified) {
+        Services.xulStore.setValue(
+          windowURL,
+          toolbarId,
+          "currentset",
+          newSet.join(",")
+        );
+      }
+    }
+  }
+
+  constructor() {
+    // Pre-populate with extensions already disabled at startup. This always
+    // throws in xpcshell as the AddonManager is not initialized.
+    if (!Services.env.exists("XPCSHELL_TEST_PROFILE_DIR")) {
+      lazy.AddonManager.getAllAddons().then(addons => {
+        for (const addon of addons) {
+          if (!addon.isActive) {
+            this.register(addon.id);
+          }
+        }
+      });
+    }
+    Services.obs.addObserver(this, "toolbar-customization-persisted");
+  }
+}
 
 export function getCachedAllowedSpaces() {
   let cache = {};
@@ -188,6 +286,8 @@ export class ToolbarButtonAPI extends ExtensionAPIPersistent {
       )
     );
 
+    this.global.protectedToolbarExtensionTracker.unregister(extension.id);
+
     lazy.ExtensionSupport.registerWindowListener(this.id, {
       chromeURLs: this.windowURLs,
       onLoadWindow: window => {
@@ -199,7 +299,7 @@ export class ToolbarButtonAPI extends ExtensionAPIPersistent {
   }
 
   /**
-   * Called when the extension is disabled or removed.
+   * Called when this extension context closes.
    */
   close() {
     lazy.ExtensionSupport.unregisterWindowListener(this.id);
@@ -207,6 +307,17 @@ export class ToolbarButtonAPI extends ExtensionAPIPersistent {
       if (this.windowURLs.includes(window.location.href)) {
         this.unpaint(window);
       }
+    }
+  }
+
+  /**
+   * Called when the extension is disabled or removed.
+   *
+   * @param {boolean} isAppShutdown
+   */
+  onShutdown(isAppShutdown) {
+    if (!isAppShutdown) {
+      this.global.protectedToolbarExtensionTracker.register(this.extension.id);
     }
   }
 
@@ -276,7 +387,8 @@ export class ToolbarButtonAPI extends ExtensionAPIPersistent {
     }
 
     // Get all toolbars which link to or are children of this.toolboxId and check
-    // if the button has been moved to a non-default toolbar.
+    // if the button has been moved to the XUL store currentset of a non-default
+    // toolbar.
     const toolbars = window.document.querySelectorAll(
       `#${this.toolboxId} toolbar, toolbar[toolboxid="${this.toolboxId}"]`
     );
@@ -293,11 +405,7 @@ export class ToolbarButtonAPI extends ExtensionAPIPersistent {
 
     const toolbar = document.getElementById(this.toolbarId);
     const button = this.makeButton(window);
-    if (toolbox.palette) {
-      toolbox.palette.appendChild(button);
-    } else {
-      toolbar.appendChild(button);
-    }
+    toolbox.palette.appendChild(button);
 
     // Handle the special case where this toolbar does not yet have a currentset
     // defined.
@@ -314,8 +422,8 @@ export class ToolbarButtonAPI extends ExtensionAPIPersistent {
       );
     }
 
-    // Add new buttons to currentset: If the extensionset does not include the
-    // button, it is a new one which needs to be added.
+    // Add new buttons to the XUL store currentset: If the extensionset does not
+    // include the button, it is a new one which needs to be added.
     const extensionSet = Services.xulStore
       .getValue(windowURL, this.toolbarId, "extensionset")
       .split(",")
@@ -429,9 +537,14 @@ export class ToolbarButtonAPI extends ExtensionAPIPersistent {
       document.removeEventListener("popupshowing", this);
     }
 
-    const button = document.getElementById(this.id);
-    if (button) {
-      button.remove();
+    const toolbar = document.getElementById(this.toolbarId);
+    if (toolbar.hasAttribute("customizable")) {
+      toolbar.removeButton(this.id);
+    } else {
+      const button = document.getElementById(this.id);
+      if (button) {
+        button.remove();
+      }
     }
   }
 
@@ -525,7 +638,7 @@ export class ToolbarButtonAPI extends ExtensionAPIPersistent {
    * @param {Event} event
    */
   handleEvent(event) {
-    const window = event.target.ownerGlobal;
+    const window = event.target.documentGlobal;
     switch (event.type) {
       case "click":
       case "mousedown":
@@ -641,7 +754,7 @@ export class ToolbarButtonAPI extends ExtensionAPIPersistent {
     if (sync) {
       callback();
     } else {
-      node.ownerGlobal.requestAnimationFrame(callback);
+      node.documentGlobal.requestAnimationFrame(callback);
     }
   }
 

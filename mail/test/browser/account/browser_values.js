@@ -83,7 +83,7 @@ async function subtest_check_default_CC_address(tab) {
   Assert.ok(!ccCheck.checked);
   Assert.equal(ccAddress.value, "");
   // After ticking the CC checkbox the default address should be prefilled.
-  EventUtils.synthesizeMouseAtCenter(ccCheck, {}, ccCheck.ownerGlobal);
+  EventUtils.synthesizeMouseAtCenter(ccCheck, {}, ccCheck.documentGlobal);
   Assert.equal(ccAddress.value, defaultAddress);
 
   const bccCheck = iframe.contentDocument.getElementById("identity.doBcc");
@@ -95,7 +95,7 @@ async function subtest_check_default_CC_address(tab) {
   const bccUserAddress = "somebody@else.invalid";
   bccAddress.value = bccUserAddress;
   // After ticking the BCC checkbox the current value of the address should not change.
-  EventUtils.synthesizeMouseAtCenter(bccCheck, {}, bccCheck.ownerGlobal);
+  EventUtils.synthesizeMouseAtCenter(bccCheck, {}, bccCheck.documentGlobal);
   Assert.equal(bccAddress.value, bccUserAddress);
 }
 
@@ -206,8 +206,8 @@ async function subtest_check_account_name(
     tab.browser.contentWindow.document.getElementById("contentFrame");
 
   if (newHostname) {
-    const hostname = iframe.contentDocument.getElementById("server.hostName");
-    Assert.equal(hostname.value, account.incomingServer.hostName);
+    const hostname = iframe.contentDocument.getElementById("server.hostname");
+    Assert.equal(hostname.value, account.incomingServer.hostname);
 
     // Now change the server host name.
     hostname.value = newHostname;
@@ -314,7 +314,7 @@ async function subtest_check_invalid_hostname(
 
   let iframe =
     tab.browser.contentWindow.document.getElementById("contentFrame");
-  let hostname = iframe.contentDocument.getElementById("server.hostName");
+  let hostname = iframe.contentDocument.getElementById("server.hostname");
   Assert.equal(hostname.value, originalHostname);
 
   hostname.value = "some_invalid+host&domain*in>invalid";
@@ -329,7 +329,7 @@ async function subtest_check_invalid_hostname(
 
     // ...let's check that:
     iframe = tab.browser.contentWindow.document.getElementById("contentFrame");
-    hostname = iframe.contentDocument.getElementById("server.hostName");
+    hostname = iframe.contentDocument.getElementById("server.hostname");
     Assert.equal(hostname.value, originalHostname);
   } else {
     // If the hostname is bad, we should get a warning dialog.

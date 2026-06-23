@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -52,10 +51,10 @@ nsImapServerResponseParser::nsImapServerResponseParser(
   fAuthChallenge = nullptr;
   fStatusUnseenMessages = 0;
   fStatusRecentMessages = 0;
-  fStatusNextUID = nsMsgKey_None;
-  fNextUID = nsMsgKey_None;
+  fStatusNextUID = ImapUid_None;
+  fNextUID = ImapUid_None;
   fStatusExistingMessages = 0;
-  fReceivedHeaderOrSizeForUID = nsMsgKey_None;
+  fReceivedHeaderOrSizeForUID = ImapUid_None;
   fUtf8AcceptEnabled = false;
   fStdJunkNotJunkUseOk = false;
   fUseModSeq = false;
@@ -140,7 +139,7 @@ void nsImapServerResponseParser::IncrementNumberOfTaggedResponsesExpected(
 void nsImapServerResponseParser::InitializeState() {
   fCurrentCommandFailed = false;
   fNumberOfRecentMessages = 0;
-  fReceivedHeaderOrSizeForUID = nsMsgKey_None;
+  fReceivedHeaderOrSizeForUID = ImapUid_None;
   fUntaggedResponse = false;
 }
 
@@ -1072,7 +1071,7 @@ void nsImapServerResponseParser::msg_fetch() {
         fReceivedHeaderOrSizeForUID = CurrentResponseUID();
         if (sendEndMsgDownload) {
           fServerConnection.NormalMessageEndDownload();
-          fReceivedHeaderOrSizeForUID = nsMsgKey_None;
+          fReceivedHeaderOrSizeForUID = ImapUid_None;
         }
 
         if (fSizeOfMostRecentMessage == 0 && CurrentResponseUID()) {
@@ -1201,7 +1200,7 @@ void nsImapServerResponseParser::msg_fetch() {
   }
 
   if (ContinueParse()) {
-    if (CurrentResponseUID() && CurrentResponseUID() != nsMsgKey_None &&
+    if (CurrentResponseUID() && CurrentResponseUID() != ImapUid_None &&
         fCurrentLineContainedFlagInfo && fFlagState) {
       fFlagState->AddUidFlagPair(CurrentResponseUID(), fSavedFlagInfo,
                                  fFetchResponseIndex - 1);
@@ -1319,15 +1318,15 @@ void nsImapServerResponseParser::parse_address(nsAutoCString& addressLine) {
       char* mailboxName = CreateNilString();
       if (ContinueParse()) {
         AdvanceToNextToken();
-        char* hostName = CreateNilString();
+        char* hostname = CreateNilString();
         AdvanceToNextToken();
         if (mailboxName) {
           addressLine += mailboxName;
         }
-        if (hostName) {
+        if (hostname) {
           addressLine += '@';
-          addressLine += hostName;
-          PR_Free(hostName);
+          addressLine += hostname;
+          PR_Free(hostname);
         }
         if (personalName) {
           addressLine += " (";
@@ -1372,8 +1371,9 @@ void nsImapServerResponseParser::flags() {
   // clear the custom flags for this message
   // otherwise the old custom flags will stay around
   // see bug #191042
-  if (fFlagState && CurrentResponseUID() != nsMsgKey_None)
+  if (fFlagState && CurrentResponseUID() != ImapUid_None) {
     fFlagState->ClearCustomFlags(CurrentResponseUID());
+  }
 
   // eat the opening '('
   fNextToken++;
@@ -1444,10 +1444,11 @@ void nsImapServerResponseParser::flags() {
       int32_t parenIndex = flag.FindChar(')');
       if (parenIndex > 0) flag.SetLength(parenIndex);
       messageFlags |= kImapMsgCustomKeywordFlag;
-      if (CurrentResponseUID() != nsMsgKey_None && CurrentResponseUID() != 0)
+      if (CurrentResponseUID() != ImapUid_None && CurrentResponseUID() != 0) {
         fFlagState->AddUidCustomFlagPair(CurrentResponseUID(), flag.get());
-      else
+      } else {
         fCustomFlags.AppendElement(flag);
+      }
     }
     if (PL_strcasestr(fNextToken, ")")) {
       // eat token chars until we get the ')'
@@ -1765,7 +1766,7 @@ void nsImapServerResponseParser::msg_fetch_content(bool chunk, int32_t origin,
     if (ContinueParse()) {
       if (fReceivedHeaderOrSizeForUID == CurrentResponseUID()) {
         fServerConnection.NormalMessageEndDownload();
-        fReceivedHeaderOrSizeForUID = nsMsgKey_None;
+        fReceivedHeaderOrSizeForUID = ImapUid_None;
       } else
         fReceivedHeaderOrSizeForUID = CurrentResponseUID();
     } else
@@ -2273,6 +2274,10 @@ void nsImapServerResponseParser::ResetCapabilityFlag() {}
 // the message response has been processed.
 bool nsImapServerResponseParser::msg_fetch_literal(bool chunk, int32_t origin) {
   numberOfCharsInThisChunk = atoi(fNextToken + 1);
+  if (numberOfCharsInThisChunk < 0) {
+    SetSyntaxError(true, "negative literal size");
+    return true;
+  }
   // If we didn't request a specific size, or the server isn't returning exactly
   // as many octets as we requested, this must be the last or only chunk
   bool lastChunk = (!chunk || (numberOfCharsInThisChunk !=
@@ -2456,17 +2461,15 @@ int32_t nsImapServerResponseParser::NumberOfRecentMessages() {
   return fNumberOfRecentMessages;
 }
 
-int32_t nsImapServerResponseParser::FolderUID() { return fFolderUIDValidity; }
-
-void nsImapServerResponseParser::SetCurrentResponseUID(uint32_t uid) {
-  if (uid > 0) fCurrentResponseUID = uid;
+ImapUid nsImapServerResponseParser::FolderUIDValidity() {
+  return fFolderUIDValidity;
 }
 
-uint32_t nsImapServerResponseParser::CurrentResponseUID() {
+ImapUid nsImapServerResponseParser::CurrentResponseUID() {
   return fCurrentResponseUID;
 }
 
-uint32_t nsImapServerResponseParser::HighestRecordedUID() {
+ImapUid nsImapServerResponseParser::HighestRecordedUID() {
   return fHighestRecordedUID;
 }
 

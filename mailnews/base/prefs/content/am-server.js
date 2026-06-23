@@ -102,7 +102,7 @@ function onInit(aPageId, aServerId) {
   }
   // OAuth2 is only supported on certain servers.
   const details = OAuth2Providers.getHostnameDetails(
-    document.getElementById("server.hostName").value,
+    document.getElementById("server.hostname").value,
     serverType
   );
   document.getElementById("authMethod-oauth2").hidden = !details;
@@ -258,27 +258,27 @@ function onAdvanced() {
     serverSettings.deferredToAccount = document
       .getElementById("pop3.deferredToAccount")
       .getAttribute("value");
-  } else if (serverType == "ews") {
-    serverSettings.ewsUrl = document
-      .getElementById("ews.ewsUrl")
+  } else if (serverType == "ews" || serverType == "graph") {
+    serverSettings.exchangeUrl = document
+      .getElementById("ews.exchangeUrl")
       .getAttribute("value");
-    serverSettings.ewsOverrideOAuthDetails = document.getElementById(
-      "ews.ewsOverrideOAuthDetails"
+    serverSettings.exchangeOverrideOAuthDetails = document.getElementById(
+      "ews.exchangeOverrideOAuthDetails"
     ).checked;
-    serverSettings.ewsApplicationId = document
-      .getElementById("ews.ewsApplicationId")
+    serverSettings.exchangeApplicationId = document
+      .getElementById("ews.exchangeApplicationId")
       .getAttribute("value");
-    serverSettings.ewsTenantId = document
-      .getElementById("ews.ewsTenantId")
+    serverSettings.exchangeTenantId = document
+      .getElementById("ews.exchangeTenantId")
       .getAttribute("value");
-    serverSettings.ewsRedirectUri = document
-      .getElementById("ews.ewsRedirectUri")
+    serverSettings.exchangeRedirectUri = document
+      .getElementById("ews.exchangeRedirectUri")
       .getAttribute("value");
-    serverSettings.ewsEndpointHost = document
-      .getElementById("ews.ewsEndpointHost")
+    serverSettings.exchangeEndpointHost = document
+      .getElementById("ews.exchangeEndpointHost")
       .getAttribute("value");
-    serverSettings.ewsOAuthScopes = document
-      .getElementById("ews.ewsOAuthScopes")
+    serverSettings.exchangeOAuthScopes = document
+      .getElementById("ews.exchangeOAuthScopes")
       .getAttribute("value");
   }
 
@@ -410,27 +410,27 @@ function onAdvanced() {
           );
         }
       }
-    } else if (serverType == "ews") {
+    } else if (serverType == "ews" || serverType == "graph") {
       document
-        .getElementById("ews.ewsUrl")
-        .setAttribute("value", serverSettings.ewsUrl);
-      document.getElementById("ews.ewsOverrideOAuthDetails").checked =
-        serverSettings.ewsOverrideOAuthDetails;
+        .getElementById("ews.exchangeUrl")
+        .setAttribute("value", serverSettings.exchangeUrl);
+      document.getElementById("ews.exchangeOverrideOAuthDetails").checked =
+        serverSettings.exchangeOverrideOAuthDetails;
       document
-        .getElementById("ews.ewsApplicationId")
-        .setAttribute("value", serverSettings.ewsApplicationId);
+        .getElementById("ews.exchangeApplicationId")
+        .setAttribute("value", serverSettings.exchangeApplicationId);
       document
-        .getElementById("ews.ewsTenantId")
-        .setAttribute("value", serverSettings.ewsTenantId);
+        .getElementById("ews.exchangeTenantId")
+        .setAttribute("value", serverSettings.exchangeTenantId);
       document
-        .getElementById("ews.ewsRedirectUri")
-        .setAttribute("value", serverSettings.ewsRedirectUri);
+        .getElementById("ews.exchangeRedirectUri")
+        .setAttribute("value", serverSettings.exchangeRedirectUri);
       document
-        .getElementById("ews.ewsEndpointHost")
-        .setAttribute("value", serverSettings.ewsEndpointHost);
+        .getElementById("ews.exchangeEndpointHost")
+        .setAttribute("value", serverSettings.exchangeEndpointHost);
       document
-        .getElementById("ews.ewsOAuthScopes")
-        .setAttribute("value", serverSettings.ewsOAuthScopes);
+        .getElementById("ews.exchangeOAuthScopes")
+        .setAttribute("value", serverSettings.exchangeOAuthScopes);
     }
     document.dispatchEvent(new CustomEvent("prefchange"));
   };
@@ -482,11 +482,11 @@ function secureSelect(aLoading) {
   );
 
   const certCheck = document.getElementById("certCheck");
-  if (gServer.type == "nntp" || socketType == Ci.nsMsgSocketType.plain) {
+  if (socketType == Ci.nsMsgSocketType.plain) {
     certCheck.hidden = true;
   } else {
     certCheck.init(
-      document.getElementById("server.hostName").value,
+      document.getElementById("server.hostname").value,
       document.getElementById("server.port").value,
       document.getElementById("server.type").value,
       document.getElementById("server.socketType").value ==

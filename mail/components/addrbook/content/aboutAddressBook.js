@@ -65,7 +65,7 @@ ChromeUtils.defineLazyGetter(this, "SubDialog", function () {
 
         // Resize the dialog to fit the content with edited font size.
         requestAnimationFrame(() => {
-          const dialogs = frame.ownerGlobal.SubDialog._dialogs;
+          const dialogs = frame.documentGlobal.SubDialog._dialogs;
           const dialog = dialogs.find(
             d => d._frame.contentDocument == frame.contentDocument
           );
@@ -417,6 +417,10 @@ function importBook() {
  * of the address book view.
  */
 async function updateAddressBookCount() {
+  if (!cardsPane.cardsList.view) {
+    return;
+  }
+
   const cardCount = document.getElementById("cardCount");
   const { rowCount: count, directory } = cardsPane.cardsList.view;
 
@@ -878,15 +882,18 @@ customElements.whenDefined("tree-listbox").then(() => {
         document.body.classList.add("all-ab-selected");
         return;
       }
+      document.body.classList.remove("all-ab-selected");
 
       const bookUID = row.dataset.book ?? row.dataset.uid;
       const book = MailServices.ab.getDirectoryFromUID(bookUID);
+      if (!book) {
+        return;
+      }
 
       document.getElementById("booksPaneCreateContact").disabled =
         book.readOnly;
       document.getElementById("booksPaneCreateList").disabled =
         book.readOnly || !book.supportsMailingLists;
-      document.body.classList.remove("all-ab-selected");
     }
 
     _onCollapsed(event) {
@@ -1354,6 +1361,7 @@ var cardsPane = {
     {
       id: "GeneratedName",
       l10n: {
+        a11y: "about-addressbook-column-header-a11y-generatedname2",
         header: "about-addressbook-column-header-generatedname2",
         menuitem: "about-addressbook-column-label-generatedname2",
       },
@@ -1361,6 +1369,7 @@ var cardsPane = {
     {
       id: "EmailAddresses",
       l10n: {
+        a11y: "about-addressbook-column-header-a11y-emailaddresses2",
         header: "about-addressbook-column-header-emailaddresses2",
         menuitem: "about-addressbook-column-label-emailaddresses2",
       },
@@ -1368,6 +1377,7 @@ var cardsPane = {
     {
       id: "NickName",
       l10n: {
+        a11y: "about-addressbook-column-header-a11y-nickname2",
         header: "about-addressbook-column-header-nickname2",
         menuitem: "about-addressbook-column-label-nickname2",
       },
@@ -1376,6 +1386,7 @@ var cardsPane = {
     {
       id: "PhoneNumbers",
       l10n: {
+        a11y: "about-addressbook-column-header-a11y-phonenumbers2",
         header: "about-addressbook-column-header-phonenumbers2",
         menuitem: "about-addressbook-column-label-phonenumbers2",
       },
@@ -1383,6 +1394,7 @@ var cardsPane = {
     {
       id: "Addresses",
       l10n: {
+        a11y: "about-addressbook-column-header-a11y-addresses2",
         header: "about-addressbook-column-header-addresses2",
         menuitem: "about-addressbook-column-label-addresses2",
       },
@@ -1390,6 +1402,7 @@ var cardsPane = {
     {
       id: "Title",
       l10n: {
+        a11y: "about-addressbook-column-header-a11y-title2",
         header: "about-addressbook-column-header-title2",
         menuitem: "about-addressbook-column-label-title2",
       },
@@ -1398,6 +1411,7 @@ var cardsPane = {
     {
       id: "Department",
       l10n: {
+        a11y: "about-addressbook-column-header-a11y-department2",
         header: "about-addressbook-column-header-department2",
         menuitem: "about-addressbook-column-label-department2",
       },
@@ -1406,6 +1420,7 @@ var cardsPane = {
     {
       id: "Organization",
       l10n: {
+        a11y: "about-addressbook-column-header-a11y-organization2",
         header: "about-addressbook-column-header-organization2",
         menuitem: "about-addressbook-column-label-organization2",
       },
@@ -1414,6 +1429,7 @@ var cardsPane = {
     {
       id: "addrbook",
       l10n: {
+        a11y: "about-addressbook-column-header-a11y-addrbook2",
         header: "about-addressbook-column-header-addrbook2",
         menuitem: "about-addressbook-column-label-addrbook2",
       },
@@ -1844,14 +1860,15 @@ var cardsPane = {
       .querySelector(`[name="sort"][value="${column} ${direction}"]`)
       ?.toggleAttribute("checked", true);
 
+    this.table.querySelector("[aria-sort]")?.removeAttribute("aria-sort");
     // Unmark the header of previously sorted column, then mark the header of
     // the column to be sorted.
     this.table
       .querySelector(".sorting")
       ?.classList.remove("sorting", "ascending", "descending");
-    this.table
-      .querySelector(`#${column} button`)
-      ?.classList.add("sorting", direction);
+    const header = this.table.querySelector(`#${column}`);
+    header.ariaSort = direction;
+    header.querySelector("button")?.classList.add("sorting", direction);
 
     if (
       this.cardsList.view.sortColumn == column &&
@@ -2260,6 +2277,7 @@ var cardsPane = {
     if (event.target.closest("button") == this.displayButton) {
       this.sortContext.openPopup(this.displayButton, { triggerEvent: event });
       event.preventDefault();
+      event.stopPropagation();
     }
   },
 
@@ -2268,6 +2286,10 @@ var cardsPane = {
   },
 
   _onKeyDown(event) {
+    if (event.target.closest("thead")) {
+      // Column header key handling handled by tree-view-table-header, only.
+      return;
+    }
     if (event.altKey || event.shiftKey) {
       return;
     }
@@ -2287,20 +2309,23 @@ var cardsPane = {
           this.cardsList.view.selection.selectAll();
           this.cardsList.dispatchEvent(new CustomEvent("select"));
           event.preventDefault();
+          event.stopPropagation();
         }
         break;
       case "Delete":
         if (!modifier) {
           this.deleteSelected();
           event.preventDefault();
+          event.stopPropagation();
         }
         break;
       case "Enter":
         if (!modifier) {
           if (this.cardsList.currentIndex >= 0) {
             this._activateRow(this.cardsList.currentIndex);
+            event.preventDefault();
+            event.stopPropagation();
           }
-          event.preventDefault();
         }
         break;
     }
@@ -2678,13 +2703,17 @@ var detailsPane = {
     });
 
     this.photoInput = document.getElementById("photoInput");
-    // NOTE: We put the paste handler on the button parent because the
-    // html:button will not be targeted by the paste event.
+    // NOTE: Paste is handled on the parent element because the html:button
+    // itself is not a paste target. Since paste may not be dispatched when the
+    // button has focus, also handle Ctrl/Cmd+V explicitly on the button.
     this.photoInput.addEventListener("paste", photoDialog);
     this.photoInput.addEventListener("dragover", photoDialog);
     this.photoInput.addEventListener("drop", photoDialog);
 
     const photoButton = document.getElementById("photoButton");
+    photoButton.addEventListener("keydown", event => {
+      photoDialog._onKeyDown(event);
+    });
     photoButton.addEventListener("click", () => {
       if (this._photoDetails.sourceURL) {
         photoDialog.showWithURL(
@@ -3885,6 +3914,7 @@ var photoDialog = {
     this._dialog.addEventListener("dragover", this);
     this._dialog.addEventListener("drop", this);
     this._dialog.addEventListener("paste", this);
+    this._dialog.addEventListener("keydown", this);
     this._dropTarget.addEventListener("click", event => {
       if (event.button != 0) {
         return;
@@ -4229,6 +4259,9 @@ var photoDialog = {
       case "paste":
         this._onPaste(event);
         break;
+      case "keydown":
+        this._onKeyDown(event);
+        break;
     }
   },
 
@@ -4297,6 +4330,59 @@ var photoDialog = {
       }
     }
     event.preventDefault();
+  },
+
+  // Paste events may not be dispatched when non-editable elements, like the
+  // photo button, have focus.
+  async _onKeyDown(event) {
+    if (
+      event.key.toLowerCase() != "v" ||
+      !(AppConstants.platform == "macosx" ? event.metaKey : event.ctrlKey)
+    ) {
+      return;
+    }
+
+    if (await this._pasteFromClipboard()) {
+      event.preventDefault();
+    }
+  },
+
+  async _pasteFromClipboard() {
+    const transferable = Cc[
+      "@mozilla.org/widget/transferable;1"
+    ].createInstance(Ci.nsITransferable);
+    transferable.init(null);
+    transferable.addDataFlavor("application/x-moz-file");
+    transferable.addDataFlavor("text/plain");
+
+    Services.clipboard.getData(transferable, Ci.nsIClipboard.kGlobalClipboard);
+
+    const data = {};
+
+    try {
+      transferable.getTransferData("application/x-moz-file", data);
+      const file = data.value?.QueryInterface(Ci.nsIFile);
+      if (file) {
+        this.showWithFile(await File.createFromNsIFile(file));
+        return true;
+      }
+    } catch (ex) {
+      // The clipboard does not contain a file.
+    }
+
+    try {
+      transferable.getTransferData("text/plain", data);
+      const value = data.value?.QueryInterface(Ci.nsISupportsString);
+      const url = value?.data;
+      if (url?.startsWith("https://")) {
+        this.showWithURL(url);
+        return true;
+      }
+    } catch (ex) {
+      // The clipboard does not contain text.
+    }
+
+    return false;
   },
 
   /**

@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -41,6 +40,8 @@ nsMacShellService::IsDefaultClient(bool aStartupCheck, uint16_t aApps,
     *aIsDefaultClient &= isDefaultHandlerForProtocol(CFSTR("feed"));
   if (aApps & nsIShellService::CALENDAR)
     *aIsDefaultClient &= isDefaultHandlerForProtocol(CFSTR("webcal"));
+  if (aApps & nsIShellService::NET_THUNDERBIRD)
+    *aIsDefaultClient &= isDefaultHandlerForProtocol(CFSTR("net.thunderbird"));
 
   // if this is the first mail window, maintain internal state that we've
   // checked this session (so that subsequent window opens don't show the
@@ -58,14 +59,19 @@ nsMacShellService::SetDefaultClient(bool aForAllUsers, uint16_t aApps) {
     NS_ENSURE_SUCCESS(rv, rv);
     rv = setAsDefaultHandlerForProtocol(CFSTR("mid"));
   }
-  if (NS_SUCCEEDED(rv) && aApps & nsIShellService::NEWS)
+  if (NS_SUCCEEDED(rv) && aApps & nsIShellService::NEWS) {
     rv = setAsDefaultHandlerForProtocol(CFSTR("news"));
-  if (NS_SUCCEEDED(rv) && aApps & nsIShellService::RSS)
+  }
+  if (NS_SUCCEEDED(rv) && aApps & nsIShellService::RSS) {
     rv = setAsDefaultHandlerForProtocol(CFSTR("feed"));
+  }
   if (NS_SUCCEEDED(rv) && aApps & nsIShellService::CALENDAR) {
     rv = setAsDefaultHandlerForProtocol(CFSTR("webcal"));
     NS_ENSURE_SUCCESS(rv, rv);
     rv = setAsDefaultHandlerForProtocol(CFSTR("webcals"));
+  }
+  if (NS_SUCCEEDED(rv) && aApps & nsIShellService::NET_THUNDERBIRD) {
+    rv = setAsDefaultHandlerForProtocol(CFSTR("net.thunderbird"));
   }
 
   return rv;

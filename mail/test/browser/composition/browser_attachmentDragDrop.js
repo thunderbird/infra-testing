@@ -126,7 +126,7 @@ async function simulateDragAndDrop(win, dragData, type) {
   // the expected drop effect after the synthesizeDragOver call.
   session.dataTransfer.dropEffect = "move";
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => dropTarget.classList.contains("show"),
     "Wait for the drop target element to be visible"
   );
@@ -134,13 +134,13 @@ async function simulateDragAndDrop(win, dragData, type) {
   // If the dragged file is an image, the attach inline container should be
   // visible.
   if (type == "image" || type == "inline" || type == "link") {
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         !win.document.getElementById("addInline").classList.contains("hidden"),
       "Wait for the addInline element to be visible"
     );
   } else {
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         win.document.getElementById("addInline").classList.contains("hidden"),
       "Wait for the addInline element to be hidden"
@@ -165,7 +165,7 @@ async function simulateDragAndDrop(win, dragData, type) {
   if (type == "inline") {
     const editor = win.GetCurrentEditor();
 
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => editor.document.body.querySelector("img"),
       "Confirm the image was added to the message body"
     );
@@ -177,7 +177,7 @@ async function simulateDragAndDrop(win, dragData, type) {
     );
   } else {
     // The dropped files should have been attached.
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () =>
         win.document.getElementById("attachmentBucket").itemCount ==
         dragData.length,
@@ -449,7 +449,7 @@ function assertSelection(bucket, selectedItems) {
  *   contain at least one item.
  */
 function selectAttachments(bucket, itemSet) {
-  const win = bucket.ownerGlobal;
+  const win = bucket.documentGlobal;
   let first = true;
   for (const item of itemSet) {
     item.scrollIntoView({ block: "start", behavior: "instant" });
@@ -469,8 +469,8 @@ function selectAttachments(bucket, itemSet) {
  *   attachments as well as the expected gained attachments.
  */
 async function moveAttachments(dragSrc, destBucket, expectUrls) {
-  const srcWindow = dragSrc.ownerGlobal;
-  const destWindow = destBucket.ownerGlobal;
+  const srcWindow = dragSrc.documentGlobal;
+  const destWindow = destBucket.documentGlobal;
   const dragOverTarget = getDragOverTarget(destWindow);
   const dropTarget = getDropTarget(destWindow);
 
@@ -534,7 +534,7 @@ async function drag_between_buckets(srcBucket, destBucket) {
     Ci.nsIDragService
   );
   dragSession.startDragSessionForTests(
-    srcBucket.ownerGlobal,
+    srcBucket.documentGlobal,
     Ci.nsIDragService.DRAGDROP_ACTION_MOVE
   );
 

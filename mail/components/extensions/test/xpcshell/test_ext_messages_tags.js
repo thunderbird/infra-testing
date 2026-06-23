@@ -56,7 +56,7 @@ add_task(
           }
         }
 
-        const tags1 = await browser.messages.listTags();
+        const tags1 = await browser.messages.tags.list();
         window.assertDeepEqual(
           [
             {
@@ -91,6 +91,30 @@ add_task(
             },
           ],
           tags1
+        );
+
+        // Test tags.get() for an existing tag.
+        const tag1 = await browser.messages.tags.get("$label1");
+        window.assertDeepEqual(
+          {
+            key: "$label1",
+            tag: "Important",
+            color: "#FF0000",
+            ordinal: "",
+          },
+          tag1
+        );
+
+        // Test tags.get() with uppercase key (should be case-insensitive).
+        const tag2 = await browser.messages.tags.get("$Label2");
+        browser.test.assertEq("$label2", tag2.key, "key should be lowercase");
+        browser.test.assertEq("Work", tag2.tag, "tag name should match");
+
+        // Test tags.get() for a non-existent tag.
+        await browser.test.assertRejects(
+          browser.messages.tags.get("nonexistent"),
+          /Specified tag does not exist: nonexistent/,
+          "get() should throw for non-existent tag"
         );
 
         // Test some allowed special chars and that the key is created as lower
@@ -506,7 +530,7 @@ add_task(
           "#3456CD"
         );
         browser.test.assertEq(
-          "auto_tag",
+          "auto=20tag",
           autoKey,
           "Auto-generated key should be correct"
         );
@@ -518,7 +542,7 @@ add_task(
         });
         window.assertDeepEqual(
           [
-            "auto_tag",
+            "auto=20tag",
             { tag: "Something very different" },
             { tag: "Auto Tag" },
           ],
@@ -543,7 +567,7 @@ add_task(
           "#1234AB"
         );
         browser.test.assertEq(
-          "auto_taga",
+          "auto=20tag_1",
           autoKeyNr2,
           "Auto-generated key should be correct the second time as well"
         );

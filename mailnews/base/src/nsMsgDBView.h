@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -71,9 +70,9 @@ struct IdUint32 {
 
 // Extends IdUint32 for sorting by a collation key field (eg subject).
 // (Also used as IdUint32 a couple of places to simplify the code, where
-// the overhead of an unused nsTArray isn't a big deal).
+// the overhead of an unused nsString isn't a big deal).
 struct IdKey : public IdUint32 {
-  nsTArray<uint8_t> key;
+  nsString key;
 };
 
 class nsMsgDBViewService final : public nsIMsgDBViewService {
@@ -170,6 +169,7 @@ class nsMsgDBView : public nsIMsgDBView,
   nsresult FetchRowKeywords(nsMsgViewIndex aRow, nsIMsgDBHdr* aHdr,
                             nsACString& keywordString);
   nsresult FetchAccount(nsIMsgDBHdr* aHdr, nsAString& aAccount);
+  nsresult FetchServerKey(nsIMsgDBHdr* aHdr, nsAString& aServerKey);
   bool IsOutgoingMsg(nsIMsgDBHdr* aHdr);
 
   // The default enumerator is over the db, but things like
@@ -289,6 +289,7 @@ class nsMsgDBView : public nsIMsgDBView,
   virtual nsMsgViewIndex FindKey(nsMsgKey key, bool expand);
   virtual nsresult GetDBForViewIndex(nsMsgViewIndex index, nsIMsgDatabase** db);
   virtual nsCOMArray<nsIMsgFolder>* GetFolders();
+  virtual nsIMsgFolder* GetFolderForViewIndex(nsMsgViewIndex index);
 
   virtual nsresult ListIdsInThread(nsIMsgThread* threadHdr,
                                    nsMsgViewIndex viewIndex,
@@ -353,7 +354,7 @@ class nsMsgDBView : public nsIMsgDBView,
       nsMsgViewSortTypeValue sortType, uint16_t* pMaxLen,
       eFieldType* pFieldType, nsIMsgCustomColumnHandler* colHandler = nullptr);
   nsresult GetCollationKey(nsIMsgDBHdr* msgHdr, nsMsgViewSortTypeValue sortType,
-                           nsTArray<uint8_t>& result,
+                           nsAString& result,
                            nsIMsgCustomColumnHandler* colHandler = nullptr);
   nsresult GetLongField(nsIMsgDBHdr* msgHdr, nsMsgViewSortTypeValue sortType,
                         uint32_t* result,
@@ -365,8 +366,7 @@ class nsMsgDBView : public nsIMsgDBView,
                             viewSortInfo* sortInfo);
 
   nsresult GetStatusSortValue(nsIMsgDBHdr* msgHdr, uint32_t* result);
-  nsresult GetLocationCollationKey(nsIMsgDBHdr* msgHdr,
-                                   nsTArray<uint8_t>& result);
+  nsresult GetLocationCollationKey(nsIMsgDBHdr* msgHdr, nsAString& result);
   void PushSort(const MsgViewSortColumnInfo& newSort);
   void UpdateSortInfo(nsMsgViewSortTypeValue sortType,
                       nsMsgViewSortOrderValue sortOrder);
@@ -410,7 +410,7 @@ class nsMsgDBView : public nsIMsgDBView,
   virtual int32_t FindLevelInThread(nsIMsgDBHdr* msgHdr,
                                     nsMsgViewIndex startOfThread,
                                     nsMsgViewIndex viewIndex);
-  nsresult GetImapDeleteModel(nsIMsgFolder* folder);
+  nsMsgImapDeleteModel GetServerDeleteModel(nsIMsgFolder* folder);
   nsresult GetDBForHeader(nsIMsgDBHdr* msgHdr, nsIMsgDatabase** db);
 
   bool AdjustReadFlag(nsIMsgDBHdr* msgHdr, uint32_t* msgFlags);
@@ -422,7 +422,7 @@ class nsMsgDBView : public nsIMsgDBView,
   // Flags for each row, combining nsMsgMessageFlags and MSG_VIEW_FLAGS.
   nsTArray<uint32_t> m_flags;
   // Threading level of each row (1=top)
-  nsTArray<uint8_t> m_levels;
+  nsTArray<uint32_t> m_levels;
 
   nsMsgImapDeleteModel mDeleteModel;
 
@@ -477,6 +477,16 @@ class nsMsgDBView : public nsIMsgDBView,
   // batch/series of batches of messages manually marked
   // as junk.
   nsTArray<RefPtr<nsIMsgDBHdr>> mJunkHdrs;
+
+  /**
+   * Notify tree that rows have changed.
+   *
+   * @param aFirstLineChanged   first view index for changed rows.
+   * @param aNumRows            number of rows changed; < 0 means removed.
+   * @param aChangeType         changeType.
+   */
+  void NoteChange(nsMsgViewIndex aFirstLineChanged, int32_t aNumRows,
+                  nsMsgViewNotificationCodeValue aChangeType);
 
   nsTArray<uint32_t> mIndicesToNoteChange;
 

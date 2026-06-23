@@ -1,8 +1,8 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "ImapTypes.idl"
 #include "nsISupports.idl"
 #include "MailNewsTypes2.idl"
 #include "nsIImapUrl.idl"
@@ -38,7 +38,7 @@ interface nsIImapMessageSink : nsISupports {
    * @param aUidOfMsg        IMAP UID of the fetched message.
    * @param aImapUrl         IMAP Url used to fetch the message.
    */
-  void parseAdoptedMsgLine(in string aAdoptedMsgLine, in nsMsgKey aUidOfMsg,
+  void parseAdoptedMsgLine(in string aAdoptedMsgLine, in ImapUid aUidOfMsg,
                            in nsIImapUrl aImapUrl);
 
   /**
@@ -51,7 +51,7 @@ interface nsIImapMessageSink : nsISupports {
    *                            should be set to this value to reflect the actual size of
    *                            the downloaded message.
    */
-  void normalEndMsgWriteStream(in nsMsgKey aUidOfMessage,
+  void normalEndMsgWriteStream(in ImapUid aUidOfMessage,
                                in boolean aMarkMsgRead, in nsIImapUrl aImapUrl,
                                in long aUpdatedMessageSize);
 
@@ -66,12 +66,12 @@ interface nsIImapMessageSink : nsISupports {
    *  For Condstore servers, also update the highestMod Sequence
    *  @param   aFlags         - The new flags for the message
    *  @param   aKeywords        keywords for the message
-   *  @param   aMessageKey    - The UID of the message that changed
+   *  @param   aMessageUid    - The UID of the message that changed
    *  @param   aHighestModSeq - The highest mod seq the parser has seen
    *                            for this folder
   **/
   void notifyMessageFlags(in unsigned long aFlags, in ACString aKeywords,
-                          in nsMsgKey aMessageKey,
+                          in ImapUid aMessageUid,
                           in unsigned long long aHighestModSeq);
 
   /**

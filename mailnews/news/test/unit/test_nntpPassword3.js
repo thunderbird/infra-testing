@@ -1,4 +1,3 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /**
  * Extra tests for forgetting newsgroup usernames and passwords.
  */
@@ -30,7 +29,10 @@ add_task(async function () {
   );
 
   // Test - Check there is a password to begin with...
-  var logins = Services.logins.findLogins(kServerUrl, null, kServerUrl);
+  var logins = await Services.logins.searchLoginsAsync({
+    origin: kServerUrl,
+    httpRealm: kServerUrl,
+  });
 
   Assert.equal(logins.length, 1);
   Assert.equal(logins[0].username, kUsername);
@@ -39,7 +41,10 @@ add_task(async function () {
   // Test - Remove the news password login via the incoming server
   incomingServer.forgetPassword();
 
-  logins = Services.logins.findLogins(kServerUrl, null, kServerUrl);
+  logins = await Services.logins.searchLoginsAsync({
+    origin: kServerUrl,
+    httpRealm: kServerUrl,
+  });
 
   // should be no passwords left...
   Assert.equal(logins.length, 0);

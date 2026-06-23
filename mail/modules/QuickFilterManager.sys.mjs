@@ -122,7 +122,7 @@ export class QuickFilterState {
    */
   userHitEscape() {
     if (this.#lastFilterAttr) {
-      // it's possible the UI state the last attribute has already been cleared,
+      // It's possible the UI state the last attribute has already been cleared,
       // in which case we want to fall through...
       if (
         QuickFilterManager.clearFilterValue(
@@ -133,6 +133,12 @@ export class QuickFilterState {
         this.#lastFilterAttr = null;
         return true;
       }
+    }
+
+    // Try to clear the text filter first before clearing everything else, so
+    // that a single ESC press doesn't wipe out pinned state along with text.
+    if (QuickFilterManager.clearFilterValue("text", this.filterValues)) {
+      return true;
     }
 
     return QuickFilterManager.clearAllFilterValues(this.filterValues);
@@ -1224,7 +1230,7 @@ export var MessageTextFilter = {
         upsell.hidePopup();
       }
       const tabmail =
-        aDocument.ownerGlobal.top.document.getElementById("tabmail");
+        aDocument.documentGlobal.top.document.getElementById("tabmail");
       tabmail.openTab("glodaFacet", {
         searcher: new lazy.GlodaMsgSearcher(null, aState.text),
       });
@@ -1255,7 +1261,7 @@ export var MessageTextFilter = {
       );
 
       if (panel.state == "closed" && aDocument.activeElement == aNode) {
-        aDocument.ownerGlobal.setTimeout(() => {
+        aDocument.documentGlobal.setTimeout(() => {
           panel.openPopup(
             aDocument.getElementById("quick-filter-bar"),
             "after_end",

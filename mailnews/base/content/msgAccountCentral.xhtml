@@ -14,8 +14,10 @@
       http-equiv="Content-Security-Policy"
       content="default-src chrome:; script-src chrome: 'unsafe-inline' moz-src:"
     />
+    <link rel="stylesheet" href="chrome://messenger/skin/messenger.css" />
+    <link rel="stylesheet" href="chrome://messenger/skin/colors.css" />
+    <link rel="stylesheet" href="chrome://messenger/skin/icons.css" />
     <link rel="stylesheet" href="chrome://messenger/skin/accountCentral.css" />
-
     <link rel="localization" href="branding/brand.ftl" />
     <link rel="localization" href="messenger/accountCentral.ftl" />
 
@@ -23,6 +25,7 @@
       defer="defer"
       src="chrome://communicator/content/utilityOverlay.js"
     ></script>
+    <script defer="defer" src="chrome://messenger/content/mailCore.js"></script>
     <script
       defer="defer"
       src="chrome://messenger/content/msgAccountCentral.js"
@@ -77,7 +80,7 @@
         </aside>
         <aside class="settings-btn-container">
           <button
-            id="settingsButton"
+            id="accountSettingsButton"
             type="button"
             data-l10n-id="account-settings"
             class="btn-link"
@@ -169,7 +172,7 @@
           <button
             id="setupAddressBook"
             type="button"
-            data-l10n-id="addressbook-label"
+            data-l10n-id="address-book-add-label"
             class="btn-hub btn-inline"
             onclick="top.addNewAddressBook('CARDDAV')"
           ></button>
@@ -209,7 +212,7 @@
             data-l10n-id="filelink-label"
             class="btn-hub btn-inline"
             onclick="
-              top.openOptionsDialog(
+              top.openPreferencesTab(
                 'paneCompose',
                 'compositionAttachmentsCategory'
               )
@@ -270,6 +273,7 @@
             data-l10n-id="about-paragraph-consider-donation"
           >
             <a
+              id="donationLink"
               href="https://www.thunderbird.net/donate/?utm_source=account_hub_tb_release&amp;utm_medium=referral&amp;utm_content=paragraph_text"
               class="donation-link"
               data-l10n-name="donation-link"

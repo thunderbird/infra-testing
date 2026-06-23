@@ -2,6 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, you can obtain one at http://mozilla.org/MPL/2.0/. */
 
+var { MailServices } = ChromeUtils.importESModule(
+  "resource:///modules/MailServices.sys.mjs"
+);
 const { MessageGenerator } = ChromeUtils.importESModule(
   "resource://testing-common/mailnews/MessageGenerator.sys.mjs"
 );
@@ -95,7 +98,7 @@ add_task(async function testOverLink() {
   EventUtils.synthesizeMouseAtCenter(
     link,
     { type: "mouseover" },
-    link.ownerGlobal
+    link.documentGlobal
   );
   await hovered;
 
@@ -109,7 +112,7 @@ add_task(async function testOverLink() {
   EventUtils.synthesizeMouseAtCenter(
     threadTree,
     { type: "mouseover" },
-    threadTree.ownerGlobal
+    threadTree.documentGlobal
   );
   await unhovered;
 
@@ -119,7 +122,11 @@ add_task(async function testOverLink() {
 });
 
 add_task(async function testManyStatuses() {
-  const statusFeedback = window.MsgStatusFeedback;
+  await TestUtils.waitForCondition(
+    () => !window.MsgStatusFeedback._statusQueue?.length,
+    "waiting for status queue to be empty"
+  );
+
   const statuses = [];
   for (let i = 0; i < 25; i++) {
     const str = `Hey hey hey #${i}`;
@@ -136,7 +143,7 @@ add_task(async function testManyStatuses() {
         )
       );
     }
-    statusFeedback.showStatusString(str);
+    MailServices.feedback.reportStatus(str);
   }
   await Promise.all(statuses);
   Assert.ok(true, `The ${statuses.length} first statuses should be shown`);

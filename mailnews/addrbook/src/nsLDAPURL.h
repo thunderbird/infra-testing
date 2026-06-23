@@ -1,16 +1,17 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
- *
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #ifndef COMM_MAILNEWS_ADDRBOOK_SRC_NSLDAPURL_H_
 #define COMM_MAILNEWS_ADDRBOOK_SRC_NSLDAPURL_H_
 
-#include "nsString.h"
-#include "nsILDAPURL.h"
 #include "nsCOMPtr.h"
+#include "nsIIPCSerializableURI.h"
+#include "nsILDAPURL.h"
 #include "nsIURIMutator.h"
+#include "nsIURIWithSizeOf.h"
+#include "nsString.h"
+#include "URIHasher.h"
 
 /**
  * nsLDAPURL
@@ -27,11 +28,16 @@
  * consistent.
  */
 
-class nsLDAPURL : public nsILDAPURL {
+class nsLDAPURL : public nsILDAPURL,
+                  public nsIIPCSerializableURI,
+                  public nsIURIWithSizeOf,
+                  public mozilla::net::URIHasher {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIURI
   NS_DECL_NSILDAPURL
+  NS_DECL_NSIIPCSERIALIZABLEURI
+  NS_DECL_NSIURIWITHSIZEOF
 
   nsLDAPURL();
 

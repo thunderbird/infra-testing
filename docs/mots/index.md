@@ -95,10 +95,14 @@ widths: 30 70
     * other-licenses/\*\*/thunderbird/\*\*
     * third_party/\*\*
     * tools/\*\*
+* - Group
+  - https://thunderbird.topicbox.com/groups/developers
 * - URL
   - https://developer.thunderbird.net/
 * - Bugzilla Components
   - Thunderbird
+* - Review Group
+  - [#thunderbird-reviewers](https://phabricator.services.mozilla.com/tag/thunderbird-reviewers/)
 ```
 
 #### Addon Support
@@ -140,6 +144,8 @@ widths: 30 70
 * - Peer(s)
   -
     * [Corey Bryant (coreycb)](https://people.mozilla.org/s?query=coreycb)
+    * [Evandro Baginski (ebaginski)](https://people.mozilla.org/s?query=ebaginski)
+    * [Stephen King (sking)](https://people.mozilla.org/s?query=sking)
 * - Owner(s) Emeritus
   - Rob Lemley
 * - Peer(s) Emeritus
@@ -151,6 +157,8 @@ widths: 30 70
     * taskcluster/\*\*
 * - Bugzilla Components
   - Thunderbird::Build Config
+* - Review Group
+  - [#thunderbird-build-system-reviewers](https://phabricator.services.mozilla.com/tag/thunderbird-build-system-reviewers/)
 ```
 
 
@@ -202,8 +210,12 @@ widths: 30 70
   -
     * mail/extensions/openpgp/\*\*
     * mail/extensions/smime/\*\*
+* - Group
+  - https://thunderbird.topicbox.com/groups/e2ee
 * - Bugzilla Components
   - MailNews Core::Security: OpenPGP, MailNews Core::Security: S/MIME
+* - Review Group
+  - [#thunderbird-security-reviewers](https://phabricator.services.mozilla.com/tag/thunderbird-security-reviewers/)
 ```
 
 
@@ -225,8 +237,12 @@ widths: 30 70
 * - Includes
   -
     * mail/themes/\*\*
+* - Group
+  - https://thunderbird.topicbox.com/groups/ux
 * - Bugzilla Components
   - Thunderbird::Theme
+* - Review Group
+  - [#thunderbird-front-end-reviewers](https://phabricator.services.mozilla.com/tag/thunderbird-front-end-reviewers/)
 ```
 
 
@@ -251,8 +267,12 @@ widths: 30 70
 * - Includes
   -
     * mail/branding/\*\*
+* - Group
+  - https://thunderbird.topicbox.com/groups/ux
 * - Bugzilla Components
   - Thunderbird::General
+* - Review Group
+  - [#thunderbird-front-end-reviewers](https://phabricator.services.mozilla.com/tag/thunderbird-front-end-reviewers/)
 ```
 
 
@@ -336,6 +356,8 @@ widths: 30 70
     MailNews Core::Networking, MailNews Core::Networking - POP, MailNews
     Core::Printing, MailNews Core::Profile Migration, MailNews Core::Search,
     MailNews Core::Security, MailNews Core::Simple MAPI
+* - Review Group
+  - [#thunderbird-back-end-reviewers](https://phabricator.services.mozilla.com/tag/thunderbird-back-end-reviewers/)
 ```
 
 #### Addressbook
@@ -384,7 +406,7 @@ widths: 30 70
   - Sean Burke, Brendan Abolivier
 * - Includes
   -
-    * mailnews/protocols/ews/\*\*
+    * mailnews/protocols/exchange/\*\*
     * rust/ews_xpcom/\*\*
     * rust/graph_xpcom/\*\*
 * - Bugzilla Components
@@ -460,14 +482,14 @@ widths: 30 70
 #### Import
 
 
-```{warning}
-    This module does not have any owners specified.
-```
 ```{list-table}
 ---
 stub-columns: 1
 widths: 30 70
 ---
+* - Owner(s)
+  -
+    * [Nobody (nobody)](https://people.mozilla.org/s?query=nobody)
 * - Peer(s)
   -
     * [Magnus Melin (mkmelin)](https://people.mozilla.org/s?query=mkmelin)
@@ -504,6 +526,8 @@ widths: 30 70
     * mail/locales/\*\*
 * - Bugzilla Components
   - MailNews Core::Localization
+* - Review Group
+  - [#thunderbird-l10n-reviewers](https://phabricator.services.mozilla.com/tag/thunderbird-l10n-reviewers/)
 ```
 
 

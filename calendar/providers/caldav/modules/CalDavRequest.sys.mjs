@@ -22,7 +22,7 @@ const MIME_TEXT_CALENDAR = "text/calendar; charset=utf-8";
 const MIME_TEXT_XML = "text/xml; charset=utf-8";
 
 /**
- * Base class for a caldav request.
+ * Base class for a CalDAV request.
  *
  * @implements {nsIChannelEventSink}
  * @implements {nsIInterfaceRequestor}
@@ -100,10 +100,10 @@ class CalDavRequestBase {
   }
 
   /**
-   * Executes the request with the configuration set up in the constructor
+   * Executes the request with the configuration set up in the constructor.
    *
    * @returns {Promise} A promise that resolves with a subclass of CalDavResponseBase
-   *                            which is based on |responseClass|.
+   *   which is based on |responseClass|.
    */
   async commit() {
     await this.session.prepareRequest(this.channel);
@@ -112,9 +112,9 @@ class CalDavRequestBase {
       this.onSetupChannel(this.channel);
     }
 
-    if (cal.verboseLogEnabled && this.uploadData) {
+    if (this.uploadData) {
       const method = this.channel.requestMethod;
-      lazy.log.debug(`CalDAV: send (${method} ${this.uri.spec}): ${this.uploadData}`);
+      lazy.log.debug(`C: (HTTP ${method} ${this.uri.spec}): ${this.uploadData}`);
     }
 
     const ResponseClass = this.responseClass;
@@ -124,13 +124,10 @@ class CalDavRequestBase {
 
     await this.response.responded;
 
-    if (cal.verboseLogEnabled) {
-      const text = this.response.text;
-      if (text) {
-        lazy.log.debug("CalDAV: recv: " + text);
-      }
+    const text = this.response.text;
+    if (text) {
+      lazy.log.debug(`S: ${text}`);
     }
-
     return this.response;
   }
 
@@ -170,16 +167,14 @@ class CalDavRequestBase {
   /** Implement nsIChannelEventSink */
   asyncOnChannelRedirect(aOldChannel, aNewChannel, aFlags, aCallback) {
     /**
-     * Copy the given header from the old channel to the new one, ignoring missing headers
+     * Get the named header from the old channel, or null if there was no such header.
      *
-     * @param {string} aHdr - The header to copy
+     * @param {string} aHdr - The header to get.
+     * @returns {?string}
      */
-    function copyHeader(aHdr) {
+    function getHeader(aHdr) {
       try {
-        const hdrValue = aOldChannel.getRequestHeader(aHdr);
-        if (hdrValue) {
-          aNewChannel.setRequestHeader(aHdr, hdrValue, false);
-        }
+        return aOldChannel.getRequestHeader(aHdr);
       } catch (e) {
         if (e.result != Cr.NS_ERROR_NOT_AVAILABLE) {
           // The header could possibly not be available, ignore that
@@ -187,15 +182,29 @@ class CalDavRequestBase {
           throw e;
         }
       }
+      return null;
+    }
+
+    /**
+     * Copy the given header from the old channel to the new one, ignoring missing headers
+     *
+     * @param {string} aHdr - The header to copy
+     */
+    function copyHeader(aHdr) {
+      const hdrValue = getHeader(aHdr);
+      if (hdrValue) {
+        aNewChannel.setRequestHeader(aHdr, hdrValue, false);
+      }
     }
 
     let uploadData, uploadContent;
-    const oldUploadChannel = aOldChannel?.QueryInterface(Ci.nsIUploadChannel);
-    const oldHttpChannel = aOldChannel?.QueryInterface(Ci.nsIHttpChannel);
-    if (oldUploadChannel && oldHttpChannel && oldUploadChannel.uploadStream) {
-      uploadData = oldUploadChannel.uploadStream;
-      uploadContent = oldHttpChannel.getRequestHeader("Content-Type");
-    }
+    try {
+      const oldUploadChannel = aOldChannel.QueryInterface(Ci.nsIUploadChannel);
+      if (oldUploadChannel && oldUploadChannel.uploadStream) {
+        uploadData = oldUploadChannel.uploadStream;
+        uploadContent = aOldChannel.getRequestHeader("Content-Type");
+      }
+    } catch (e) {}
 
     cal.provider.prepHttpChannel(null, uploadData, uploadContent, this, aNewChannel);
 
@@ -204,13 +213,20 @@ class CalDavRequestBase {
     aOldChannel.QueryInterface(Ci.nsIHttpChannel);
 
     try {
-      this.response.lastRedirectStatus = oldHttpChannel.responseStatus;
+      this.response.lastRedirectStatus = aOldChannel.responseStatus;
     } catch (e) {
       this.response.lastRedirectStatus = null;
     }
 
     // If any other header is used, it should be added here. We might want
     // to just copy all headers over to the new channel.
+    if (aOldChannel.URI.prePath == aNewChannel.URI.prePath) {
+      copyHeader("Authorization");
+    } else if (getHeader("Authorization")) {
+      // Don't send the Authorization header to another server. Abandon the request.
+      aCallback.onRedirectVerifyCallback(Cr.NS_ERROR_ABORT);
+      return;
+    }
     copyHeader("Depth");
     copyHeader("Originator");
     copyHeader("Recipient");
@@ -218,15 +234,13 @@ class CalDavRequestBase {
     copyHeader("If-Match");
     copyHeader("Accept");
 
-    aNewChannel.requestMethod = oldHttpChannel.requestMethod;
-    this.session.prepareRedirect(aOldChannel, aNewChannel).then(() => {
-      aCallback.onRedirectVerifyCallback(Cr.NS_OK);
-    });
+    aNewChannel.requestMethod = aOldChannel.requestMethod;
+    aCallback.onRedirectVerifyCallback(Cr.NS_OK);
   }
 }
 
 /**
- * The caldav response base class. Should be subclassed, and works with xpcom network code that uses
+ * The CalDAV response base class. Should be subclassed, and works with xpcom network code that uses
  * nsIRequest.
  */
 class CalDavResponseBase {
@@ -397,7 +411,9 @@ class HttpServerError extends Error {
 }
 
 /**
- * A simple caldav response using nsIStreamLoader
+ * A simple caldav response using nsIStreamLoader.
+ *
+ * @implements {nsIStreamLoaderObserver}
  */
 class CalDavSimpleResponse extends CalDavResponseBase {
   QueryInterface = ChromeUtils.generateQI(["nsIStreamLoaderObserver"]);
@@ -412,19 +428,27 @@ class CalDavSimpleResponse extends CalDavResponseBase {
 
   get text() {
     if (!this._responseText) {
-      this._responseText = new TextDecoder().decode(Uint8Array.from(this.result)) || "";
+      const decoder = new TextDecoder(this.nsirequest.contentCharset || "utf-8");
+      this._responseText = decoder.decode(Uint8Array.from(this.result)) || "";
     }
     return this._responseText;
   }
 
-  /** Implement nsIStreamLoaderObserver */
+  /**
+   * @param {nsIStreamLoader} aLoader
+   * @param {nsISupports} aContext
+   * @param {nsresult} aStatus
+   * @param {integer} aResultLength
+   * @param {Uint8Array} aResult
+   * @see {nsIStreamLoaderObserver}
+   */
   onStreamComplete(aLoader, aContext, aStatus, aResultLength, aResult) {
     this.resultLength = aResultLength;
     this.result = aResult;
 
     this.nsirequest = aLoader.request.QueryInterface(Ci.nsIHttpChannel);
 
-    this.#streamStatus = aStatus;
+    this.#streamError = new Components.Exception("Connection error", aStatus);
     if (Components.isSuccessCode(aStatus)) {
       this._onresponded(this);
     } else {
@@ -441,16 +465,16 @@ class CalDavSimpleResponse extends CalDavResponseBase {
     }
   }
 
-  #streamStatus;
+  #streamError;
   #certError = false;
 
   /**
    * The status of the underlying stream, e.g. NS_ERROR_CONNECTION_REFUSED.
    *
-   * @type {nsresult}
+   * @type {Exception}
    */
-  get streamStatus() {
-    return this.#streamStatus;
+  get streamError() {
+    return this.#streamError;
   }
 
   /** If the response had a certificate error. */

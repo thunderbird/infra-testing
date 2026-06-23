@@ -64,7 +64,7 @@ add_setup(async function () {
     gTab.browser.contentWindow.document.getElementById("contentFrame");
 
   tabDocument = iframe.contentDocument;
-  tabWindow = iframe.contentDocument.ownerGlobal;
+  tabWindow = iframe.contentDocument.documentGlobal;
 });
 
 /**
@@ -113,7 +113,7 @@ add_task(async function generate_new_key() {
 
   // Accept the dialog since the first option should be automatically selected.
   dialog.acceptDialog();
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => wizard.getComputedStyle(keyGenView).opacity == 1,
     "Timeout waiting for the #wizardCreateKey to appear"
   );
@@ -122,14 +122,14 @@ add_task(async function generate_new_key() {
   EventUtils.synthesizeMouseAtCenter(
     doc.getElementById("keygenDoesNotExpire"),
     {},
-    dialog.ownerGlobal
+    dialog.documentGlobal
   );
 
   const wizardOverlay = doc.getElementById("wizardOverlay");
 
   // Move to the next screen.
   dialog.acceptDialog();
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => wizard.getComputedStyle(wizardOverlay).opacity == 1,
     "Timeout waiting for the #wizardOverlay to appear"
   );
@@ -144,7 +144,7 @@ add_task(async function generate_new_key() {
 
   // Confirm the generation of the new key.
   const confirmButton = doc.getElementById("openPgpKeygenConfirmButton");
-  EventUtils.synthesizeMouseAtCenter(confirmButton, {}, dialog.ownerGlobal);
+  EventUtils.synthesizeMouseAtCenter(confirmButton, {}, dialog.documentGlobal);
 
   // Wait for the subdialog to close.
   info("Waiting for subdialog unload");
@@ -195,14 +195,14 @@ add_task(async function import_secret_key() {
   EventUtils.synthesizeMouseAtCenter(
     doc.getElementById("importOpenPgp"),
     {},
-    dialog.ownerGlobal
+    dialog.documentGlobal
   );
 
   const importView = doc.getElementById("wizardImportKey");
 
   // Accept the dialog to move to the next screen.
   dialog.acceptDialog();
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => wizard.getComputedStyle(importView).opacity == 1,
     "Timeout waiting for the #wizardImportKey to appear"
   );
@@ -225,10 +225,10 @@ add_task(async function import_secret_key() {
   const importButton = doc
     .getElementById("importKeyIntro")
     .querySelector("button");
-  EventUtils.synthesizeMouseAtCenter(importButton, {}, dialog.ownerGlobal);
+  EventUtils.synthesizeMouseAtCenter(importButton, {}, dialog.documentGlobal);
 
   // The container with the listed keys to import should be visible.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => !doc.getElementById("importKeyListContainer").collapsed,
     "Timeout waiting for the #importKeyListContainer to appear"
   );
@@ -251,7 +251,7 @@ add_task(async function import_secret_key() {
 
   // Accept the dialog to move to the next screen.
   dialog.acceptDialog();
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => !doc.getElementById("importKeyListSuccess").collapsed,
     "Timeout waiting for the #importKeyListSuccess to appear"
   );
@@ -271,7 +271,7 @@ add_task(async function import_secret_key() {
   // Accept the dialog to close it.
   dialog.acceptDialog();
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => keyListRadio.itemCount == listItemCount,
     "Timeout waiting for the #importKeyListSuccess to appear"
   );
@@ -315,14 +315,14 @@ add_task(async function add_external_key() {
   EventUtils.synthesizeMouseAtCenter(
     doc.getElementById("externalOpenPgp"),
     {},
-    dialog.ownerGlobal
+    dialog.documentGlobal
   );
 
   const externalView = doc.getElementById("wizardExternalKey");
 
   // Accept the dialog to move to the next screen.
   dialog.acceptDialog();
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => wizard.getComputedStyle(externalView).opacity == 1,
     "Timeout waiting for the #wizardExternalKey to appear"
   );
@@ -354,15 +354,15 @@ add_task(async function add_external_key() {
   const listItemCount = keyListRadio.itemCount + 1;
 
   const importButton = doc.getElementById("importPublicKeyButton");
-  EventUtils.synthesizeMouseAtCenter(importButton, {}, dialog.ownerGlobal);
+  EventUtils.synthesizeMouseAtCenter(importButton, {}, dialog.documentGlobal);
 
   // The container with the listed keys to import should be visible.
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => !dialog.getButton("accept").disabled,
     "Timeout waiting for the Continue to appear"
   );
 
-  await BrowserTestUtils.waitForCondition(
+  await TestUtils.waitForCondition(
     () => keyListRadio.itemCount == listItemCount,
     "Waiting for the newly imported key to be listed"
   );

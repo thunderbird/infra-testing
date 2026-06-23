@@ -49,7 +49,6 @@ class EmailTransport extends CalItipDefaultEmailTransport {
         deliverMode,
         msgToReplace,
         listener,
-        statusFeedback,
         smtpPassword
       ) {
         sentMsgs.push({
@@ -62,7 +61,6 @@ class EmailTransport extends CalItipDefaultEmailTransport {
           deliverMode,
           msgToReplace,
           listener,
-          statusFeedback,
           smtpPassword,
         });
       },
@@ -222,9 +220,9 @@ function compareShownPanelValues(root, expected) {
 async function clickPanelAction(panel, id, sendResponse = true) {
   const promise = BrowserTestUtils.promiseAlertDialogOpen(sendResponse ? "accept" : "cancel");
   const button = panel.shadowRoot.getElementById(id);
-  EventUtils.synthesizeMouseAtCenter(button, {}, panel.ownerGlobal);
+  EventUtils.synthesizeMouseAtCenter(button, {}, panel.documentGlobal);
   await promise;
-  await BrowserTestUtils.waitForEvent(panel.ownerGlobal, "onItipItemActionFinished");
+  await BrowserTestUtils.waitForEvent(panel.documentGlobal, "onItipItemActionFinished");
 }
 
 /**

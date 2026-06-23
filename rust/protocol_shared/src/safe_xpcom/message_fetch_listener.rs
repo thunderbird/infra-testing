@@ -4,22 +4,22 @@
 
 use nserror::nsresult;
 use nsstring::nsCString;
-use xpcom::interfaces::{IEwsMessageFetchListener, nsIInputStream, nsIStringInputStream};
+use xpcom::interfaces::{IExchangeMessageFetchListener, nsIInputStream, nsIStringInputStream};
 
 use super::{SafeListener, SafeListenerWrapper};
 use crate::error::ProtocolError;
 
 /// See [`SafeListenerWrapper`].
-pub type SafeEwsMessageFetchListener = SafeListenerWrapper<IEwsMessageFetchListener>;
+pub type SafeExchangeMessageFetchListener = SafeListenerWrapper<IExchangeMessageFetchListener>;
 
-impl SafeEwsMessageFetchListener {
-    /// A safe wrapper for [`IEwsMessageFetchListener::OnFetchStart`].
+impl SafeExchangeMessageFetchListener {
+    /// A safe wrapper for [`IExchangeMessageFetchListener::OnFetchStart`].
     pub fn on_fetch_start(&self) -> Result<(), nsresult> {
         // SAFETY: OnFetchStart has no safety preconditions.
         unsafe { self.0.OnFetchStart() }.to_result()
     }
 
-    /// A safe wrapper for [`IEwsMessageFetchListener::OnFetchStop`]. This is
+    /// A safe wrapper for [`IExchangeMessageFetchListener::OnFetchStop`]. This is
     /// invoked by [`Self::on_success`] and [`Self::on_failure`].
     fn on_fetch_stop(&self, status: nsresult) -> Result<(), nsresult> {
         // SAFETY: nsresult is safe to cross the Rust/C++ boundary.
@@ -27,16 +27,16 @@ impl SafeEwsMessageFetchListener {
     }
 
     /// Convert types and forward to
-    /// [`IEwsMessageFetchListener::OnFetchedDataAvailable`].
+    /// [`IExchangeMessageFetchListener::OnFetchedDataAvailable`].
     pub fn on_fetched_data_available(&self, data: impl AsRef<[u8]>) -> Result<(), ProtocolError> {
         let data = data.as_ref();
         if data.len() > i32::MAX as usize {
             return Err(ProtocolError::Size(data.len()));
         }
 
-        let stream = xpcom::create_instance::<nsIStringInputStream>(cstr::cstr!(
-            "@mozilla.org/io/string-input-stream;1"
-        ))
+        let stream = xpcom::create_instance::<nsIStringInputStream>(
+            c"@mozilla.org/io/string-input-stream;1",
+        )
         .ok_or(nserror::NS_ERROR_UNEXPECTED)?;
 
         let data = nsCString::from(data);
@@ -44,7 +44,7 @@ impl SafeEwsMessageFetchListener {
         // safely handle. We use `SetByteStringData()` here instead of one of
         // the alternatives to ensure that the data is copied. Otherwise, the
         // pointer may become invalid before the stream is dropped.
-        unsafe { stream.SetByteStringData(&*data) }.to_result()?;
+        unsafe { stream.SetByteStringData(&raw const *data) }.to_result()?;
 
         let stream: &nsIInputStream = stream.coerce();
         // Safety: nsIInputStream is safe to use across the Rust/C++ boundary.
@@ -54,16 +54,16 @@ impl SafeEwsMessageFetchListener {
     }
 }
 
-impl SafeListener for SafeEwsMessageFetchListener {
+impl SafeListener for SafeExchangeMessageFetchListener {
     type OnSuccessArg = ();
     type OnFailureArg = ();
 
-    /// Calls [`IEwsMessageFetchListener::OnFetchStop`] with the appropriate arguments.
+    /// Calls [`IExchangeMessageFetchListener::OnFetchStop`] with the appropriate arguments.
     fn on_success(&self, _arg: ()) -> Result<(), nsresult> {
         self.on_fetch_stop(nserror::NS_OK)
     }
 
-    /// Calls [`IEwsMessageFetchListener::OnFetchStop`] with the appropriate arguments.
+    /// Calls [`IExchangeMessageFetchListener::OnFetchStop`] with the appropriate arguments.
     fn on_failure<E>(&self, err: &E, _arg: ()) -> Result<(), nsresult>
     where
         for<'a> &'a E: Into<nsresult> + TryInto<&'a moz_http::Error>,

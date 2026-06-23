@@ -222,7 +222,11 @@ add_task(async function testColumnHeaderClick() {
 
 async function subtestMenu(menuButton, menuPopup, sortMenu, sortMenuPopup) {
   async function doMenu(itemName, itemValue) {
-    EventUtils.synthesizeMouseAtCenter(menuButton, {}, menuButton.ownerGlobal);
+    EventUtils.synthesizeMouseAtCenter(
+      menuButton,
+      {},
+      menuButton.documentGlobal
+    );
     await BrowserTestUtils.waitForPopupEvent(menuPopup, "shown");
     sortMenu.openMenu(true);
     await BrowserTestUtils.waitForPopupEvent(sortMenuPopup, "shown");
@@ -259,7 +263,11 @@ async function subtestMenu(menuButton, menuPopup, sortMenu, sortMenuPopup) {
     );
     Assert.equal(showGroupedBySort, grouping == "group", "grouping is grouped");
 
-    EventUtils.synthesizeMouseAtCenter(menuButton, {}, menuButton.ownerGlobal);
+    EventUtils.synthesizeMouseAtCenter(
+      menuButton,
+      {},
+      menuButton.documentGlobal
+    );
     await BrowserTestUtils.waitForPopupEvent(menuPopup, "shown");
     sortMenu.openMenu(true);
     await BrowserTestUtils.waitForPopupEvent(sortMenuPopup, "shown");
@@ -355,29 +363,14 @@ async function clickHeader(header, type, order) {
   );
   Assert.ok(about3Pane.gViewWrapper.showThreaded, "mode should be threaded");
 
-  Assert.ok(
-    button.classList.contains("sorting"),
-    "header button should have the sorted class"
-  );
   Assert.equal(
-    button.classList.contains("ascending"),
-    order == "ascending",
-    `header button ${
-      order == "ascending" ? "should" : "should not"
-    } have the ascending class`
-  );
-  Assert.equal(
-    button.classList.contains("descending"),
-    order == "descending",
-    `header button ${
-      order == "descending" ? "should" : "should not"
-    } have the descending class`
+    header.getAttribute("aria-sort"),
+    order,
+    `header should have aria-sort="${order}"`
   );
 
   Assert.equal(
-    threadTree.table.header.querySelectorAll(
-      ".sorting, .ascending, .descending"
-    ).length,
+    threadTree.table.header.querySelectorAll("[aria-sort]").length,
     1,
     "no other header buttons should have sorting classes"
   );
